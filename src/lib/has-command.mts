@@ -5,7 +5,7 @@ import { spawnSync } from "node:child_process";
 export const noTerminal = (command: string): string | null =>
   process.stdin.isTTY
     ? null
-    : `kodor ${command} asks its questions in a terminal: run it in one.`;
+    : `lunamill ${command} asks its questions in a terminal: run it in one.`;
 
 /** Whether a command is installed, by running it with `--version`. */
 export const hasCommand = (name: string): boolean =>

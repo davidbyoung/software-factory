@@ -8,25 +8,25 @@ What a session noticed and did not fix, listed in its pull request's description
 
 ### Requirement: Listing a follow-up
 
-kodor SHALL behave as the scenario below says, in the Spec line's own words.
+lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Listing a follow-up
 
-- **WHEN** `kodor follow-up TITLE TEXT` runs on a branch with an open pull request
+- **WHEN** `lunamill follow-up TITLE TEXT` runs on a branch with an open pull request
 - **THEN** It adds an item, unticked, to the list at the end of that pull request's description, and prints `✓ Listed in #90, as 1.` with the pull request and the item's number. The list, its heading, `### Noticed, not fixed`, and its first paragraph, `Tick a box, and merging opens a ticket for it. To have one fixed here instead, say so in a review, such as "fix 1".`, are added with the first item. TITLE and TEXT are written as given, backticks and final period included.
 
 ### Requirement: A branch with no pull request
 
-kodor SHALL behave as the scenario below says, in the Spec line's own words.
+lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A branch with no pull request
 
 - **WHEN** the branch has no open pull request
-- **THEN** It prints `✗ Branch BRANCH has no open pull request to list it in. Open one first: kodor pr open`, BRANCH being the branch's own name, changes nothing, and exits 1.
+- **THEN** It prints `✗ Branch BRANCH has no open pull request to list it in. Open one first: lunamill pr open`, BRANCH being the branch's own name, changes nothing, and exits 1.
 
 ### Requirement: A follow-up listed already
 
-kodor SHALL behave as the scenario below says, in the Spec line's own words.
+lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A follow-up listed already
 
@@ -35,7 +35,7 @@ kodor SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: A fourth follow-up
 
-kodor SHALL behave as the scenario below says, in the Spec line's own words.
+lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A fourth follow-up
 
@@ -44,34 +44,34 @@ kodor SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: A follow-up that links a ticket
 
-kodor SHALL behave as the scenario below says, in the Spec line's own words.
+lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A follow-up that links a ticket
 
-- **WHEN** TITLE or TEXT has a bare tag-like word, or words that `kodor pr push` refuses in a cloud build's commit, which say it closes or builds part of any ticket
+- **WHEN** TITLE or TEXT has a bare tag-like word, or words that `lunamill pr push` refuses in a cloud build's commit, which say it closes or builds part of any ticket
 - **THEN** It refuses naming them, changes nothing, and exits 1.
 
 ### Requirement: A follow-up on one line
 
-kodor SHALL behave as the scenario below says, in the Spec line's own words.
+lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A follow-up on one line
 
-- **WHEN** TITLE or TEXT holds a line break, `**`, or one of kodor's hidden markers
+- **WHEN** TITLE or TEXT holds a line break, `**`, or one of lunamill's hidden markers
 - **THEN** The item is written on one line without them.
 
 ### Requirement: A ticked follow-up opens a ticket
 
-kodor SHALL behave as the scenario below says, in the Spec line's own words.
+lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A ticked follow-up opens a ticket
 
 - **WHEN** a pull request merges with an item ticked in its description
-- **THEN** `kodor pr follow-ups --event FILE` opens a ticket with the item's title, without its final period and without any backtick, the item's text, and the line `Noticed while building #88, in pull request #90.`, or `Noticed in pull request #90.` where the pull request is for no ticket. The job's line names the item by that title. The ticket carries the kodor label and nothing starts building it.
+- **THEN** `lunamill pr follow-ups --event FILE` opens a ticket with the item's title, without its final period and without any backtick, the item's text, and the line `Noticed while building #88, in pull request #90.`, or `Noticed in pull request #90.` where the pull request is for no ticket. The job's line names the item by that title. The ticket carries the lunamill label and nothing starts building it.
 
 ### Requirement: The list says what was opened
 
-kodor SHALL behave as the scenario below says, in the Spec line's own words.
+lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The list says what was opened
 
@@ -80,7 +80,7 @@ kodor SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: An unticked follow-up opens nothing
 
-kodor SHALL behave as the scenario below says, in the Spec line's own words.
+lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: An unticked follow-up opens nothing
 
@@ -89,7 +89,7 @@ kodor SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: A follow-up is opened once
 
-kodor SHALL behave as the scenario below says, in the Spec line's own words.
+lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A follow-up is opened once
 
@@ -98,7 +98,7 @@ kodor SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: A ticket that cannot be opened
 
-kodor SHALL behave as the scenario below says, in the Spec line's own words.
+lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A ticket that cannot be opened
 
@@ -107,7 +107,7 @@ kodor SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: A person's own words
 
-kodor SHALL behave as the scenario below says, in the Spec line's own words.
+lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A person's own words
 
@@ -116,7 +116,7 @@ kodor SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: A pull request whose list opens nothing
 
-kodor SHALL behave as the scenario below says, in the Spec line's own words.
+lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A pull request whose list opens nothing
 

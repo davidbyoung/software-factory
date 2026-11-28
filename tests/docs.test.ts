@@ -48,16 +48,16 @@ const settingsPage = (key: string) => `${SETTINGS}/${key}.md`;
 
 /** The commands `docs/cli.md`'s tables mark Planned in their last cell, as
  * written there without `npx --no-install` and their arguments, such as
- * `kodor poller --once`. */
+ * `lunamill poller --once`. */
 export function plannedCommands(cli: string): string[] {
   return cli
     .split("\n")
-    .filter((line) => /^\| `(?:npx --no-install )?kodor/.test(line))
+    .filter((line) => /^\| `(?:npx --no-install )?lunamill/.test(line))
     .filter((line) => {
       const cells = line.split("|").map((c) => c.trim());
       return cells[cells.length - 2] === "Planned";
     })
-    .map((line) => /`(?:npx --no-install )?(kodor[^`]*)`/.exec(line)![1])
+    .map((line) => /`(?:npx --no-install )?(lunamill[^`]*)`/.exec(line)![1])
     .map((command) =>
       command
         .split(" ")
@@ -103,7 +103,7 @@ function paragraphs(lines: string[]): string[] {
  * or a line in a code block whose nearest paragraph above does not. A section
  * whose heading holds the mark is marked whole, its subsections included. A
  * command is named after a backtick,
- * `npx --no-install `, or the start of a line, so prose such as "a kodor
+ * `npx --no-install `, or the start of a line, so prose such as "a lunamill
  * update" is not one. `docs/cli.md`'s own table rows are marked by their
  * last cell. */
 export function unmarked(
@@ -178,14 +178,14 @@ function isSetting(path: string): boolean {
   );
 }
 
-/** Each line that runs kodor through `npx`. kodor is installed
+/** Each line that runs lunamill through `npx`. lunamill is installed
  * once on a machine, so every page, skill, and message names the command
- * `kodor`: no copy is left in a repository for `npx` to find, and a bare
- * `npx kodor` can run another package of that name. */
+ * `lunamill`: no copy is left in a repository for `npx` to find, and a bare
+ * `npx lunamill` can run another package of that name. */
 export function npxLines(text: string): string[] {
   return text
     .split(/\r?\n/)
-    .filter((line) => /\bnpx (--no-install )?kodor\b/.test(line))
+    .filter((line) => /\bnpx (--no-install )?lunamill\b/.test(line))
     .map((line) => line.trim());
 }
 
@@ -253,7 +253,7 @@ export function unlinkedSettings(text: string, entries: string[]): string[] {
 }
 
 /** A heading's anchor, as the code host makes it. An underscore inside a
- * word stays, as in KODOR_BOARD_TOKEN, and one that marks emphasis goes. */
+ * word stays, as in LUNAMILL_BOARD_TOKEN, and one that marks emphasis goes. */
 export function headingSlug(text: string): string {
   return text
     .replace(/[`*]|(?<![\p{L}\p{N}_])_|_(?![\p{L}\p{N}_])/gu, "")
@@ -361,12 +361,12 @@ const FEATURE_SHAPE = [
 /** An integration page's `##` headings, in order. "Limits that come from"
  * is followed by the tool's name. */
 const INTEGRATION_SHAPE = [
-  "What kodor uses it for",
+  "What lunamill uses it for",
   "You need",
   "Set it up",
   "What setup adds",
   "Tokens and secrets",
-  "What kodor can and cannot do there",
+  "What lunamill can and cannot do there",
   "Limits that come from",
   "When something goes wrong",
   "By hand",
@@ -424,31 +424,31 @@ describe("plannedCommands", () => {
   it("takes the rows whose last cell is Planned, without their arguments", () => {
     const cli = [
       "| Command | What | State |",
-      "| `kodor init` | Sets up | Planned |",
-      "| `kodor build N` | Builds | Built |",
-      "| `kodor poller --once` | A schedule | One pass | Planned |",
-      "| `kodor doctor` | Checks | Planned |",
+      "| `lunamill init` | Sets up | Planned |",
+      "| `lunamill build N` | Builds | Built |",
+      "| `lunamill poller --once` | A schedule | One pass | Planned |",
+      "| `lunamill doctor` | Checks | Planned |",
     ].join("\n");
     expect(plannedCommands(cli)).toEqual([
-      "kodor init",
-      "kodor poller --once",
-      "kodor doctor",
+      "lunamill init",
+      "lunamill poller --once",
+      "lunamill doctor",
     ]);
   });
 });
 
 describe("unmarked", () => {
-  const planned = ["kodor init", "kodor poller --once"];
+  const planned = ["lunamill init", "lunamill poller --once"];
 
   it("finds a line of prose that names a planned command without the mark", () => {
-    expect(unmarked("Run `kodor init` first.", planned)).toEqual([
-      "Run `kodor init` first.",
+    expect(unmarked("Run `lunamill init` first.", planned)).toEqual([
+      "Run `lunamill init` first.",
     ]);
   });
 
   it("lets a line with the mark through", () => {
     expect(
-      unmarked("*[Planned](x)*: run `kodor init` first.", planned),
+      unmarked("*[Planned](x)*: run `lunamill init` first.", planned),
     ).toEqual([]);
   });
 
@@ -458,7 +458,7 @@ describe("unmarked", () => {
       "writes everything.",
       "",
       "```bash",
-      "kodor init",
+      "lunamill init",
       "```",
     ].join("\n");
     expect(unmarked(text, planned)).toEqual([]);
@@ -466,81 +466,85 @@ describe("unmarked", () => {
 
   it("reads a code block by the nearest line of prose above it", () => {
     const block = (above: string) =>
-      [above, "", "```bash", "kodor init", "```"].join("\n");
-    expect(unmarked(block("Then:"), planned)).toEqual(["kodor init"]);
+      [above, "", "```bash", "lunamill init", "```"].join("\n");
+    expect(unmarked(block("Then:"), planned)).toEqual(["lunamill init"]);
     expect(unmarked(block("*[Planned](x)*: then:"), planned)).toEqual([]);
   });
 
   it("reads a line of prose by the paragraph it sits in", () => {
     const wrapped = [
       "Until then, _[Planned](x):_",
-      "`kodor init` writes it for you.",
+      "`lunamill init` writes it for you.",
     ].join("\n");
     expect(unmarked(wrapped, planned)).toEqual([]);
-    const apart = ["_[Planned](x):_ one thing.", "", "Run `kodor init`."].join(
-      "\n",
-    );
-    expect(unmarked(apart, planned)).toEqual(["Run `kodor init`."]);
+    const apart = [
+      "_[Planned](x):_ one thing.",
+      "",
+      "Run `lunamill init`.",
+    ].join("\n");
+    expect(unmarked(apart, planned)).toEqual(["Run `lunamill init`."]);
   });
 
   it("does not read a built command as the planned one it starts", () => {
-    expect(unmarked("Run `kodor poller` on your server.", planned)).toEqual([]);
-    expect(unmarked("Run `kodor initialize`.", planned)).toEqual([]);
+    expect(unmarked("Run `lunamill poller` on your server.", planned)).toEqual(
+      [],
+    );
+    expect(unmarked("Run `lunamill initialize`.", planned)).toEqual([]);
   });
 
   it("reads a section whose heading holds the mark as marked", () => {
     const text = [
       "## Getting a new version _[Planned](x)_",
       "",
-      "Run `kodor init` again.",
+      "Run `lunamill init` again.",
       "",
       "### Under it",
       "",
-      "Run `kodor init` then.",
+      "Run `lunamill init` then.",
       "",
       "## Something else",
       "",
-      "Run `kodor init` again.",
+      "Run `lunamill init` again.",
     ].join("\n");
-    expect(unmarked(text, planned)).toEqual(["Run `kodor init` again."]);
+    expect(unmarked(text, planned)).toEqual(["Run `lunamill init` again."]);
   });
 
   it("does not read words in prose as a command", () => {
-    expect(unmarked("It reads a kodor init for you.", planned)).toEqual([]);
+    expect(unmarked("It reads a lunamill init for you.", planned)).toEqual([]);
   });
 
   it("reads a table row by a cell that starts with Planned", () => {
     expect(
       unmarked(
-        "| `kodor init` and more | Planned, not yet scheduled |",
+        "| `lunamill init` and more | Planned, not yet scheduled |",
         planned,
       ),
     ).toEqual([]);
-    expect(unmarked("| `kodor init` and more | Working |", planned)).toEqual([
-      "| `kodor init` and more | Working |",
-    ]);
+    expect(unmarked("| `lunamill init` and more | Working |", planned)).toEqual(
+      ["| `lunamill init` and more | Working |"],
+    );
   });
 
   it("leaves `docs/cli.md`'s own rows to their last cell", () => {
     expect(
-      unmarked("| `kodor init` | Sets up | Planned |", planned, true),
+      unmarked("| `lunamill init` | Sets up | Planned |", planned, true),
     ).toEqual([]);
   });
 });
 
 describe("npxLines", () => {
-  it("finds kodor run through npx, in prose and in a code block", () => {
+  it("finds lunamill run through npx, in prose and in a code block", () => {
     const page = [
-      "Run `npx --no-" + "install kodor sync` in prose.",
+      "Run `npx --no-" + "install lunamill sync` in prose.",
       "```bash",
-      "npx kodor status",
-      "kodor doctor",
+      "npx lunamill status",
+      "lunamill doctor",
       "npx --no-install openspec validate",
       "```",
     ].join("\n");
     expect(npxLines(page)).toEqual([
-      "Run `npx --no-" + "install kodor sync` in prose.",
-      "npx kodor status",
+      "Run `npx --no-" + "install lunamill sync` in prose.",
+      "npx lunamill status",
     ]);
   });
 });
@@ -549,16 +553,16 @@ describe("mistaggedTranscripts", () => {
   it("finds a prompt outside a console block, and a console block without one", () => {
     const page = [
       "```console",
-      "$ kodor sync",
-      "wrote .claude/kodor.lock",
+      "$ lunamill sync",
+      "wrote .claude/lunamill.lock",
       "```",
       "",
       "```text",
-      "$ kodor status",
+      "$ lunamill status",
       "```",
       "",
       "```",
-      "$ kodor gate",
+      "$ lunamill gate",
       "```",
       "",
       "```console",
@@ -570,8 +574,8 @@ describe("mistaggedTranscripts", () => {
       "```",
     ].join("\n");
     expect(mistaggedTranscripts(page)).toEqual([
-      "text: $ kodor status",
-      "(no tag): $ kodor gate",
+      "text: $ lunamill status",
+      "(no tag): $ lunamill gate",
       "console: ✓ The settings are valid.",
     ]);
   });
@@ -639,14 +643,14 @@ describe("unlinkedSettings", () => {
 
 describe("headingSlug", () => {
   it("drops backticks and asterisks", () => {
-    expect(headingSlug("Run `kodor init` **once**")).toBe(
-      "run-kodor-init-once",
+    expect(headingSlug("Run `lunamill init` **once**")).toBe(
+      "run-lunamill-init-once",
     );
   });
 
   it("keeps an underscore inside a word, and drops one that marks emphasis", () => {
-    expect(headingSlug("`KODOR_BOARD_TOKEN` _Planned_")).toBe(
-      "kodor_board_token-planned",
+    expect(headingSlug("`LUNAMILL_BOARD_TOKEN` _Planned_")).toBe(
+      "lunamill_board_token-planned",
     );
   });
 
@@ -743,14 +747,14 @@ describe("the docs", () => {
     const text = read(CLI_INTERNAL);
     const row = text
       .split("\n")
-      .find((line) => line.startsWith("| `kodor poller --once`"))!;
+      .find((line) => line.startsWith("| `lunamill poller --once`"))!;
     const marked = text.replace(
       row,
       row.replace(/Built(\s*)\|$/, "Planned$1|"),
     );
 
     expect(plannedCommands(marked)).toEqual(
-      expect.arrayContaining(["kodor poller --once"]),
+      expect.arrayContaining(["lunamill poller --once"]),
     );
   });
 
@@ -816,7 +820,7 @@ describe("the docs", () => {
     );
   });
 
-  it("name the command kodor, never through npx", () => {
+  it("name the command lunamill, never through npx", () => {
     const found = pages().flatMap((page) =>
       npxLines(read(page)).map((line) => `${page}: ${line}`),
     );
@@ -844,7 +848,9 @@ describe("the docs", () => {
       .find((part) => part.startsWith("Pull requests"));
     const row = section
       ?.split("\n")
-      .find((line) => line.startsWith("| `kodor pr uncovered [BASE] [LCOV]`"));
+      .find((line) =>
+        line.startsWith("| `lunamill pr uncovered [BASE] [LCOV]`"),
+      );
 
     for (const said of [
       "`MISS`",
@@ -881,8 +887,8 @@ describe("the docs", () => {
         policyLabel: "policy-override",
         secrets: [],
       }),
-    ) as { jobs: { kodor: { secrets: Record<string, string> } } };
-    expect(written.jobs.kodor.secrets).toMatchObject({
+    ) as { jobs: { lunamill: { secrets: Record<string, string> } } };
+    expect(written.jobs.lunamill.secrets).toMatchObject({
       "claude-token": "${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}",
       "claude-api-key": "${{ secrets.ANTHROPIC_API_KEY }}",
     });
@@ -1073,8 +1079,8 @@ describe("the docs, for settings version 2", () => {
     const [, page, anchor] = /\/docs\/(\S+\.md)#(\S+)$/.exec(refusal)!;
 
     expect(page).toBe("maintain/upgrade-notes.md");
-    expect(read(`docs/${page}`).split("\n")).toContain("## Moving to kodor");
-    expect(anchor).toBe(headingSlug("Moving to kodor"));
+    expect(read(`docs/${page}`).split("\n")).toContain("## Moving to lunamill");
+    expect(anchor).toBe(headingSlug("Moving to lunamill"));
   });
 
   it.each([
@@ -1096,17 +1102,17 @@ describe("the docs, for settings version 2", () => {
   );
 
   it.each([
-    "kodor gate",
-    "kodor test-one",
-    "kodor end-to-end",
-    "kodor specs check",
-    "kodor default-branch",
-    "kodor preset add",
-    "kodor preset remove",
-    "kodor preset choices",
-    "kodor preset choose",
-    "kodor preset check",
-    "kodor preset changes",
+    "lunamill gate",
+    "lunamill test-one",
+    "lunamill end-to-end",
+    "lunamill specs check",
+    "lunamill default-branch",
+    "lunamill preset add",
+    "lunamill preset remove",
+    "lunamill preset choices",
+    "lunamill preset choose",
+    "lunamill preset check",
+    "lunamill preset changes",
   ])("give %s a row in docs/cli.md", (command) => {
     const named = read(CLI)
       .split("\n")
@@ -1119,19 +1125,19 @@ describe("the docs, for settings version 2", () => {
     expect(named).toHaveLength(1);
   });
 
-  it("name --check in the commands' row for kodor ticket refined", () => {
+  it("name --check in the commands' row for lunamill ticket refined", () => {
     const row = read(CLI_INTERNAL)
       .split("\n")
-      .find((line) => line.startsWith("| `kodor ticket refined N`"));
+      .find((line) => line.startsWith("| `lunamill ticket refined N`"));
 
     expect(row).toContain("`--check`");
   });
 
-  it("list no kodor migrate under What is built in docs/developing.md", () => {
+  it("list no lunamill migrate under What is built in docs/developing.md", () => {
     const built = sectionOf(read("docs/developing.md"), "## What is built");
 
     expect(built).toContain("| Part ");
-    expect(built).not.toContain("kodor migrate");
+    expect(built).not.toContain("lunamill migrate");
   });
 
   const ORDER = "The order of the workflow is fixed";
@@ -1187,7 +1193,7 @@ describe("the docs on spec tools", () => {
   it("list the four spec commands on the CLI page, and not change-name", () => {
     const cli = flat(CLI, "## Your repository's commands");
     for (const command of ["list", "new N", "check", "finish N"])
-      expect(cli).toContain(`| \`kodor specs ${command}\``);
+      expect(cli).toContain(`| \`lunamill specs ${command}\``);
     expect(cli).toContain(
       "`- No spec tool (specs: none): each ticket holds its own spec.`",
     );
@@ -1214,7 +1220,7 @@ describe("the docs on spec tools", () => {
   it("say on the setup page what to answer init's spec tool question, and when it is skipped", () => {
     const setup = sectionOf(
       read("docs/setup/repository.md"),
-      "## Run `kodor init`",
+      "## Run `lunamill init`",
     );
     const row = rows(setup).find(
       ([question]) => question === "Which spec tool you use",
@@ -1256,7 +1262,7 @@ describe("the docs on an organization's branch names", () => {
       "Under [`code-host`](../reference/settings/code-host.md#code-host) it holds the pattern builds name their branches by.",
     );
     expect(flatly(settingsPage("code-host"), "# `code-host`")).toContain(
-      "in an organization `kodor init --org` asks for it once and writes it in the preset.",
+      "in an organization `lunamill init --org` asks for it once and writes it in the preset.",
     );
   });
 
@@ -1274,7 +1280,7 @@ describe("the docs on an organization's branch names", () => {
   });
 });
 
-describe("the docs on kodor's own approval policy", () => {
+describe("the docs on lunamill's own approval policy", () => {
   const flatly = (page: string, heading: string) =>
     flat(sectionOf(read(page), heading));
 
@@ -1287,16 +1293,16 @@ describe("the docs on kodor's own approval policy", () => {
     expect(agent).not.toContain("name: credentials");
   });
 
-  it("say in the settings that kodor adds credentials, which off: true turns off", () => {
+  it("say in the settings that lunamill adds credentials, which off: true turns off", () => {
     expect(
       flatly(settingsPage("approval-policies"), "# `approval-policies`"),
     ).toContain(
-      "kodor adds one policy of its own, `credentials` ([kodor's own policy](../../features/credentials-policy.md#kodors-own-policy)), which `off: true` turns off.",
+      "lunamill adds one policy of its own, `credentials` ([lunamill's own policy](../../features/credentials-policy.md#lunamills-own-policy)), which `off: true` turns off.",
     );
   });
 
-  it("say what kodor-refine writes for a ticket that names a new credential", () => {
-    expect(flatly("docs/workflow/refine.md", "## `kodor-refine`")).toContain(
+  it("say what lunamill-refine writes for a ticket that names a new credential", () => {
+    expect(flatly("docs/workflow/refine.md", "## `lunamill-refine`")).toContain(
       "`missing: ## Threats, since the ticket names a credential this repository does not have: DEPLOY_TOKEN`",
     );
   });
@@ -1305,7 +1311,7 @@ describe("the docs on kodor's own approval policy", () => {
     expect(
       flatly("docs/features/credentials-policy.md", "### What it reads"),
     ).toContain(
-      "In two repositories that use kodor, it picked 31 of 259 merged changes, about 1 in 8.",
+      "In two repositories that use lunamill, it picked 31 of 259 merged changes, about 1 in 8.",
     );
   });
 });
@@ -1360,10 +1366,10 @@ describe("the pages the commands print", () => {
 describe("the README", () => {
   const readme = read("README.md");
 
-  it("says who kodor is for, warns it is early, installs it, and links to the docs site, in that order", () => {
+  it("says who lunamill is for, warns it is early, installs it, and links to the docs site, in that order", () => {
     const headings = readme.split("\n").filter((line) => line.startsWith("#"));
     expect(headings).toEqual([
-      "# kodor",
+      "# lunamill",
       "## Install",
       "## Next",
       "## License",
@@ -1373,13 +1379,13 @@ describe("the README", () => {
       lead.indexOf("**Early, and not yet for general use.**"),
     );
     expect(sectionOf(readme, "## Install")).toContain(
-      "npm install -g @kodor-ai/kodor",
+      "npm install -g @lunamill-ai/lunamill",
     );
     const next = sectionOf(readme, "## Next");
     for (const link of [
-      "](https://kodor.ai)",
-      "](https://kodor.ai/get-started/quick-start)",
-      "](https://kodor.ai/maintain/upgrade-notes#moving-to-kodor)",
+      "](https://www.lunamill.ai)",
+      "](https://www.lunamill.ai/get-started/quick-start)",
+      "](https://www.lunamill.ai/maintain/upgrade-notes#moving-to-lunamill)",
       "](docs/developing.md)",
     ])
       expect(next).toContain(link);
@@ -1400,7 +1406,7 @@ describe("the upgrade notes", () => {
       .map((line) => line.slice(3));
 
     expect(headings).toEqual([
-      "Moving to kodor",
+      "Moving to lunamill",
       "Grouped checks",
       "The poller reads your settings",
       "Follow-ups in the pull request",

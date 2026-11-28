@@ -41,7 +41,7 @@ jobs:
   # Posts the "Review verdict" commit status, which records what the
   # automated review concluded about one commit: success only when its
   # summary for that commit says ready, an approver overrode it, or the
-  # review is off. `kodor review verdict` holds every rule. On a pull
+  # review is off. `lunamill review verdict` holds every rule. On a pull
   # request of a ticket that names other repositories it also posts "Merge
   # order", from what those repositories say, which only a token of their own
   # can read in a private one. Another repository's run starts it again, by
@@ -75,29 +75,29 @@ jobs:
           node-version: 22
 
       - &install
-        name: Install kodor
+        name: Install lunamill
         run: |
-          if [ "$(jq -r '.name // empty' package.json 2> /dev/null)" = "@kodor-ai/kodor" ]; then
+          if [ "$(jq -r '.name // empty' package.json 2> /dev/null)" = "@lunamill-ai/lunamill" ]; then
             npm ci --ignore-scripts
             npm link
           else
-            version="$(sed -n 's/^version: *//p' .claude/kodor.lock | head -n 1)"
+            version="$(sed -n 's/^version: *//p' .claude/lunamill.lock | head -n 1)"
             if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-              echo "::error::.claude/kodor.lock names no release of kodor. Run kodor sync, and commit what it writes."
+              echo "::error::.claude/lunamill.lock names no release of lunamill. Run lunamill sync, and commit what it writes."
               exit 1
             fi
-            npm install --global --no-audit --no-fund "@kodor-ai/kodor@$version"
+            npm install --global --no-audit --no-fund "@lunamill-ai/lunamill@$version"
           fi
 
       - name: Post the verdict
         env:
           GH_TOKEN: ${{ github.token }}
-          KODOR_APP_CLIENT_ID: ${{ vars.KODOR_APP_CLIENT_ID }}
-          KODOR_APP_PRIVATE_KEY: ${{ (inputs.job == 'order' || contains(github.event.pull_request.body || '', 'Part of ')) && secrets.app-key || '' }}
-          KODOR_BUILD_TOKEN: ${{ (secrets.app-key == '' || vars.KODOR_APP_CLIENT_ID == '') && secrets.build-token || '' }}
-          KODOR_ACROSS: read
+          LUNAMILL_APP_CLIENT_ID: ${{ vars.LUNAMILL_APP_CLIENT_ID }}
+          LUNAMILL_APP_PRIVATE_KEY: ${{ (inputs.job == 'order' || contains(github.event.pull_request.body || '', 'Part of ')) && secrets.app-key || '' }}
+          LUNAMILL_BUILD_TOKEN: ${{ (secrets.app-key == '' || vars.LUNAMILL_APP_CLIENT_ID == '') && secrets.build-token || '' }}
+          LUNAMILL_ACROSS: read
           PR: ${{ github.event_name == 'workflow_dispatch' && inputs.pr || '' }}
-        run: kodor review verdict ${PR:+--pr "$PR"}
+        run: lunamill review verdict ${PR:+--pr "$PR"}
 
   # The approval policies: `prepare` reads the pull request's change from
   # git and writes each check's input; `commands` runs each policy's command
@@ -145,7 +145,7 @@ jobs:
         id: prepare
         env:
           GH_TOKEN: ${{ github.token }}
-        run: kodor approval-policies prepare "$RUNNER_TEMP/approval"
+        run: lunamill approval-policies prepare "$RUNNER_TEMP/approval"
 
       - name: Keep the inputs
         if: steps.prepare.outputs.commands == 'true' || steps.prepare.outputs.agents != '[]'
@@ -185,7 +185,7 @@ jobs:
       # No token in this step's environment: a check reads the change from
       # its input and posts nothing.
       - name: Run the commands
-        run: kodor approval-policies commands "$RUNNER_TEMP/approval"
+        run: lunamill approval-policies commands "$RUNNER_TEMP/approval"
 
       - name: Keep the answers
         uses: actions/upload-artifact@v6
@@ -246,7 +246,7 @@ jobs:
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.claude-token }}
           ANTHROPIC_API_KEY: ${{ secrets.claude-token == '' && secrets.claude-api-key || '' }}
-        run: kodor approval-policies agent "$RUNNER_TEMP/approval" "${{ matrix.check }}"
+        run: lunamill approval-policies agent "$RUNNER_TEMP/approval" "${{ matrix.check }}"
 
       - name: Keep the answer
         uses: actions/upload-artifact@v6
@@ -299,7 +299,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           NAME: ${{ needs.approval-prepare.outputs.approved }}
-        run: kodor approval-policies kept "$NAME"
+        run: lunamill approval-policies kept "$NAME"
 
       - name: Fetch the approval
         if: steps.approved.outputs.run != ''
@@ -313,7 +313,7 @@ jobs:
       - name: Post the status
         env:
           GH_TOKEN: ${{ github.token }}
-        run: kodor approval-policies status "$RUNNER_TEMP/approval"
+        run: lunamill approval-policies status "$RUNNER_TEMP/approval"
 
       - name: Keep what was found
         uses: actions/upload-artifact@v6
@@ -374,10 +374,10 @@ jobs:
         id: repositories
         env:
           APP_KEY_SET: ${{ secrets.app-key != '' }}
-          CLIENT_ID: ${{ vars.KODOR_APP_CLIENT_ID }}
+          CLIENT_ID: ${{ vars.LUNAMILL_APP_CLIENT_ID }}
         run: |
           if [ "$APP_KEY_SET" = "true" ] && [ -n "$CLIENT_ID" ]; then
-            names="$(kodor session repositories)"
+            names="$(lunamill session repositories)"
             echo "names=$names" >> "$GITHUB_OUTPUT"
           fi
 
@@ -388,7 +388,7 @@ jobs:
         if: steps.repositories.outputs.names != ''
         uses: actions/create-github-app-token@v3
         with:
-          client-id: ${{ vars.KODOR_APP_CLIENT_ID }}
+          client-id: ${{ vars.LUNAMILL_APP_CLIENT_ID }}
           private-key: ${{ secrets.app-key }}
           owner: ${{ github.repository_owner }}
           repositories: ${{ steps.repositories.outputs.names }}
@@ -399,14 +399,14 @@ jobs:
         name: Say that the app is not installed
         if: failure() && steps.app.outcome == 'failure'
         run: |
-          echo "::error::kodor's app for $GITHUB_REPOSITORY_OWNER is not installed on $GITHUB_REPOSITORY. An owner of $GITHUB_REPOSITORY_OWNER adds it: $GITHUB_SERVER_URL/organizations/$GITHUB_REPOSITORY_OWNER/settings/installations"
+          echo "::error::lunamill's app for $GITHUB_REPOSITORY_OWNER is not installed on $GITHUB_REPOSITORY. An owner of $GITHUB_REPOSITORY_OWNER adds it: $GITHUB_SERVER_URL/organizations/$GITHUB_REPOSITORY_OWNER/settings/installations"
 
       - name: Classify
         id: classify
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          result=$(kodor merge-policy "$PR")
+          result=$(lunamill merge-policy "$PR")
           {
             echo "label=$(jq -r .label <<<"$result")"
             echo "other=$(jq -r .other <<<"$result")"
@@ -420,7 +420,7 @@ jobs:
             jq -r '.reasons[] | "- \(.)"' <<<"$result"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      # Through kodor's command, which reaches the label the way
+      # Through lunamill's command, which reaches the label the way
       # GitHub serves it, so nothing here calls the issues API.
       - name: Label
         env:
@@ -428,9 +428,9 @@ jobs:
           LABEL: ${{ steps.classify.outputs.label }}
           OTHER: ${{ steps.classify.outputs.other }}
         run: |
-          kodor pr label "$PR" --add "$LABEL" >/dev/null
+          lunamill pr label "$PR" --add "$LABEL" >/dev/null
           if gh pr view "$PR" --repo "$GITHUB_REPOSITORY" --json labels --jq '.labels[].name' | grep -qxF "$OTHER"; then
-            kodor pr label "$PR" --remove "$OTHER" >/dev/null
+            lunamill pr label "$PR" --remove "$OTHER" >/dev/null
           fi
 
       # Always success, and not a required check: it says why, in the checks
@@ -456,7 +456,7 @@ jobs:
           DRAFT: ${{ steps.classify.outputs.draft }}
         run: |
           if [[ -z "$GH_TOKEN" ]]; then
-            echo "::error::KODOR_AUTOMERGE_TOKEN is not set as an Actions secret."
+            echo "::error::LUNAMILL_AUTOMERGE_TOKEN is not set as an Actions secret."
             exit 1
           fi
           enabled=$(gh pr view "$PR_URL" --json autoMergeRequest --jq '.autoMergeRequest != null')
@@ -472,7 +472,7 @@ jobs:
   # instructions every session follows. Auto-merge still waits for every
   # required check and for every review thread to be resolved.
   #
-  # KODOR_AUTOMERGE_TOKEN is the owner's token. A merge enabled with the
+  # LUNAMILL_AUTOMERGE_TOKEN is the owner's token. A merge enabled with the
   # workflow's own token would start no workflow on the default branch. The
   # app's token takes its place where the app's key reaches the run.
   dependabot:
@@ -502,7 +502,7 @@ jobs:
         id: repositories
         env:
           APP_KEY_SET: ${{ secrets.app-key != '' }}
-          CLIENT_ID: ${{ vars.KODOR_APP_CLIENT_ID }}
+          CLIENT_ID: ${{ vars.LUNAMILL_APP_CLIENT_ID }}
         run: |
           if [ "$APP_KEY_SET" = "true" ] && [ -n "$CLIENT_ID" ]; then
             echo "names=${GITHUB_REPOSITORY#*/}" >> "$GITHUB_OUTPUT"
@@ -513,7 +513,7 @@ jobs:
         if: steps.repositories.outputs.names != ''
         uses: actions/create-github-app-token@v3
         with:
-          client-id: ${{ vars.KODOR_APP_CLIENT_ID }}
+          client-id: ${{ vars.LUNAMILL_APP_CLIENT_ID }}
           private-key: ${{ secrets.app-key }}
           owner: ${{ github.repository_owner }}
           repositories: ${{ steps.repositories.outputs.names }}
@@ -525,7 +525,7 @@ jobs:
       - name: Enable auto-merge
         if: >-
           steps.meta.outputs.update-type != 'version-update:semver-major' &&
-          !contains(steps.meta.outputs.dependency-names, 'kodor-ai/kodor')
+          !contains(steps.meta.outputs.dependency-names, 'lunamill-ai/lunamill')
         run: gh pr merge --auto --squash "$PR_URL"
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}

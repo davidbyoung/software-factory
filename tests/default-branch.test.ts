@@ -64,7 +64,7 @@ function checkout(o: {
     repository: async () => o.repository ?? null,
     repositoryOf: async (address) => githubRepository(address),
   };
-  /** `kodor default-branch` there. */
+  /** `lunamill default-branch` there. */
   const command = async (argv: string[] = []) => {
     const out: string[] = [];
     const err: string[] = [];
@@ -76,7 +76,7 @@ function checkout(o: {
 
 const CLONE = { [HAS_ORIGIN]: "https://example.com/o/r\n" };
 
-describe("kodor default-branch", () => {
+describe("lunamill default-branch", () => {
   it("prints the branch a workflow run's event names, and asks git and the host nothing", async () => {
     const c = checkout({
       event: { repository: { default_branch: "develop" } },
@@ -171,7 +171,7 @@ describe("kodor default-branch", () => {
     expect(await c.command(["--remote"])).toEqual({
       code: 2,
       out: [],
-      err: ["Usage: kodor default-branch"],
+      err: ["Usage: lunamill default-branch"],
     });
     expect(c.ran).toEqual([]);
   });
@@ -326,7 +326,7 @@ describe("in a checkout whose settings have a repository line", () => {
       code: 1,
       out: [],
       err: [
-        "✗ repository: .claude/kodor.yaml says acme/web, and no remote here is acme/web. origin is dev/web. Add the remote, or change the line and run kodor sync.",
+        "✗ repository: .claude/lunamill.yaml says acme/web, and no remote here is acme/web. origin is dev/web. Add the remote, or change the line and run lunamill sync.",
       ],
     });
     expect(c.ran).toEqual([REMOTES, "remote get-url origin"]);
@@ -353,7 +353,7 @@ describe("in a checkout whose settings have a repository line", () => {
       code: 1,
       out: [],
       err: [
-        "✗ repository: .claude/kodor.yaml says acme/web, and no remote here is acme/web. Add the remote, or change the line and run kodor sync.",
+        "✗ repository: .claude/lunamill.yaml says acme/web, and no remote here is acme/web. Add the remote, or change the line and run lunamill sync.",
       ],
     });
   });
@@ -362,7 +362,7 @@ describe("in a checkout whose settings have a repository line", () => {
     ["an SSH host alias", "git@github-work:acme/web.git"],
     ["a proxy's address", "https://git-proxy.example.com/acme/web.git"],
   ])(
-    "reads origin where its address is %s, which names no repository kodor can read, and no other remote is that repository's",
+    "reads origin where its address is %s, which names no repository lunamill can read, and no other remote is that repository's",
     async (_, address) => {
       const c = checkout({
         repository: "acme/web",
@@ -398,7 +398,7 @@ describe("in a checkout whose settings have a repository line", () => {
     const c = checkout({ repository: "acme/web", git: remotes() });
 
     await expect(needDefaultBranch(c.d)).rejects.toThrow(
-      "✗ repository: .claude/kodor.yaml says acme/web, and no remote here is acme/web. Add the remote",
+      "✗ repository: .claude/lunamill.yaml says acme/web, and no remote here is acme/web. Add the remote",
     );
   });
 });
@@ -474,12 +474,12 @@ describe("remoteFor", () => {
 describe("the repository line of the checkout at a folder", () => {
   let root: string;
 
-  /** A folder whose `.claude/kodor.yaml` holds `settings`, when given. */
+  /** A folder whose `.claude/lunamill.yaml` holds `settings`, when given. */
   function folder(settings?: string): string {
     root = mkdtempSync(join(tmpdir(), "factory-branch-"));
     if (settings !== undefined) {
       mkdirSync(join(root, ".claude"));
-      writeFileSync(join(root, ".claude/kodor.yaml"), settings);
+      writeFileSync(join(root, ".claude/lunamill.yaml"), settings);
     }
     return root;
   }
@@ -501,13 +501,13 @@ describe("the repository line of the checkout at a folder", () => {
     expect(await branchDeps(folder(settings), {}).repository()).toBeNull();
   });
 
-  it("is the line of the file KODOR_SETTINGS names, where it is set", async () => {
+  it("is the line of the file LUNAMILL_SETTINGS names, where it is set", async () => {
     const dir = folder("repository: acme/web\n");
     const other = join(dir, "other.yaml");
     writeFileSync(other, "repository: acme/site\n");
 
-    expect(await branchDeps(dir, { KODOR_SETTINGS: other }).repository()).toBe(
-      "acme/site",
-    );
+    expect(
+      await branchDeps(dir, { LUNAMILL_SETTINGS: other }).repository(),
+    ).toBe("acme/site");
   });
 });

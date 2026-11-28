@@ -1,7 +1,7 @@
-// `kodor config explain`: the settings as `.claude/kodor.yaml` would
+// `lunamill config explain`: the settings as `.claude/lunamill.yaml` would
 // read with every default written out, each line marked with where its
 // value came from: `# default`, a preset's name, or nothing for a value
-// only `.claude/kodor.yaml` sets. `kodor sync` writes the same lines
+// only `.claude/lunamill.yaml` sets. `lunamill sync` writes the same lines
 // into the lock.
 import {
   hasPaths,
@@ -194,8 +194,8 @@ export async function explainLines(
   // Written only when set, so a repository with no items sees nothing new.
   if (s.commands.ignore.length) put(["commands", "ignore"], s.commands.ignore);
 
-  // Each role holds what `kodor plugins` prints for it: the settings'
-  // own plugins, or kodor's where they name none.
+  // Each role holds what `lunamill plugins` prints for it: the settings'
+  // own plugins, or lunamill's where they name none.
   const used = pluginsOf(s, exists);
   block(["plugins"]);
   for (const phase of PHASES) {
@@ -256,7 +256,7 @@ export async function explainLines(
     put(["site", "url"], site.url);
     if (site.designGuide === null) comment(1, "design-guide: none (default)");
     else put(["site", "design-guide"], site.designGuide);
-    if (site.pages === null) comment(1, "pages: found by kodor (default)");
+    if (site.pages === null) comment(1, "pages: found by lunamill (default)");
     else put(["site", "pages"], site.pages);
     put(["site", "widths"], site.widths);
     put(["site", "hide"], site.hide);

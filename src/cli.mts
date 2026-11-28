@@ -1,8 +1,8 @@
-// The `kodor` command: reads the command and loads only that command's
+// The `lunamill` command: reads the command and loads only that command's
 // module, so a hook that runs before every shell command loads one file
 // and what it imports, not the whole tool.
 //
-//   kodor COMMAND [ARGS]
+//   lunamill COMMAND [ARGS]
 //
 // An unknown command, or none, prints the commands a person runs and exits 2.
 
@@ -19,10 +19,10 @@ const USAGE: [string, [string, string][]][] = [
       ["init", "Set a repository up, or turn a part on or off"],
       [
         "sync [--check]",
-        "Write kodor's files from your settings, or check they match",
+        "Write lunamill's files from your settings, or check they match",
       ],
       ["config check", "Check your settings"],
-      ["board check", "See how kodor reads your board"],
+      ["board check", "See how lunamill reads your board"],
       ["doctor", "Check everything, when something seems off"],
     ],
   ],
@@ -39,14 +39,14 @@ const USAGE: [string, [string, string][]][] = [
     [
       ["config get KEY", "Print one setting in effect"],
       ["config explain", "Print every setting in effect, defaults included"],
-      ["plugins [ROLE]", "List the plugins kodor uses, by role"],
+      ["plugins [ROLE]", "List the plugins lunamill uses, by role"],
       ["site compare", "Picture a website's pages before and after a change"],
       ["site stop", "End the sites compare --keep left running"],
       [
         "update",
-        "Raise kodor and each preset to its newest, without waiting for the job",
+        "Raise lunamill and each preset to its newest, without waiting for the job",
       ],
-      ["remove", "Take kodor out of this repository"],
+      ["remove", "Take lunamill out of this repository"],
     ],
   ],
   [
@@ -87,7 +87,7 @@ const USAGE: [string, [string, string][]][] = [
 const NAME_WIDTH = 21;
 
 export function usage(): say.Line[] {
-  const lines = [say.text("Usage: ", say.copy("kodor COMMAND"))];
+  const lines = [say.text("Usage: ", say.copy("lunamill COMMAND"))];
   for (const [group, commands] of USAGE) {
     lines.push(say.BLANK, say.heading(group));
     for (const [name, summary] of commands)
@@ -138,14 +138,14 @@ export async function main(argv: string[]): Promise<number> {
     const asked = argv.length > 0 && argv[0] !== "--help" && argv[0] !== "-h";
     const err = say.printer(process.stderr);
     if (asked) {
-      err(say.text(say.asIs(`kodor has no command "${argv.join(" ")}".`)));
+      err(say.text(say.asIs(`lunamill has no command "${argv.join(" ")}".`)));
       err(say.BLANK);
     }
     for (const line of usage()) err(line);
     return 2;
   }
   try {
-    if (process.env.KODOR_HANDOFF) {
+    if (process.env.LUNAMILL_HANDOFF) {
       const { handoffIn, intercept } = await import("./handoff/index.mts");
       const h = handoffIn()!;
       const fault =

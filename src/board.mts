@@ -2,19 +2,19 @@
 // Keep the board's Status, Session, and Runs in fields in step with the
 // marker comments, and Cost with the cost markers. Only this script writes
 // them, with one exception:
-// `kodor ticket ready` sets Status to Ready when the owner asks a local
+// `lunamill ticket ready` sets Status to Ready when the owner asks a local
 // session to, and the rules read that as the owner's own move.
 //
-// In the board job of kodor's run.yml it runs in two steps, so the board's
+// In the board job of lunamill's run.yml it runs in two steps, so the board's
 // token reaches only the second:
 //   collect  with the workflow's token: posts the comments a closed pull
 //            request or the nightly run calls for, then saves the repository
-//   apply    with KODOR_BOARD_TOKEN: reads the board, checks its fields, and
+//   apply    with LUNAMILL_BOARD_TOKEN: reads the board, checks its fields, and
 //            writes what changed
 //
 // Locally, to see what it would set without writing anything:
-//   kodor board --dry-run
-//   kodor board --dry-run --fixture DIR --now ISO
+//   lunamill board --dry-run
+//   lunamill board --dry-run --fixture DIR --now ISO
 // The second reads repo.json, as collect saves it, and board.json, the
 // board's recorded GraphQL pages, from DIR instead of GitHub.
 //
@@ -92,8 +92,8 @@ export type FieldNames = {
 export type BoardConfig = {
   columns: Columns;
   fields: FieldNames;
-  /** The name of the label on every ticket kodor works on. */
-  kodor: string;
+  /** The name of the label on every ticket lunamill works on. */
+  lunamill: string;
 };
 
 export const DEFAULT_FIELDS: FieldNames = {
@@ -104,7 +104,7 @@ export const DEFAULT_FIELDS: FieldNames = {
 export const DEFAULT_BOARD: BoardConfig = {
   columns: DEFAULT_COLUMNS,
   fields: DEFAULT_FIELDS,
-  kodor: TICKET_LABELS.kodor,
+  lunamill: TICKET_LABELS.lunamill,
 };
 
 /** The columns and fields the settings name. */
@@ -112,7 +112,7 @@ export function boardConfigOf(s: Settings): BoardConfig {
   return {
     columns: columnsOf(s),
     fields: fieldNamesOf(s),
-    kodor: s.tickets.labels.kodor,
+    lunamill: s.tickets.labels.lunamill,
   };
 }
 
@@ -161,7 +161,7 @@ const FIELD_KINDS = [
   },
 ] as const;
 
-/** What kodor will do with a board's fields: the problems that stop
+/** What lunamill will do with a board's fields: the problems that stop
  * it, and what each field and column means. The sync never creates or
  * changes a field. */
 export function inspectBoard(
@@ -255,7 +255,7 @@ export function checkFields(
   return { status: found.status!, ...found.fields };
 }
 
-/** A row of `kodor board check`: a state, a column no state names, or a
+/** A row of `lunamill board check`: a state, a column no state names, or a
  * field the sync writes. `none` is a state whose column cannot be told,
  * when the board has no Status field to read. */
 export type BoardRow = {
@@ -270,7 +270,7 @@ const KIND_WORDS: Record<string, string> = {
   NUMBER: "number field",
 };
 
-/** What `kodor board check` says of each state and each field. */
+/** What `lunamill board check` says of each state and each field. */
 export function boardRows(
   fields: BoardField[],
   cfg: BoardConfig,
@@ -370,7 +370,7 @@ const MARKS: Record<BoardRow["state"], say.MarkKind | null> = {
   none: null,
 };
 
-/** The report `kodor board check` prints: each state's column, then each
+/** The report `lunamill board check` prints: each state's column, then each
  * field, under the setting each comes from. */
 export function boardReport(
   number: number,
@@ -402,7 +402,7 @@ export type Plan = {
   cost: number | null;
   /** The column to move the card to, or null when it stays. */
   column: string | null;
-  /** kodor's own fields to write. */
+  /** lunamill's own fields to write. */
   writes: Write[];
   /** Why the repositories of a ticket that names several could not be
    * read: the sync leaves such a card alone. */
@@ -532,7 +532,7 @@ export function closedPullComments(
   links: Links,
   columns: Columns,
   ref: (key: Key) => string,
-  /** The tickets with the kodor label: no other gets a comment. */
+  /** The tickets with the lunamill label: no other gets a comment. */
   labeled: Key[],
 ): Comment[] {
   if (event.action !== "closed") return [];
@@ -617,8 +617,8 @@ export type Deps = {
   err: say.Out;
   readFile: (path: string) => string;
   writeFile: (path: string, text: string) => void;
-  /** kodor's settings: the ticket system, and the board's number
-   * and the repository where KODOR_BOARD_NUMBER and GITHUB_REPOSITORY do
+  /** lunamill's settings: the ticket system, and the board's number
+   * and the repository where LUNAMILL_BOARD_NUMBER and GITHUB_REPOSITORY do
    * not name them. */
   settings: () => Promise<Settings>;
   /** Any repository's code host, for a ticket that names several. */
@@ -678,7 +678,7 @@ async function finishAll(keys: Key[], pull: number, d: Ctx, dryRun: boolean) {
 
 async function read(d: Ctx): Promise<Saved> {
   const [tickets, open] = await Promise.all([
-    readAll(d.tickets, { label: d.config.kodor }),
+    readAll(d.tickets, { label: d.config.lunamill }),
     d.pulls.open({ costs: true }),
   ]);
   const pulls = linkPulls(open, d.tickets, d.own);
@@ -745,15 +745,15 @@ async function costsAcross(
   return out;
 }
 
-/** What the sync works from: the saved tickets with the kodor label,
- * whichever version of kodor saved them. */
+/** What the sync works from: the saved tickets with the lunamill label,
+ * whichever version of lunamill saved them. */
 const snapshotOf = (
   saved: Saved,
   now: Date,
   cfg: BoardConfig = DEFAULT_BOARD,
 ): RepoSnapshot =>
   toSnapshot(
-    saved.tickets.filter((t) => t.labels.includes(cfg.kodor)),
+    saved.tickets.filter((t) => t.labels.includes(cfg.lunamill)),
     saved.pulls,
     now,
     saved.donePulls,
@@ -872,13 +872,13 @@ function option(argv: string[], name: string): string | undefined {
   return at === -1 ? undefined : argv[at + 1];
 }
 
-/** The board's number: KODOR_BOARD_NUMBER where it is set, and
+/** The board's number: LUNAMILL_BOARD_NUMBER where it is set, and
  * otherwise `tickets.board` in the settings. */
 async function projectNumber(d: Deps): Promise<number> {
-  if (d.env.KODOR_BOARD_NUMBER) {
-    const number = Number(d.env.KODOR_BOARD_NUMBER);
+  if (d.env.LUNAMILL_BOARD_NUMBER) {
+    const number = Number(d.env.LUNAMILL_BOARD_NUMBER);
     if (!Number.isInteger(number) || number < 1)
-      throw new Error("KODOR_BOARD_NUMBER is not a board number.");
+      throw new Error("LUNAMILL_BOARD_NUMBER is not a board number.");
     return number;
   }
   const board = (await d.settings()).tickets.board;
@@ -955,7 +955,7 @@ export async function main(argv: string[], deps: Deps): Promise<number> {
     if (argv[0] === "apply") {
       const input = option(argv, "--in");
       if (!input) throw new Error("apply needs --in FILE.");
-      if (!d.env.GH_TOKEN) throw new Error("KODOR_BOARD_TOKEN is not set.");
+      if (!d.env.GH_TOKEN) throw new Error("LUNAMILL_BOARD_TOKEN is not set.");
       await apply(
         JSON.parse(d.readFile(input)),
         await boardOps.read(),
@@ -995,7 +995,7 @@ export function boardDeps(argv: string[]): Deps {
   };
 }
 
-/** `kodor board collect` and `kodor board apply`. */
+/** `lunamill board collect` and `lunamill board apply`. */
 export async function run(argv: string[]): Promise<number> {
   return main(argv, boardDeps(argv));
 }

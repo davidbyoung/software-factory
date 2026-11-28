@@ -40,7 +40,7 @@ import { toBoard, type BoardPage } from "../src/tickets/github.mts";
 import { CredentialError, type Ticket } from "../src/tickets/types.mts";
 import saved from "./fixtures/sync/repo.json";
 import boardPages from "./fixtures/sync/board.json";
-import { KODOR_COLUMNS } from "./kodor-columns";
+import { LUNAMILL_COLUMNS } from "./lunamill-columns";
 import { CODE_HOST } from "./settings-fixture";
 import { styleText } from "node:util";
 import { mark, type Line } from "../src/lib/output.mts";
@@ -72,7 +72,7 @@ function fixtureSource(
 } {
   const tickets = (saved.tickets as Ticket[]).map((t) =>
     unlabeled.includes(t.key)
-      ? { ...t, labels: t.labels.filter((l) => l !== "kodor") }
+      ? { ...t, labels: t.labels.filter((l) => l !== "lunamill") }
       : t,
   );
   const mem = memoryTickets(tickets, {
@@ -275,7 +275,7 @@ describe("toRows", () => {
       );
 
       expect(rows.map((r) => r.flags)).toEqual([
-        ["not started, is the poller's job in kodor.yml running?"],
+        ["not started, is the poller's job in lunamill.yml running?"],
         [],
       ]);
     },
@@ -290,11 +290,11 @@ describe("toRows", () => {
       ]),
       new Map(),
       NOW,
-      { watch: watchOf("github-action", 30, "acme/kodor-config"), ref: REF },
+      { watch: watchOf("github-action", 30, "acme/lunamill-config"), ref: REF },
     );
 
     expect(rows.map((r) => r.flags)).toEqual([
-      ["not started, is the poller in acme/kodor-config running?"],
+      ["not started, is the poller in acme/lunamill-config running?"],
       [],
     ]);
   });
@@ -953,7 +953,7 @@ describe("main in a terminal", () => {
     const mem = memoryTickets([
       {
         number: 1,
-        labels: ["kodor"],
+        labels: ["lunamill"],
         comments: [claimed("actions", "123456789")],
       },
     ]);
@@ -986,7 +986,7 @@ describe("main in a terminal", () => {
 
 describe("main, near the Claude token's day", () => {
   const WARNING =
-    "? CLAUDE_CODE_OAUTH_TOKEN stops working by 2026-12-10, in 13 days. Run kodor init to replace it";
+    "? CLAUDE_CODE_OAUTH_TOKEN stops working by 2026-12-10, in 13 days. Run lunamill init to replace it";
   const withToken = (token: Source["token"]) => {
     const base = fixtureSource().source;
     const source = vi.fn(async (s: Settings, t: Target) => ({
@@ -1027,19 +1027,19 @@ describe("main, near the Claude token's day", () => {
       withToken(async () => [
         mark(
           "fail",
-          "CLAUDE_CODE_OAUTH_TOKEN stopped working by 2026-11-10. Run kodor init",
+          "CLAUDE_CODE_OAUTH_TOKEN stopped working by 2026-11-10. Run lunamill init",
         ),
       ]),
     );
     expect(await main([], d)).toBe(0);
     expect(out.at(-1)).toBe(
-      "✗ CLAUDE_CODE_OAUTH_TOKEN stopped working by 2026-11-10. Run kodor init",
+      "✗ CLAUDE_CODE_OAUTH_TOKEN stopped working by 2026-11-10. Run lunamill init",
     );
   });
 
   it("ends with each token's line, after one blank line", async () => {
     const access =
-      "? The GitHub access token expires on 2026-12-10, in 13 days. Run kodor init to replace it";
+      "? The GitHub access token expires on 2026-12-10, in 13 days. Run lunamill init to replace it";
     const { d, out } = deps(
       withToken(async () => [
         mark("look", WARNING.slice(2)),
@@ -1102,7 +1102,7 @@ describe("main, near the Claude token's day", () => {
       },
     );
     expect((await read()).map(plainOf)).toEqual([
-      "? CLAUDE_CODE_OAUTH_TOKEN stops working by 2026-12-10, in 13 days. Run kodor init to replace it",
+      "? CLAUDE_CODE_OAUTH_TOKEN stops working by 2026-12-10, in 13 days. Run lunamill init to replace it",
     ]);
   });
 
@@ -1121,7 +1121,7 @@ describe("main, near the Claude token's day", () => {
 describe("main, for a Ready card", () => {
   it("flags one that has not started, but not one that waits on an open blocker", async () => {
     const mem = memoryTickets(
-      [1, 2, 5].map((number) => ({ number, labels: ["kodor"] })),
+      [1, 2, 5].map((number) => ({ number, labels: ["lunamill"] })),
     );
     for (const n of [1, 2])
       mem.card(n, { status: "Ready", updatedAt: "2026-11-09T11:00:00Z" });
@@ -1162,7 +1162,7 @@ describe("main with a mapped board", () => {
         tickets: {
           board: 1,
           columns: {
-            ...KODOR_COLUMNS,
+            ...LUNAMILL_COLUMNS,
             backlog: "Todo",
             ready: "Ready for dev",
           },
@@ -1258,7 +1258,7 @@ describe("main --hook", () => {
 describe("main --hook, with a credential to fix", () => {
   it("says what to fix under Work in progress, and exits 0 so the session starts", async () => {
     const line =
-      "No Fake Tickets credential for acme.example. Set FAKE_TICKETS_EMAIL and FAKE_TICKETS_TOKEN, or run: kodor init";
+      "No Fake Tickets credential for acme.example. Set FAKE_TICKETS_EMAIL and FAKE_TICKETS_TOKEN, or run: lunamill init";
     const out: string[] = [];
     const d: Deps = {
       source: () => Promise.reject(new CredentialError(line)),
@@ -1430,7 +1430,7 @@ describe("reviewer rows", () => {
         marker(12, "refining local 945b966c"),
         runs([
           {
-            reviewer: "kodor-ticket-readiness",
+            reviewer: "lunamill-ticket-readiness",
             model: "Sonnet",
             start: ago(4),
           },
@@ -1443,7 +1443,7 @@ describe("reviewer rows", () => {
         marker(60, "claim local session_01Xy"),
         runs([
           {
-            reviewer: "kodor-test-reviewer",
+            reviewer: "lunamill-test-reviewer",
             model: "Sonnet",
             start: ago(50),
             end: ago(47),
@@ -1517,8 +1517,8 @@ describe("reviewer rows", () => {
     ).filter((l) => /^ +[…✓✗?] /.test(l));
 
     expect(lines).toEqual([
-      "        … kodor-ticket-readiness  Sonnet  running               4 min so far",
-      "        ✓ kodor-test-reviewer  Sonnet  passed                3 min        $0.03",
+      "        … lunamill-ticket-readiness  Sonnet  running               4 min so far",
+      "        ✓ lunamill-test-reviewer  Sonnet  passed                3 min        $0.03",
       "        ✗ ui-reviewer      Opus    2 findings to fix     24 min       $0.18",
       "        … a11y-inspector   Sonnet  running               8 min so far",
       "        ✓ seo-reviewer     Opus    passed                11 min       $0.07",
@@ -1542,7 +1542,7 @@ describe("reviewer rows", () => {
     const at = (pattern: RegExp) => lines.findIndex((l) => pattern.test(l));
 
     expect(at(/↳ Pull request #230/)).toBeGreaterThan(at(/#224/));
-    expect(at(/✓ kodor-test-reviewer/)).toBe(at(/↳ Pull request #230/) + 1);
+    expect(at(/✓ lunamill-test-reviewer/)).toBe(at(/↳ Pull request #230/) + 1);
   });
 
   it("shows only each reviewer's latest run since the card's session began", () => {
@@ -1551,7 +1551,7 @@ describe("reviewer rows", () => {
         marker(200, "refining local a"),
         runs([
           {
-            reviewer: "kodor-ticket-readiness",
+            reviewer: "lunamill-ticket-readiness",
             model: "Sonnet",
             start: ago(190),
             end: ago(180),
@@ -1562,7 +1562,7 @@ describe("reviewer rows", () => {
         marker(60, "claim local b"),
         runs([
           {
-            reviewer: "kodor-test-reviewer",
+            reviewer: "lunamill-test-reviewer",
             model: "Sonnet",
             start: ago(50),
             end: ago(45),
@@ -1570,7 +1570,7 @@ describe("reviewer rows", () => {
             findings: 1,
           },
           {
-            reviewer: "kodor-test-reviewer",
+            reviewer: "lunamill-test-reviewer",
             model: "Sonnet",
             start: ago(30),
             end: ago(28),
@@ -1588,7 +1588,7 @@ describe("reviewer rows", () => {
     );
 
     expect(rows[0].runs.map((r) => [r.reviewer, r.result])).toEqual([
-      ["kodor-test-reviewer", "passed"],
+      ["lunamill-test-reviewer", "passed"],
     ]);
   });
 
@@ -1599,7 +1599,7 @@ describe("reviewer rows", () => {
         marker(50, "released"),
         runs([
           {
-            reviewer: "kodor-test-reviewer",
+            reviewer: "lunamill-test-reviewer",
             model: "Sonnet",
             start: ago(55),
           },
@@ -1651,14 +1651,14 @@ describe("reviewer rows", () => {
       );
     expect(
       run({
-        reviewer: "kodor-test-reviewer",
+        reviewer: "lunamill-test-reviewer",
         model: "Sonnet",
         start: ago(5),
         end: ago(2),
         cost: 28,
       }),
     ).toBe(
-      "{good:✓} kodor-test-reviewer  {skip:Sonnet}  {good:passed              }  {skip:3 min      }  {skip:$0.84}",
+      "{good:✓} lunamill-test-reviewer  {skip:Sonnet}  {good:passed              }  {skip:3 min      }  {skip:$0.84}",
     );
     const running = run({ start: ago(8), end: undefined, result: "running" });
     expect(running).toMatch(/^\{skip:…\} ui-reviewer/);
@@ -1687,7 +1687,7 @@ describe("sessionCell", () => {
   });
 });
 
-describe("tickets without the kodor label", () => {
+describe("tickets without the lunamill label", () => {
   it("lists only tickets with the label, with no line about the others", async () => {
     const run = async (unlabeled: string[]) => {
       const out: string[] = [];
@@ -1748,7 +1748,7 @@ describe("a ticket across repositories", () => {
         {
           key,
           title: "Gift cards",
-          labels: ["kodor"],
+          labels: ["lunamill"],
           body: w.body ?? `The ask.\n\n${SECTION}`,
           ...(w.finishedAt ? { finishedAt: w.finishedAt } : {}),
         },
@@ -1782,7 +1782,7 @@ describe("a ticket across repositories", () => {
             version: 1,
             repository: here,
             "code-host": CODE_HOST,
-            tickets: { board: 1, columns: KODOR_COLUMNS },
+            tickets: { board: 1, columns: LUNAMILL_COLUMNS },
           },
           () => true,
         ),
@@ -1856,7 +1856,7 @@ describe("a ticket across repositories", () => {
   it("says a clone is left for a finished ticket, and how to remove it", async () => {
     const out = await status({ ...left, finishedAt: "2026-11-09T10:00:00Z" });
     expect(out.at(-1)).toBe(
-      "? acme/web is still cloned for acme/api#12: /work/acme/api-12/web. Run: kodor workspace acme/api#12 --remove",
+      "? acme/web is still cloned for acme/api#12: /work/acme/api-12/web. Run: lunamill workspace acme/api#12 --remove",
     );
   });
 

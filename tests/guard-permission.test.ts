@@ -8,17 +8,17 @@ const ALLOW = JSON.stringify({
     decision: { behavior: "allow" },
   },
 });
-const UNATTENDED = { KODOR_UNATTENDED: "1", CLAUDE_PROJECT_DIR: DIR };
+const UNATTENDED = { LUNAMILL_UNATTENDED: "1", CLAUDE_PROJECT_DIR: DIR };
 const edit = (file_path: string, tool_name = "Edit") => ({
   tool_name,
   tool_input: { file_path },
 });
 
-describe("kodor guard permission", () => {
+describe("lunamill guard permission", () => {
   it.each([
     [".claude/skills/write-posts/SKILL.md"],
     [`${DIR}/.claude/agents/ui-reviewer.md`],
-    [".claude/kodor.yaml"],
+    [".claude/lunamill.yaml"],
     [".claude/change-types.md"],
   ])("approves a write to %s in an unattended run", (file) => {
     expect(permission(edit(file), UNATTENDED)).toBe(ALLOW);
@@ -40,13 +40,13 @@ describe("kodor guard permission", () => {
     expect(permission(edit(file), UNATTENDED)).toBeNull();
   });
 
-  it("says nothing without KODOR_UNATTENDED=1", () => {
+  it("says nothing without LUNAMILL_UNATTENDED=1", () => {
     const env = { CLAUDE_PROJECT_DIR: DIR };
-    expect(permission(edit(".claude/kodor.yaml"), env)).toBeNull();
+    expect(permission(edit(".claude/lunamill.yaml"), env)).toBeNull();
     expect(
-      permission(edit(".claude/kodor.yaml"), {
+      permission(edit(".claude/lunamill.yaml"), {
         ...env,
-        KODOR_UNATTENDED: "0",
+        LUNAMILL_UNATTENDED: "0",
       }),
     ).toBeNull();
   });
@@ -56,7 +56,7 @@ describe("kodor guard permission", () => {
       permission(
         {
           tool_name: "Bash",
-          tool_input: { file_path: ".claude/kodor.yaml" },
+          tool_input: { file_path: ".claude/lunamill.yaml" },
         },
         UNATTENDED,
       ),
@@ -67,8 +67,8 @@ describe("kodor guard permission", () => {
   it("judges a relative path from the hook's cwd when no project directory is set", () => {
     expect(
       permission(
-        { ...edit(".claude/kodor.yaml"), cwd: DIR },
-        { KODOR_UNATTENDED: "1" },
+        { ...edit(".claude/lunamill.yaml"), cwd: DIR },
+        { LUNAMILL_UNATTENDED: "1" },
       ),
     ).toBe(ALLOW);
   });

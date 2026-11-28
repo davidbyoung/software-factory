@@ -1,13 +1,13 @@
-// The `kodor preset` commands: add and remove a preset, choose between
+// The `lunamill preset` commands: add and remove a preset, choose between
 // two presets where they disagree, check a preset before merging a change
 // to it, and say what a preset update changes in this repository.
 //
-//   kodor preset add NAME [--yes] [--dry-run]
-//   kodor preset remove NAME [--yes] [--dry-run]
-//   kodor preset choices
-//   kodor preset choose KEY PRESET
-//   kodor preset check
-//   kodor preset changes REF
+//   lunamill preset add NAME [--yes] [--dry-run]
+//   lunamill preset remove NAME [--yes] [--dry-run]
+//   lunamill preset choices
+//   lunamill preset choose KEY PRESET
+//   lunamill preset check
+//   lunamill preset changes REF
 import {
   existsSync,
   mkdirSync,
@@ -87,12 +87,12 @@ export type PresetDeps = {
   terminal: boolean;
   /** Asks one question and gives the answer typed. */
   ask: (question: string) => Promise<string>;
-  /** Runs `kodor sync`, giving each line it prints to `out`. */
+  /** Runs `lunamill sync`, giving each line it prints to `out`. */
   sync: (out: say.Out) => Promise<number>;
   /** A file's text at a git revision, or null when it has none there. */
   show: (ref: string, path: string) => string | null;
-  /** The settings resolved from the files, as `kodor sync` resolves them,
-   * with `.claude/kodor.yaml` and the choices file as given, and with
+  /** The settings resolved from the files, as `lunamill sync` resolves them,
+   * with `.claude/lunamill.yaml` and the choices file as given, and with
    * `lock` as the lock's text where it is given. */
   resolve: (
     own: string,
@@ -140,7 +140,7 @@ function getPath(raw: unknown, path: string[]): unknown {
 }
 
 /** The settings in effect with every default filled in, from the lines
- * `kodor config explain` prints. */
+ * `lunamill config explain` prints. */
 async function effective(r: Resolved): Promise<Obj> {
   const { explainLines, markerOf } = await import("./explain.mts");
   const { load } = await import("js-yaml");
@@ -272,7 +272,7 @@ async function yamlDoc(text: string) {
   return parseDocument(text);
 }
 
-/** `.claude/kodor.yaml` with NAME added at the end of `presets`, which
+/** `.claude/lunamill.yaml` with NAME added at the end of `presets`, which
  * goes after `repository` when it is new. */
 async function withPreset(
   text: string,
@@ -307,7 +307,7 @@ async function withPreset(
   return doc.toString({ flowCollectionPadding: false, lineWidth: 0 });
 }
 
-/** `.claude/kodor.yaml` without NAME in `presets`, and without `presets`
+/** `.claude/lunamill.yaml` without NAME in `presets`, and without `presets`
  * once it is empty. */
 async function withoutPreset(text: string, name: string): Promise<string> {
   const { isMap, isSeq, isScalar } = await import("yaml");
@@ -324,7 +324,7 @@ async function withoutPreset(text: string, name: string): Promise<string> {
   return doc.toString({ flowCollectionPadding: false, lineWidth: 0 });
 }
 
-/** `.claude/kodor.yaml` without its own value for `key`, and without a
+/** `.claude/lunamill.yaml` without its own value for `key`, and without a
  * block that leaves empty. */
 async function withoutKey(text: string, key: string): Promise<string> {
   const { isMap, isSeq } = await import("yaml");
@@ -349,7 +349,7 @@ async function withoutKey(text: string, key: string): Promise<string> {
   return doc.toString({ flowCollectionPadding: false, lineWidth: 0 });
 }
 
-/** `.claude/kodor.yaml` with `value` as its own for `key`. */
+/** `.claude/lunamill.yaml` with `value` as its own for `key`. */
 async function withKey(
   text: string,
   key: string,
@@ -397,7 +397,7 @@ async function syncing(d: PresetDeps, wroteChoices: boolean): Promise<number> {
 
 /** Runs the sync and gives what it did as these commands say it: each of
  * the presets' files it wrote or deleted, and what it kept or dropped. The
- * kodor's own copies it brought in step go unsaid. Null when it failed. */
+ * lunamill's own copies it brought in step go unsaid. Null when it failed. */
 async function quietSync(
   d: PresetDeps,
   presetFile: (path: string) => boolean,
@@ -480,14 +480,14 @@ export async function add(argv: string[], d: PresetDeps): Promise<number> {
   if (!name) {
     d.err(
       say.text(
-        "Usage: kodor preset add NAME [--in FOLDER]... [--yes] [--dry-run]",
+        "Usage: lunamill preset add NAME [--in FOLDER]... [--yes] [--dry-run]",
       ),
     );
     return 2;
   }
   const ownText = d.read(SETTINGS_FILE);
   if (ownText === null) {
-    d.err(say.text(`${SETTINGS_FILE} is missing. Run: kodor init`));
+    d.err(say.text(`${SETTINGS_FILE} is missing. Run: lunamill init`));
     return 1;
   }
   const own = (await loadYaml(ownText)) as Obj | null;
@@ -735,7 +735,7 @@ export async function remove(argv: string[], d: PresetDeps): Promise<number> {
   const yes = argv.includes("--yes");
   const dry = argv.includes("--dry-run");
   if (!name) {
-    d.err(say.text("Usage: kodor preset remove NAME [--yes] [--dry-run]"));
+    d.err(say.text("Usage: lunamill preset remove NAME [--yes] [--dry-run]"));
     return 2;
   }
   const ownText = d.read(SETTINGS_FILE) ?? "";
@@ -971,7 +971,7 @@ export async function chooseOne(
 ): Promise<number> {
   const [key, preset] = argv;
   if (!key || !preset) {
-    d.err(say.text("Usage: kodor preset choose KEY PRESET"));
+    d.err(say.text("Usage: lunamill preset choose KEY PRESET"));
     return 2;
   }
   const before = d.read(CHOICES_FILE);
@@ -1089,7 +1089,7 @@ export async function check(_argv: string[], d: PresetDeps): Promise<number> {
           ? []
           : [at]) {
         const n = isObj(item) ? (item.agent ?? item.skill) : undefined;
-        if (typeof n !== "string" || n.startsWith("kodor-")) continue;
+        if (typeof n !== "string" || n.startsWith("lunamill-")) continue;
         if (!shippedNames.has(n))
           notes.push(
             `${file}: ${path}: ${n}: not shipped here, so each repository that uses this preset must provide it`,
@@ -1120,7 +1120,7 @@ export async function check(_argv: string[], d: PresetDeps): Promise<number> {
 type Mark = { from: string; state?: "chosen" | "not-chosen" };
 
 /** A mark's text read back: who a value came from, and whether it was
- * chosen. No mark is `.claude/kodor.yaml`'s own. */
+ * chosen. No mark is `.claude/lunamill.yaml`'s own. */
 export function readMark(text: string | undefined | null): Mark {
   const t = text?.trim();
   if (!t) return { from: OWN };
@@ -1192,12 +1192,12 @@ function leaves(
   return out;
 }
 
-/** `kodor preset changes REF`: what the presets' update changed here,
+/** `lunamill preset changes REF`: what the presets' update changed here,
  * as its pull request describes it. */
 export async function changes(argv: string[], d: PresetDeps): Promise<number> {
   const ref = argv[0];
   if (!ref) {
-    d.err(say.text("Usage: kodor preset changes REF"));
+    d.err(say.text("Usage: lunamill preset changes REF"));
     return 2;
   }
   const { load } = await import("js-yaml");
@@ -1339,7 +1339,7 @@ export async function changes(argv: string[], d: PresetDeps): Promise<number> {
     out.push(title, ...lines);
   });
   if (choice.length)
-    out.push("", "To choose, on this branch:", "  kodor preset choices");
+    out.push("", "To choose, on this branch:", "  lunamill preset choices");
   for (const line of out) d.out(say.verbatim(line));
   return 0;
 }
@@ -1414,7 +1414,7 @@ export async function main(argv: string[], d: PresetDeps): Promise<number> {
   if (!run) {
     d.err(
       say.text(
-        "Usage: kodor preset add NAME | remove NAME | choices | choose KEY PRESET | check | changes REF",
+        "Usage: lunamill preset add NAME | remove NAME | choices | choose KEY PRESET | check | changes REF",
       ),
     );
     return 2;
@@ -1476,7 +1476,7 @@ export function presetDeps(
   };
 }
 
-/** `kodor preset ...`. */
+/** `lunamill preset ...`. */
 export async function run(argv: string[]): Promise<number> {
   return main(argv, presetDeps(repoRoot(), `preset ${argv[0]}`));
 }

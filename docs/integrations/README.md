@@ -1,12 +1,12 @@
 # Integrations
 
-For someone who wants to know which tools kodor works with, or
-what one of them needs. kodor works through six kinds of tool,
+For someone who wants to know which tools lunamill works with, or
+what one of them needs. lunamill works through six kinds of tool,
 and the other sections of these docs name only the kind. This section
 names the product: one page for each, all on the same headings, Jira's
 aside until it is built.
 
-| Kind of tool  | What kodor uses it for                                                     | Supported today                                                                        | Needed for                                                                                                                                                            |
+| Kind of tool  | What lunamill uses it for                                                  | Supported today                                                                        | Needed for                                                                                                                                                            |
 | ------------- | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Code host     | Your repository, its pull requests, the checks on each commit, and secrets | [GitHub](github.md)                                                                    | Everything                                                                                                                                                            |
 | Ticket system | Your tickets, their labels, and which one waits on another                 | [GitHub Issues](github-issues.md). Jira is _[Planned](../developing.md#what-is-built)_ | Everything                                                                                                                                                            |
@@ -19,15 +19,15 @@ Two more pages cover what is not a kind of tool:
 
 - [GitHub organizations](github-organizations.md): what an
   organization's owner sets up once, for every repository in it.
-- [Private npm registries](private-npm.md): letting kodor's jobs
+- [Private npm registries](private-npm.md): letting lunamill's jobs
   in the cloud install your private packages.
 
 ## How each coding agent runs a skill
 
 A skill is a set of instructions a session follows, such as
-`kodor-refine`. These docs write one the way Claude Code runs it,
-`/kodor-refine 12`, and this table gives each coding agent's way:
+`lunamill-refine`. These docs write one the way Claude Code runs it,
+`/lunamill-refine 12`, and this table gives each coding agent's way:
 
-| Coding agent | How you run a skill |
-| ------------ | ------------------- |
-| Claude Code  | `/kodor-refine 12`  |
+| Coding agent | How you run a skill   |
+| ------------ | --------------------- |
+| Claude Code  | `/lunamill-refine 12` |

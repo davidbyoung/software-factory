@@ -2,13 +2,13 @@
 
 ## Purpose
 
-A list of sites under `site`, each with `in` and `files`, and how `kodor site compare` chooses and pictures the sites a change touches.
+A list of sites under `site`, each with `in` and `files`, and how `lunamill site compare` chooses and pictures the sites a change touches.
 
 ## Requirements
 
 ### Requirement: A list of sites
 
-kodor SHALL behave as this line says: When `site` is a list, each entry is a site with today's keys plus `in` and `files`, and an entry with several folders is one site for each.
+lunamill SHALL behave as this line says: When `site` is a list, each entry is a site with today's keys plus `in` and `files`, and an entry with several folders is one site for each.
 
 #### Scenario: A list of sites
 
@@ -17,34 +17,34 @@ kodor SHALL behave as this line says: When `site` is a list, each entry is a sit
 
 ### Requirement: A site in a list without in
 
-kodor SHALL behave as this line says: When `site` lists more than one site and one has no `in`, `kodor config check` fails naming it.
+lunamill SHALL behave as this line says: When `site` lists more than one site and one has no `in`, `lunamill config check` fails naming it.
 
 #### Scenario: A site in a list without in
 
 - **WHEN** When `site` lists more than one site and one has no `in`
-- **THEN** `kodor config check` fails naming it.
+- **THEN** `lunamill config check` fails naming it.
 
 ### Requirement: Site compare with several sites
 
-kodor SHALL behave as this line says: When `kodor site compare` runs with several sites, it compares each site the change sets off, one after another, after `site: P of S pictured, for the K files changed since origin/DEFAULT` and one row per site with its reason, and saves each site's pictures under `node_modules/.cache/kodor/site/TIMESTAMP/FOLDER`.
+lunamill SHALL behave as this line says: When `lunamill site compare` runs with several sites, it compares each site the change sets off, one after another, after `site: P of S pictured, for the K files changed since origin/DEFAULT` and one row per site with its reason, and saves each site's pictures under `node_modules/.cache/lunamill/site/TIMESTAMP/FOLDER`.
 
 #### Scenario: Site compare with several sites
 
-- **WHEN** When `kodor site compare` runs with several sites
-- **THEN** it compares each site the change sets off, one after another, after `site: P of S pictured, for the K files changed since origin/DEFAULT` and one row per site with its reason, and saves each site's pictures under `node_modules/.cache/kodor/site/TIMESTAMP/FOLDER`.
+- **WHEN** When `lunamill site compare` runs with several sites
+- **THEN** it compares each site the change sets off, one after another, after `site: P of S pictured, for the K files changed since origin/DEFAULT` and one row per site with its reason, and saves each site's pictures under `node_modules/.cache/lunamill/site/TIMESTAMP/FOLDER`.
 
 ### Requirement: Site compare pictures every site
 
-kodor SHALL behave as this line says: When the gate has an item and a file nothing covers or a settings file changed, `kodor site compare` pictures every site, after `site: all S pictured, since` and the reason as lines 31 and 32 word it.
+lunamill SHALL behave as this line says: When the gate has an item and a file nothing covers or a settings file changed, `lunamill site compare` pictures every site, after `site: all S pictured, since` and the reason as lines 31 and 32 word it.
 
 #### Scenario: Site compare pictures every site
 
 - **WHEN** When the gate has an item and a file nothing covers or a settings file changed
-- **THEN** `kodor site compare` pictures every site, after `site: all S pictured, since` and the reason as lines 31 and 32 word it.
+- **THEN** `lunamill site compare` pictures every site, after `site: all S pictured, since` and the reason as lines 31 and 32 word it.
 
 ### Requirement: A site's folder
 
-kodor SHALL behave as this line says: When a site has `in`, its `start` and `site.checks` run in its folder, and a `design-guide` starting with `./` is read from it.
+lunamill SHALL behave as this line says: When a site has `in`, its `start` and `site.checks` run in its folder, and a `design-guide` starting with `./` is read from it.
 
 #### Scenario: A site's folder
 
@@ -53,7 +53,7 @@ kodor SHALL behave as this line says: When a site has `in`, its `start` and `sit
 
 ### Requirement: A site new on the branch
 
-kodor SHALL behave as this line says: When `git ls-tree -d origin/DEFAULT FOLDER` lists nothing, the site's pages are pictured on the branch alone, each as a new page.
+lunamill SHALL behave as this line says: When `git ls-tree -d origin/DEFAULT FOLDER` lists nothing, the site's pages are pictured on the branch alone, each as a new page.
 
 #### Scenario: A site new on the branch
 
@@ -62,9 +62,9 @@ kodor SHALL behave as this line says: When `git ls-tree -d origin/DEFAULT FOLDER
 
 ### Requirement: Site compare for one site
 
-kodor SHALL behave as this line says: When `kodor site compare --site FOLDER` runs, it compares that site whatever changed. With several sites, `--before URL --after URL` or `--keep` without `--site` is refused, naming `--site`.
+lunamill SHALL behave as this line says: When `lunamill site compare --site FOLDER` runs, it compares that site whatever changed. With several sites, `--before URL --after URL` or `--keep` without `--site` is refused, naming `--site`.
 
 #### Scenario: Site compare for one site
 
-- **WHEN** When `kodor site compare --site FOLDER` runs
+- **WHEN** When `lunamill site compare --site FOLDER` runs
 - **THEN** it compares that site whatever changed. With several sites, `--before URL --after URL` or `--keep` without `--site` is refused, naming `--site`.

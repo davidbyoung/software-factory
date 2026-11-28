@@ -18,24 +18,24 @@ tickets:
 - **`type`** is the ticket system. Only `github` is built, and it is the
   default.
 - **`board`** is your board's number. On
-  [GitHub Projects](../../integrations/github-projects.md#what-kodor-uses-it-for)
+  [GitHub Projects](../../integrations/github-projects.md#what-lunamill-uses-it-for)
   it is the last part of its address, such as `1` in
   `github.com/users/your-name/projects/1`. The
   default, `none`, means no board.
 - **`columns`** says which of the board's columns shows each state, and a
   board needs it: see [`tickets.columns`](#ticketscolumns).
-- **`labels`** renames the labels kodor puts on tickets: see
+- **`labels`** renames the labels lunamill puts on tickets: see
   [`tickets.labels`](#ticketslabels). Most repositories leave it out.
 
-Without a board, `kodor status` still shows every ticket's state, which
-kodor records on the ticket. Builds then start only when
-you run `/kodor-build N` in a session.
+Without a board, `lunamill status` still shows every ticket's state, which
+lunamill records on the ticket. Builds then start only when
+you run `/lunamill-build N` in a session.
 
 One board can show tickets from several repositories. Give each
 repository the same `board`. Each repository's board sync,
-`kodor status`, and poller only touch that repository's own tickets.
+`lunamill status`, and poller only touch that repository's own tickets.
 
-`kodor board check` reads your board and says what kodor will do
+`lunamill board check` reads your board and says what lunamill will do
 with it.
 
 ## `tickets.columns`
@@ -43,9 +43,9 @@ with it.
 The board has one column for each of the six
 [states](../../workflow/README.md#the-six-states) a ticket goes through. This block
 says which of your board's columns shows each state, and it names all
-six. `kodor init` writes it for you, from the board you choose: see
+six. `lunamill init` writes it for you, from the board you choose: see
 [You already have a board](../../features/board.md#you-already-have-a-board).
-There is no default: your board's column names may not be kodor's, and a guess would put tickets in the wrong column without
+There is no default: your board's column names may not be lunamill's, and a guess would put tickets in the wrong column without
 telling you.
 
 A new board on [GitHub Projects](../../integrations/github-projects.md#a-board)
@@ -65,7 +65,7 @@ builds:
   trigger: manual
 ```
 
-When init creates your board, or adds columns to one, it gives them kodor's own names:
+When init creates your board, or adds columns to one, it gives them lunamill's own names:
 
 | Key        | Name of the column init creates |
 | ---------- | ------------------------------- |
@@ -83,7 +83,7 @@ When init creates your board, or adds columns to one, it gives them kodor's own 
   Progress. Every state can be `none` except `backlog`.
 - **A state can take a list of columns,** when more than one of yours
   means it. Init never writes a list, so add one to the block yourself.
-  A ticket in any of the columns is in that state. When kodor
+  A ticket in any of the columns is in that state. When lunamill
   moves a ticket into the state, it uses the first, and a ticket already
   in any of them stays where it is:
 
@@ -104,7 +104,7 @@ When init creates your board, or adds columns to one, it gives them kodor's own 
   `ready` takes one column, since only a ticket you approved goes there.
 
   A list for `done` keeps the columns that come after the merge, which
-  are your team's: kodor moves a merged ticket to the first column
+  are your team's: lunamill moves a merged ticket to the first column
   in the list, here Done, and never moves one out of any of them.
 
   ```yaml
@@ -113,14 +113,14 @@ When init creates your board, or adds columns to one, it gives them kodor's own 
 
 - **A ticket never stays in the ready column unless you approved it.**
   With `building: none`, a ticket being built would stay in ready's
-  column, so it stays in refining's column instead. On a board with kodor's columns and `building: none`, it shows in In refinement.
+  column, so it stays in refining's column instead. On a board with lunamill's columns and `building: none`, it shows in In refinement.
 - **With `ready: none`, nothing on the board approves a build,** so you
   need `builds.trigger: manual`, and you start each build by asking a
   session.
 - **A ticket in a column no state uses is left alone.** The board sync
   doesn't move it or fill in its fields, and nothing builds it.
 
-`kodor config check` stops, naming the key, when `columns` has:
+`lunamill config check` stops, naming the key, when `columns` has:
 
 - no `board` beside it, or a `board` with no `columns`;
 - a state left out, naming each one;
@@ -134,19 +134,19 @@ When init creates your board, or adds columns to one, it gives them kodor's own 
 Such as:
 
 ```text
-.claude/kodor.yaml: tickets.columns: building and done have no column: give each a column, a list of columns, or none, or run kodor init to choose them
+.claude/lunamill.yaml: tickets.columns: building and done have no column: give each a column, a list of columns, or none, or run lunamill init to choose them
 ```
 
-`kodor config check` doesn't read your board. `kodor board check`
+`lunamill config check` doesn't read your board. `lunamill board check`
 does, and says which of the columns you named the board lacks.
 
 ## `tickets.fields`
 
-kodor fills in fields of its own in two places: on your board,
+lunamill fills in fields of its own in two places: on your board,
 to show what is happening to a ticket, and on the ticket itself, to hold
-the result of refining it. This block maps each of these kodor fields
+the result of refining it. This block maps each of these lunamill fields
 to the field of yours that holds it: a board field, or a ticket field
-set on the ticket itself. `kodor init` sets up both the board fields
+set on the ticket itself. `lunamill init` sets up both the board fields
 and the ticket fields, so most repositories write nothing here by
 hand.
 
@@ -154,10 +154,10 @@ hand.
 tickets:
   board: 7
   fields:
-    # kodor fields on the board
+    # lunamill fields on the board
     session: Agent # fill in your existing "Agent" field instead
     cost: none # never fill in a cost
-    # kodor fields on the ticket
+    # lunamill fields on the ticket
     decisions: none
     spec: Acceptance criteria
     acceptance-criteria: Acceptance criteria
@@ -165,7 +165,7 @@ tickets:
 ```
 
 **On the board,** besides moving a ticket between columns, the
-[board sync](../../features/board.md) fills in three kodor fields so you
+[board sync](../../features/board.md) fills in three lunamill fields so you
 can see at a glance what is happening to a ticket:
 
 - **`session`:** which session is working on the ticket, or "Waiting on
@@ -175,7 +175,7 @@ can see at a glance what is happening to a ticket:
 - **`cost`:** roughly what refining and building the ticket has cost so
   far.
 
-`kodor init` adds board fields called Session, Runs in, and Cost. Name
+`lunamill init` adds board fields called Session, Runs in, and Cost. Name
 a board field here only when your board already has one you want used
 instead, or write `none` to stop the board sync filling one in.
 
@@ -194,14 +194,14 @@ instead, or write `none` to stop the board sync filling one in.
   a single select with an option for each column in
   [`tickets.columns`](#ticketscolumns).
 
-**On the ticket,** refining a ticket writes four kodor fields into its
+**On the ticket,** refining a ticket writes four lunamill fields into its
 description, each under its own heading. Each can go instead in a ticket
 field that holds text, which on
 [GitHub Issues](../../integrations/github-issues.md) is an issue field: see
 [Your tickets already have fields](../../features/board.md#your-tickets-already-have-fields),
 which also says why a board field can't hold one.
 
-| Key                   | What kodor field holds                                                                                                                                   |
+| Key                   | What lunamill field holds                                                                                                                                |
 | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `decisions`           | Decisions: the questions refinement settled, and what was chosen                                                                                         |
 | `spec`                | Spec: what a change your users will notice must do, line by line                                                                                         |
@@ -209,34 +209,34 @@ which also says why a board field can't hold one.
 | `for-the-builder`     | For the builder: how to build it, as a design and a list of tasks                                                                                        |
 | `repositories`        | Repositories: which repositories a ticket changes, and the order they merge in, when it names [more than its own](../../workflow/across-repositories.md) |
 
-`kodor init` asks your coding agent to suggest the ticket fields, and
+`lunamill init` asks your coding agent to suggest the ticket fields, and
 you confirm them.
 
-- **`none` keeps kodor field in the description,** and so does
-  leaving its key out. Unlike the board's three, a kodor field never
+- **`none` keeps lunamill field in the description,** and so does
+  leaving its key out. Unlike the board's three, a lunamill field never
   goes in a ticket field just because the names match.
 - **A ticket field is named as the ticket system shows it,** capitals
   included.
 - **These keys don't need a board,** since the ticket field belongs to
   the ticket.
 - **The ticket field must exist and hold text.** One that doesn't, such
-  as a single select, fails the checks [`kodor doctor`](../cli.md#setting-up)
+  as a single select, fails the checks [`lunamill doctor`](../cli.md#setting-up)
   and init print, and refining a ticket stops, naming it, and writes
   nothing.
-- **Two kodor fields can't name the same ticket field,** except `spec`
+- **Two lunamill fields can't name the same ticket field,** except `spec`
   and `acceptance-criteria`, since a ticket has only one of them.
-  `kodor config check` stops on any other pair.
+  `lunamill config check` stops on any other pair.
 - **A heading of your own,** such as one
   [a refiner of your own](../../customize/plugins.md#refiner) writes, can go in a ticket
   field too: write it in lowercase, with hyphens for spaces, so
   `## Proposed docs` is `proposed-docs`.
 - **Changing a line** affects tickets refined afterwards. A ticket
-  refined before keeps its kodor fields where they were written.
+  refined before keeps its lunamill fields where they were written.
 
 ## `tickets.labels`
 
-The names of the three labels kodor puts on tickets. Most
-repositories never set them: leave the block out, and kodor uses
+The names of the three labels lunamill puts on tickets. Most
+repositories never set them: leave the block out, and lunamill uses
 the default names. To rename a label on pull requests instead, see
 [`code-host.labels`](code-host.md#code-hostlabels).
 
@@ -250,20 +250,20 @@ tickets:
     spec: needs-spec # refinement adds needs-spec, not spec
 ```
 
-| Key     | Default name | What the label marks                                                                                                              |
-| ------- | ------------ | --------------------------------------------------------------------------------------------------------------------------------- |
-| `spec`  | `spec`       | A change your users will see, so [refinement writes a Spec](../../features/specs.md#a-change-your-users-will-see) into the ticket |
-| `kodor` | `kodor`      | A ticket kodor works on: [Which tickets are kodor's](../../workflow/tickets.md#which-tickets-are-kodors)                          |
+| Key        | Default name | What the label marks                                                                                                              |
+| ---------- | ------------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| `spec`     | `spec`       | A change your users will see, so [refinement writes a Spec](../../features/specs.md#a-change-your-users-will-see) into the ticket |
+| `lunamill` | `lunamill`   | A ticket lunamill works on: [Which tickets are lunamill's](../../workflow/tickets.md#which-tickets-are-lunamills)                 |
 
 - **Write only the keys you change.** A key you leave out keeps its
-  default name. `kodor init` doesn't ask about labels, and doesn't write
+  default name. `lunamill init` doesn't ask about labels, and doesn't write
   this block.
-- **You don't create the label.** kodor creates it in the ticket
+- **You don't create the label.** lunamill creates it in the ticket
   system the first time it adds it to a ticket.
 - **Two labels can't share a name,** and capitals don't make two names
   different, so `Spec` and `spec` are one label. Where the ticket system
   keeps its labels with the code host's, as
-  [GitHub Issues](../../integrations/github-issues.md#what-kodor-can-and-cannot-do-there)
+  [GitHub Issues](../../integrations/github-issues.md#what-lunamill-can-and-cannot-do-there)
   does, a name here can't match one under `code-host.labels` either,
   since one repository's labels serve its tickets and its pull requests.
 - **Quote a name with `: ` in it,** such as `spec: "kind: spec"`.
@@ -271,34 +271,34 @@ tickets:
 
 To rename a label:
 
-1. Write the new name under `tickets.labels` in `.claude/kodor.yaml`.
+1. Write the new name under `tickets.labels` in `.claude/lunamill.yaml`.
 2. If tickets already carry the label, rename it in the ticket system to
    the same name
    ([GitHub Issues](../../integrations/github-issues.md#by-hand) says
-   where). That moves every ticket that has it. kodor finds tickets only by the name in your settings and
+   where). That moves every ticket that has it. lunamill finds tickets only by the name in your settings and
    never renames a label, so until you do, it doesn't see them: a
-   ticket still labeled `spec` is built without its Spec. Renaming `kodor`
+   ticket still labeled `spec` is built without its Spec. Renaming `lunamill`
    hides every ticket that carries the old name until you rename the label in
    the ticket system too.
 3. Check the file and sync, as for every setting:
 
    ```console
-   $ kodor config check
+   $ lunamill config check
    ✓ The settings are valid.
-   $ kodor sync
-   wrote .claude/kodor.lock
+   $ lunamill sync
+   wrote .claude/lunamill.lock
    ```
 
-4. Commit `.claude/kodor.yaml` and `.claude/kodor.lock`.
+4. Commit `.claude/lunamill.yaml` and `.claude/lunamill.lock`.
 
-`kodor config check` names a label it refuses, and why:
+`lunamill config check` names a label it refuses, and why:
 
 ```text
-.claude/kodor.yaml: tickets.labels.spec: must not be empty
-.claude/kodor.yaml: tickets.labels.spec: "kodor" is already tickets.labels.kodor. Give each label its own name
+.claude/lunamill.yaml: tickets.labels.spec: must not be empty
+.claude/lunamill.yaml: tickets.labels.spec: "lunamill" is already tickets.labels.lunamill. Give each label its own name
 ```
 
-**It worked when** `kodor config explain` shows your names under
+**It worked when** `lunamill config explain` shows your names under
 `tickets.labels`, without `# default` after them, and
-`kodor ticket view N` on a ticket with the label shows it with its
+`lunamill ticket view N` on a ticket with the label shows it with its
 key, such as `labels: needs-spec (spec)`.

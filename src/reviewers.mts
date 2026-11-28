@@ -4,17 +4,17 @@
 // SubagentStart and SubagentStop hooks in .claude/settings.json run it with
 // the hook's input on stdin:
 //
-//   kodor reviewers start|stop
+//   lunamill reviewers start|stop
 //
 // It records only reviewers, the agents defined in the repository's
 // .claude/agents/ folder, and only while the session's cost clock runs on
-// an issue (`kodor ticket claim` or `refining`). Recording a
+// an issue (`lunamill ticket claim` or `refining`). Recording a
 // run never blocks the reviewer: every error exits 0, and a failed GitHub
 // call shows the owner one warning line through `systemMessage`. Neither
 // event carries the model, so the start reads it from the agent's
 // definition, and the finish corrects it from the transcript.
 //
-// It reads the repository from kodor's settings only when it has a
+// It reads the repository from lunamill's settings only when it has a
 // run to record, so a hook that fires before npm ci does nothing else.
 import {
   existsSync,
@@ -199,7 +199,7 @@ export function resultText(run: ReviewerRun, now: Date): string {
 }
 
 /** The comment: a table for the owner, then each row's hidden copy for
- * `kodor status`. It carries no cost marker: the session's next cost
+ * `lunamill status`. It carries no cost marker: the session's next cost
  * note already includes what the reviewers spent. */
 export function entryForRuns(
   session: string,
@@ -378,7 +378,7 @@ const read = (path: string) => {
   }
 };
 
-/** `kodor reviewers start|stop`, with the hook's input on stdin. */
+/** `lunamill reviewers start|stop`, with the hook's input on stdin. */
 export async function run(argv: string[]): Promise<number> {
   let input: HookInput = {};
   try {

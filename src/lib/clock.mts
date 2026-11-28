@@ -1,5 +1,5 @@
 // A session's cost clock: when its spend was last noted, and on which issue.
-// `kodor ticket` starts and restarts it; the reviewer-run hooks read it
+// `lunamill ticket` starts and restarts it; the reviewer-run hooks read it
 // to know which issue a reviewer works for. It lives in the repository's
 // shared git directory beside the `work-claim-N` files, keyed by
 // CLAUDE_CODE_SESSION_ID. Node built-ins only: the hooks run it before
@@ -22,12 +22,12 @@ export function commonDir(): string {
 }
 
 /** Where a session's claims and clock are kept: this checkout's own git
- * folder, or, in a clone `kodor workspace` made, that of the checkout it
+ * folder, or, in a clone `lunamill workspace` made, that of the checkout it
  * ran in. `there` and `here` are the ticket's key in each, which differ
  * where a key alone names no repository. */
 export type SessionFiles = { dir: string; there?: string; here?: string };
 
-export const SESSION_FILE = "kodor-session";
+export const SESSION_FILE = "lunamill-session";
 
 export function sessionFiles(own: string = commonDir()): SessionFiles {
   const path = join(own, SESSION_FILE);

@@ -8,79 +8,79 @@ What the commands a person runs print, so the output says what it is and whether
 
 ### Requirement: Usage with no command
 
-kodor SHALL behave as the scenario below says, in the Spec line's own words.
+lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Usage with no command
 
-- **WHEN** `kodor` runs with no command
-- **THEN** it prints, on standard error, `Usage: kodor COMMAND`, then the groups `Setting up`, `Every day`, `Now and then`, `Presets`, and `Your repository's commands`, each command indented two spaces and padded to 21 characters before its one-line description, or alone on its line with the description on the next, indented 23 spaces, when the command is longer than 20 characters, as Proposed docs shows, then `The commands skills, hooks, and workflows run:` and, on a line of its own indented five spaces, the address of `docs/reference/cli-internal.md` at the installed release, and exits 2.
+- **WHEN** `lunamill` runs with no command
+- **THEN** it prints, on standard error, `Usage: lunamill COMMAND`, then the groups `Setting up`, `Every day`, `Now and then`, `Presets`, and `Your repository's commands`, each command indented two spaces and padded to 21 characters before its one-line description, or alone on its line with the description on the next, indented 23 spaces, when the command is longer than 20 characters, as Proposed docs shows, then `The commands skills, hooks, and workflows run:` and, on a line of its own indented five spaces, the address of `docs/reference/cli-internal.md` at the installed release, and exits 2.
 
 ### Requirement: Usage for a command it does not have
 
-kodor SHALL behave as this line says: When `kodor` runs with words that name no command, it prints `factory has no command "WORDS".`, WORDS being every argument joined by spaces, and a blank line before the same text, and exits 2. `kodor --help` and `factory -h` print what line 1 says.
+lunamill SHALL behave as this line says: When `lunamill` runs with words that name no command, it prints `factory has no command "WORDS".`, WORDS being every argument joined by spaces, and a blank line before the same text, and exits 2. `lunamill --help` and `factory -h` print what line 1 says.
 
 #### Scenario: Usage for a command it does not have
 
-- **WHEN** `kodor` runs with words that name no command
-- **THEN** it prints `factory has no command "WORDS".`, WORDS being every argument joined by spaces, and a blank line before the same text, and exits 2. `kodor --help` and `factory -h` print what line 1 says.
+- **WHEN** `lunamill` runs with words that name no command
+- **THEN** it prints `factory has no command "WORDS".`, WORDS being every argument joined by spaces, and a blank line before the same text, and exits 2. `lunamill --help` and `factory -h` print what line 1 says.
 
 ### Requirement: Usage lists a person's commands
 
-kodor SHALL behave as this line says: The usage lists exactly the commands `docs/reference/cli.md` lists under "Setting up", "Every day", "Now and then", "Presets", and "Your repository's commands", matched by the command's words: `status --watch`'s row is `status [--watch]`'s, and options appear as Proposed docs shows them.
+lunamill SHALL behave as this line says: The usage lists exactly the commands `docs/reference/cli.md` lists under "Setting up", "Every day", "Now and then", "Presets", and "Your repository's commands", matched by the command's words: `status --watch`'s row is `status [--watch]`'s, and options appear as Proposed docs shows them.
 
 #### Scenario: Usage lists a person's commands
 
-- **WHEN** `kodor` prints its usage
+- **WHEN** `lunamill` prints its usage
 - **THEN** the usage lists exactly the commands `docs/reference/cli.md` lists under "Setting up", "Every day", "Now and then", "Presets", and "Your repository's commands", matched by the command's words: `status --watch`'s row is `status [--watch]`'s, and options appear as Proposed docs shows them.
 
 ### Requirement: Sync says when nothing changed
 
-kodor SHALL behave as this line says: When a person's `kodor sync` writes and deletes nothing, it prints `kodor's files already match the settings. Nothing changed.`
+lunamill SHALL behave as this line says: When a person's `lunamill sync` writes and deletes nothing, it prints `lunamill's files already match the settings. Nothing changed.`
 
 #### Scenario: Sync says when nothing changed
 
-- **WHEN** a person's `kodor sync` writes and deletes nothing
-- **THEN** it prints `kodor's files already match the settings. Nothing changed.`
+- **WHEN** a person's `lunamill sync` writes and deletes nothing
+- **THEN** it prints `lunamill's files already match the settings. Nothing changed.`
 
 ### Requirement: Sync check passes in a line
 
-kodor SHALL behave as this line says: When `kodor sync --check` finds every file matches, it prints `✓ kodor's files match the settings.` and exits 0.
+lunamill SHALL behave as this line says: When `lunamill sync --check` finds every file matches, it prints `✓ lunamill's files match the settings.` and exits 0.
 
 #### Scenario: Sync check passes in a line
 
-- **WHEN** `kodor sync --check` finds every file matches
-- **THEN** it prints `✓ kodor's files match the settings.` and exits 0.
+- **WHEN** `lunamill sync --check` finds every file matches
+- **THEN** it prints `✓ lunamill's files match the settings.` and exits 0.
 
 ### Requirement: Sync check names the files that differ
 
-kodor SHALL behave as this line says: When `kodor sync --check` finds files that differ, it prints on standard error `✗ N of kodor's files don't match the settings:`, with `doesn't` when N is 1, each path on its own line indented two spaces, then `Run kodor sync and commit what it writes.`, and exits 1.
+lunamill SHALL behave as this line says: When `lunamill sync --check` finds files that differ, it prints on standard error `✗ N of lunamill's files don't match the settings:`, with `doesn't` when N is 1, each path on its own line indented two spaces, then `Run lunamill sync and commit what it writes.`, and exits 1.
 
 #### Scenario: Sync check names the files that differ
 
-- **WHEN** `kodor sync --check` finds files that differ
-- **THEN** it prints on standard error `✗ N of kodor's files don't match the settings:`, with `doesn't` when N is 1, each path on its own line indented two spaces, then `Run kodor sync and commit what it writes.`, and exits 1.
+- **WHEN** `lunamill sync --check` finds files that differ
+- **THEN** it prints on standard error `✗ N of lunamill's files don't match the settings:`, with `doesn't` when N is 1, each path on its own line indented two spaces, then `Run lunamill sync and commit what it writes.`, and exits 1.
 
 ### Requirement: Config check passes in a line
 
-kodor SHALL behave as this line says: When `kodor config check` finds the settings valid, it prints `✓ The settings are valid.` after any warning, and exits 0.
+lunamill SHALL behave as this line says: When `lunamill config check` finds the settings valid, it prints `✓ The settings are valid.` after any warning, and exits 0.
 
 #### Scenario: Config check passes in a line
 
-- **WHEN** `kodor config check` finds the settings valid
+- **WHEN** `lunamill config check` finds the settings valid
 - **THEN** it prints `✓ The settings are valid.` after any warning, and exits 0.
 
 ### Requirement: Board check's layout
 
-kodor SHALL behave as this line says: When `kodor board check` runs, it prints `Board N, "TITLE"` (or `Board N` with no title), a blank line, `tickets.columns` and one row per state, a blank line, then `tickets.fields` and one row per field. A row is two spaces, a mark, a space, the state key or the field's label padded to 10 characters, a space, and its text.
+lunamill SHALL behave as this line says: When `lunamill board check` runs, it prints `Board N, "TITLE"` (or `Board N` with no title), a blank line, `tickets.columns` and one row per state, a blank line, then `tickets.fields` and one row per field. A row is two spaces, a mark, a space, the state key or the field's label padded to 10 characters, a space, and its text.
 
 #### Scenario: Board check's layout
 
-- **WHEN** `kodor board check` runs
+- **WHEN** `lunamill board check` runs
 - **THEN** it prints `Board N, "TITLE"` (or `Board N` with no title), a blank line, `tickets.columns` and one row per state, a blank line, then `tickets.fields` and one row per field. A row is two spaces, a mark, a space, the state key or the field's label padded to 10 characters, a space, and its text.
 
 ### Requirement: A state on the board
 
-kodor SHALL behave as this line says: When a state's columns are all on the board, its row is `✓` and the names joined by `, `.
+lunamill SHALL behave as this line says: When a state's columns are all on the board, its row is `✓` and the names joined by `, `.
 
 #### Scenario: A state on the board
 
@@ -89,7 +89,7 @@ kodor SHALL behave as this line says: When a state's columns are all on the boar
 
 ### Requirement: A state with no column
 
-kodor SHALL behave as this line says: When a state is set to `none`, its row is `-` and `none, shows in COLUMN`, or `none` for `ready`.
+lunamill SHALL behave as this line says: When a state is set to `none`, its row is `-` and `none, shows in COLUMN`, or `none` for `ready`.
 
 #### Scenario: A state with no column
 
@@ -98,7 +98,7 @@ kodor SHALL behave as this line says: When a state is set to `none`, its row is 
 
 ### Requirement: A state's column missing from the board
 
-kodor SHALL behave as this line says: When the board lacks a column a state names, its row is `✗` and `NAMES: no such column on the board`, followed by `: MISSING` naming the missing ones when the state has more than one name, such as `✗ review     Code review, QA: no such column on the board: QA`. This row wins over line 12's.
+lunamill SHALL behave as this line says: When the board lacks a column a state names, its row is `✗` and `NAMES: no such column on the board`, followed by `: MISSING` naming the missing ones when the state has more than one name, such as `✗ review     Code review, QA: no such column on the board: QA`. This row wins over line 12's.
 
 #### Scenario: A state's column missing from the board
 
@@ -107,7 +107,7 @@ kodor SHALL behave as this line says: When the board lacks a column a state name
 
 ### Requirement: A column no state names
 
-kodor SHALL behave as this line says: When the board has a column no state names, a row follows the states' rows: `?`, the column's name padded as a key, and `no state: left alone`.
+lunamill SHALL behave as this line says: When the board has a column no state names, a row follows the states' rows: `?`, the column's name padded as a key, and `no state: left alone`.
 
 #### Scenario: A column no state names
 
@@ -116,7 +116,7 @@ kodor SHALL behave as this line says: When the board has a column no state names
 
 ### Requirement: No Status field
 
-kodor SHALL behave as this line says: When the board has no Status field, or one that is not a single select, the `Status` row is `✗` and `no such field` or `not a single select`, each state's row prints two spaces in place of its mark, and no line 13 row prints.
+lunamill SHALL behave as this line says: When the board has no Status field, or one that is not a single select, the `Status` row is `✗` and `no such field` or `not a single select`, each state's row prints two spaces in place of its mark, and no line 13 row prints.
 
 #### Scenario: No Status field
 
@@ -125,7 +125,7 @@ kodor SHALL behave as this line says: When the board has no Status field, or one
 
 ### Requirement: A field the sync writes
 
-kodor SHALL behave as this line says: When a field the board sync writes is on the board with what it needs, its row is `✓` and `synced`.
+lunamill SHALL behave as this line says: When a field the board sync writes is on the board with what it needs, its row is `✓` and `synced`.
 
 #### Scenario: A field the sync writes
 
@@ -134,7 +134,7 @@ kodor SHALL behave as this line says: When a field the board sync writes is on t
 
 ### Requirement: A field skipped
 
-kodor SHALL behave as this line says: When a field is left at its default name and the board has no field of that name, its row is `?` and `skipped: no such field`.
+lunamill SHALL behave as this line says: When a field is left at its default name and the board has no field of that name, its row is `?` and `skipped: no such field`.
 
 #### Scenario: A field skipped
 
@@ -143,7 +143,7 @@ kodor SHALL behave as this line says: When a field is left at its default name a
 
 ### Requirement: A field set to none
 
-kodor SHALL behave as this line says: When a field is set to `none`, its row is `-` and `off`.
+lunamill SHALL behave as this line says: When a field is set to `none`, its row is `-` and `off`.
 
 #### Scenario: A field set to none
 
@@ -152,7 +152,7 @@ kodor SHALL behave as this line says: When a field is set to `none`, its row is 
 
 ### Requirement: A field the board cannot hold
 
-kodor SHALL behave as this line says: When a field the settings name is not on the board, its row is `✗` and `no such field: NAME`; when it is on the board but of the wrong type or lacking options, its row is `✗` and `NAME: not a text field`, `NAME: not a single select field`, or `NAME: not a number field`, by the field's kind, or `NAME: lacks A, B`, and for a field at its default name, `lacks A, B: name another field in tickets.fields.KEY, or set it to none`.
+lunamill SHALL behave as this line says: When a field the settings name is not on the board, its row is `✗` and `no such field: NAME`; when it is on the board but of the wrong type or lacking options, its row is `✗` and `NAME: not a text field`, `NAME: not a single select field`, or `NAME: not a number field`, by the field's kind, or `NAME: lacks A, B`, and for a field at its default name, `lacks A, B: name another field in tickets.fields.KEY, or set it to none`.
 
 #### Scenario: A field the board cannot hold
 
@@ -161,43 +161,43 @@ kodor SHALL behave as this line says: When a field the settings name is not on t
 
 ### Requirement: Board check's exit
 
-kodor SHALL behave as this line says: When any row of `kodor board check` is `✗`, it exits 1; otherwise 0. It prints no `Note:` or `Problem:` line.
+lunamill SHALL behave as this line says: When any row of `lunamill board check` is `✗`, it exits 1; otherwise 0. It prints no `Note:` or `Problem:` line.
 
 #### Scenario: Board check's exit
 
-- **WHEN** any row of `kodor board check` is `✗`
+- **WHEN** any row of `lunamill board check` is `✗`
 - **THEN** it exits 1; otherwise 0. It prints no `Note:` or `Problem:` line.
 
 ### Requirement: Doctor's headings
 
-kodor SHALL behave as this line says: When `kodor doctor` runs, it prints its checks under headings in this order: `Settings and files`, the code host's name, the runner's name, the ticket system's name, the coding agent's name, and `Parts that are off`; each check indented two spaces, a blank line between groups, and no heading for a group with no checks.
+lunamill SHALL behave as this line says: When `lunamill doctor` runs, it prints its checks under headings in this order: `Settings and files`, the code host's name, the runner's name, the ticket system's name, the coding agent's name, and `Parts that are off`; each check indented two spaces, a blank line between groups, and no heading for a group with no checks.
 
 #### Scenario: Doctor's headings
 
-- **WHEN** `kodor doctor` runs
+- **WHEN** `lunamill doctor` runs
 - **THEN** it prints its checks under headings in this order: `Settings and files`, the code host's name, the runner's name, the ticket system's name, the coding agent's name, and `Parts that are off`; each check indented two spaces, a blank line between groups, and no heading for a group with no checks.
 
 ### Requirement: Where each doctor check goes
 
-kodor SHALL behave as this line says: When `kodor doctor` sorts its checks, the settings, files, version, preset, and `commands.gate` checks go under `Settings and files`; each tool's own checks under its name; the secrets and `.npmrc` checks under the runner's name; and the ticket field checks under the ticket system's name.
+lunamill SHALL behave as this line says: When `lunamill doctor` sorts its checks, the settings, files, version, preset, and `commands.gate` checks go under `Settings and files`; each tool's own checks under its name; the secrets and `.npmrc` checks under the runner's name; and the ticket field checks under the ticket system's name.
 
 #### Scenario: Where each doctor check goes
 
-- **WHEN** `kodor doctor` sorts its checks
+- **WHEN** `lunamill doctor` sorts its checks
 - **THEN** the settings, files, version, preset, and `commands.gate` checks go under `Settings and files`; each tool's own checks under its name; the secrets and `.npmrc` checks under the runner's name; and the ticket field checks under the ticket system's name.
 
 ### Requirement: A check under its tool's name
 
-kodor SHALL behave as this line says: When a check sits under a tool's name, its text does not start with that name and a colon: `✓ CLAUDE.md imports kodor's rules`, not `✓ Claude Code: CLAUDE.md imports kodor's rules`. A sentence whose subject is the tool's name, such as `GitHub Issues has no ticket fields, which tickets.fields names`, keeps it.
+lunamill SHALL behave as this line says: When a check sits under a tool's name, its text does not start with that name and a colon: `✓ CLAUDE.md imports lunamill's rules`, not `✓ Claude Code: CLAUDE.md imports lunamill's rules`. A sentence whose subject is the tool's name, such as `GitHub Issues has no ticket fields, which tickets.fields names`, keeps it.
 
 #### Scenario: A check under its tool's name
 
 - **WHEN** a check sits under a tool's name
-- **THEN** its text does not start with that name and a colon: `✓ CLAUDE.md imports kodor's rules`, not `✓ Claude Code: CLAUDE.md imports kodor's rules`. A sentence whose subject is the tool's name, such as `GitHub Issues has no ticket fields, which tickets.fields names`, keeps it.
+- **THEN** its text does not start with that name and a colon: `✓ CLAUDE.md imports lunamill's rules`, not `✓ Claude Code: CLAUDE.md imports lunamill's rules`. A sentence whose subject is the tool's name, such as `GitHub Issues has no ticket fields, which tickets.fields names`, keeps it.
 
 ### Requirement: Parts that are off
 
-kodor SHALL behave as this line says: When a part is off, `doctor` prints `- NAME` under `Parts that are off`, without `: off`.
+lunamill SHALL behave as this line says: When a part is off, `doctor` prints `- NAME` under `Parts that are off`, without `: off`.
 
 #### Scenario: Parts that are off
 
@@ -206,25 +206,25 @@ kodor SHALL behave as this line says: When a part is off, `doctor` prints `- NAM
 
 ### Requirement: One line per secret
 
-kodor SHALL behave as this line says: When several parts need one secret, `doctor` prints one line for it: `NAME is set, for A and B` with the parts joined as a sentence lists them, or `NAME is not set, for A and B. Run kodor init`.
+lunamill SHALL behave as this line says: When several parts need one secret, `doctor` prints one line for it: `NAME is set, for A and B` with the parts joined as a sentence lists them, or `NAME is not set, for A and B. Run lunamill init`.
 
 #### Scenario: One line per secret
 
 - **WHEN** several parts need one secret
-- **THEN** `doctor` prints one line for it: `NAME is set, for A and B` with the parts joined as a sentence lists them, or `NAME is not set, for A and B. Run kodor init`.
+- **THEN** `doctor` prints one line for it: `NAME is set, for A and B` with the parts joined as a sentence lists them, or `NAME is not set, for A and B. Run lunamill init`.
 
 ### Requirement: Fixes name factory commands
 
-kodor SHALL behave as the scenario below says, in the Spec line's own words.
+lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Fixes name factory commands
 
-- **WHEN** `doctor`, `init`, `sync --check`, `config check`, or a preset command prints a message that names a kodor command
-- **THEN** it names it `factory X`, not `npx --no-install kodor X`: `doctor`'s and `init`'s fixes (`Run kodor sync`, `Run kodor init`), `init`'s `run kodor init again` messages, `config check`'s design-skill warning, `sync --check`'s last line, and the preset commands' `Run: kodor init`. The stale-lock messages and `.npmrc`'s sync errors name it `kodor sync` too.
+- **WHEN** `doctor`, `init`, `sync --check`, `config check`, or a preset command prints a message that names a lunamill command
+- **THEN** it names it `factory X`, not `npx --no-install lunamill X`: `doctor`'s and `init`'s fixes (`Run lunamill sync`, `Run lunamill init`), `init`'s `run lunamill init again` messages, `config check`'s design-skill warning, `sync --check`'s last line, and the preset commands' `Run: lunamill init`. The stale-lock messages and `.npmrc`'s sync errors name it `lunamill sync` too.
 
 ### Requirement: Init's closing checks
 
-kodor SHALL behave as this line says: When `init` prints its closing checks, they sit under `Checks` with `doctor`'s headings indented two spaces and each check indented four.
+lunamill SHALL behave as this line says: When `init` prints its closing checks, they sit under `Checks` with `doctor`'s headings indented two spaces and each check indented four.
 
 #### Scenario: Init's closing checks
 
@@ -233,61 +233,61 @@ kodor SHALL behave as this line says: When `init` prints its closing checks, the
 
 ### Requirement: Config explain's header
 
-kodor SHALL behave as this line says: When `kodor config explain` runs, it prints first `# The settings in effect. "# default" marks kodor's own value,` and `# a preset's name marks that preset's, and an unmarked line is yours.`; the lock does not hold these two lines, and in color they are dim, as comment lines are.
+lunamill SHALL behave as this line says: When `lunamill config explain` runs, it prints first `# The settings in effect. "# default" marks lunamill's own value,` and `# a preset's name marks that preset's, and an unmarked line is yours.`; the lock does not hold these two lines, and in color they are dim, as comment lines are.
 
 #### Scenario: Config explain's header
 
-- **WHEN** `kodor config explain` runs
-- **THEN** it prints first `# The settings in effect. "# default" marks kodor's own value,` and `# a preset's name marks that preset's, and an unmarked line is yours.`; the lock does not hold these two lines, and in color they are dim, as comment lines are.
+- **WHEN** `lunamill config explain` runs
+- **THEN** it prints first `# The settings in effect. "# default" marks lunamill's own value,` and `# a preset's name marks that preset's, and an unmarked line is yours.`; the lock does not hold these two lines, and in color they are dim, as comment lines are.
 
 ### Requirement: Site stop says what it stopped
 
-kodor SHALL behave as this line says: When `kodor site stop` stops the sites `site compare --keep` left running, it prints `Stopped the 2 sites site compare --keep left running.`, always 2, since it keeps a before and an after site; when none were left running, `No sites were left running.`
+lunamill SHALL behave as this line says: When `lunamill site stop` stops the sites `site compare --keep` left running, it prints `Stopped the 2 sites site compare --keep left running.`, always 2, since it keeps a before and an after site; when none were left running, `No sites were left running.`
 
 #### Scenario: Site stop says what it stopped
 
-- **WHEN** `kodor site stop` stops the sites `site compare --keep` left running
+- **WHEN** `lunamill site stop` stops the sites `site compare --keep` left running
 - **THEN** it prints `Stopped the 2 sites site compare --keep left running.`, always 2, since it keeps a before and an after site; when none were left running, `No sites were left running.`
 
 ### Requirement: The gate says it passed
 
-kodor SHALL behave as this line says: When every command of `kodor gate` passes, it prints `✓ Every gate command passed.` last, on standard output, or `✓ Every gate command that ran passed: R run, L left out.` when commands were left out.
+lunamill SHALL behave as this line says: When every command of `lunamill gate` passes, it prints `✓ Every gate command passed.` last, on standard output, or `✓ Every gate command that ran passed: R run, L left out.` when commands were left out.
 
 #### Scenario: The gate says it passed
 
-- **WHEN** When every command of `kodor gate` passes
+- **WHEN** When every command of `lunamill gate` passes
 - **THEN** it prints `✓ Every gate command passed.` last, on standard output, or `✓ Every gate command that ran passed: R run, L left out.` when commands were left out.
 
 ### Requirement: The specs check says how it went
 
-kodor SHALL behave as this line says: When `kodor specs check` runs the check, it prints `✓ The specs check passed.` last, on standard output, when the check exits 0, and `✗ The specs check failed.` on standard error otherwise. With `specs.type: none` it prints only line 25's line.
+lunamill SHALL behave as this line says: When `lunamill specs check` runs the check, it prints `✓ The specs check passed.` last, on standard output, when the check exits 0, and `✗ The specs check failed.` on standard error otherwise. With `specs.type: none` it prints only line 25's line.
 
 #### Scenario: The specs check says how it went
 
-- **WHEN** `kodor specs check` runs the check
+- **WHEN** `lunamill specs check` runs the check
 - **THEN** It prints `✓ The specs check passed.` last, on standard output, when the check exits 0, and `✗ The specs check failed.` on standard error otherwise. With `specs.type: none` it prints only line 25's line.
 
 ### Requirement: A test says how it went
 
-kodor SHALL behave as this line says: When `kodor test-one` or `kodor end-to-end` runs its command, it prints `✓ The test passed.` last on standard output when it passes, for `--times` once, after the last run, when every run passes, and `✗ The test failed.` on standard error when it fails, after `failed on run J of K` for `--times`. When the command is not set, it prints only today's error.
+lunamill SHALL behave as this line says: When `lunamill test-one` or `lunamill end-to-end` runs its command, it prints `✓ The test passed.` last on standard output when it passes, for `--times` once, after the last run, when every run passes, and `✗ The test failed.` on standard error when it fails, after `failed on run J of K` for `--times`. When the command is not set, it prints only today's error.
 
 #### Scenario: A test says how it went
 
-- **WHEN** `kodor test-one` or `kodor end-to-end` runs its command
+- **WHEN** `lunamill test-one` or `lunamill end-to-end` runs its command
 - **THEN** it prints `✓ The test passed.` last on standard output when it passes, for `--times` once, after the last run, when every run passes, and `✗ The test failed.` on standard error when it fails, after `failed on run J of K` for `--times`. When the command is not set, it prints only today's error.
 
 ### Requirement: npm's notices are hidden
 
-kodor SHALL behave as this line says: When `kodor gate`, `test-one`, `end-to-end`, or `specs check` runs a settings command, its environment has `npm_config_loglevel=warn` unless the caller's environment sets `npm_config_loglevel`.
+lunamill SHALL behave as this line says: When `lunamill gate`, `test-one`, `end-to-end`, or `specs check` runs a settings command, its environment has `npm_config_loglevel=warn` unless the caller's environment sets `npm_config_loglevel`.
 
 #### Scenario: npm's notices are hidden
 
-- **WHEN** `kodor gate`, `test-one`, `end-to-end`, or `specs check` runs a settings command
+- **WHEN** `lunamill gate`, `test-one`, `end-to-end`, or `specs check` runs a settings command
 - **THEN** its environment has `npm_config_loglevel=warn` unless the caller's environment sets `npm_config_loglevel`.
 
 ### Requirement: Doctor's sign-in line
 
-kodor SHALL behave as this line says: When `doctor` prints its code host's sign-in check, it reads `Signed in as LOGIN`, or fails `Signed in` with the code host's error as its fix.
+lunamill SHALL behave as this line says: When `doctor` prints its code host's sign-in check, it reads `Signed in as LOGIN`, or fails `Signed in` with the code host's error as its fix.
 
 #### Scenario: Doctor's sign-in line
 
@@ -296,7 +296,7 @@ kodor SHALL behave as this line says: When `doctor` prints its code host's sign-
 
 ### Requirement: Doctor's board line and the sync's log keep their words
 
-kodor SHALL behave as this line says: When `doctor` fails its board check, and when the board sync logs a skipped field or stops on the board's fields, they print today's words, apart from a fix line 25 changes; only `board check`'s report is redesigned.
+lunamill SHALL behave as this line says: When `doctor` fails its board check, and when the board sync logs a skipped field or stops on the board's fields, they print today's words, apart from a fix line 25 changes; only `board check`'s report is redesigned.
 
 #### Scenario: Doctor's board line and the sync's log keep their words
 
@@ -305,7 +305,7 @@ kodor SHALL behave as this line says: When `doctor` fails its board check, and w
 
 ### Requirement: Marks on this capability's lines
 
-kodor SHALL behave as this line says: When a line of this capability starts with `✓` or `✗`, or is a heading, it is colored as `terminal-color` says.
+lunamill SHALL behave as this line says: When a line of this capability starts with `✓` or `✗`, or is a heading, it is colored as `terminal-color` says.
 
 #### Scenario: Marks on this capability's lines
 
@@ -314,9 +314,9 @@ kodor SHALL behave as this line says: When a line of this capability starts with
 
 ### Requirement: Board check with a poller you host
 
-kodor SHALL behave as this line says: When `kodor board check` runs with `builds.trigger: own-server`, its `ready` row is `✓` and the column's name, as with any other trigger, and it prints no `tickets.labels` or `builds` block naming a poller's variable.
+lunamill SHALL behave as this line says: When `lunamill board check` runs with `builds.trigger: own-server`, its `ready` row is `✓` and the column's name, as with any other trigger, and it prints no `tickets.labels` or `builds` block naming a poller's variable.
 
 #### Scenario: Board check with a poller you host
 
-- **WHEN** `kodor board check` runs with `builds.trigger: own-server`
+- **WHEN** `lunamill board check` runs with `builds.trigger: own-server`
 - **THEN** its `ready` row is `✓` and the column's name, as with any other trigger, and it prints no `tickets.labels` or `builds` block naming a poller's variable.

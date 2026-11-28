@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { load } from "js-yaml";
 import {
-  KODOR_POLICY,
+  LUNAMILL_POLICY,
   main,
   NO_DEPENDENCIES,
   parseSettings,
@@ -20,7 +20,7 @@ import { matchesGlob } from "../src/lib/glob.mts";
 import { explainedLines } from "../src/explain.mts";
 import { BUILT } from "../src/tool-names.mts";
 import { builtOf, TOOLS } from "../src/tools.mts";
-import { KODOR_COLUMNS_YAML } from "./kodor-columns";
+import { LUNAMILL_COLUMNS_YAML } from "./lunamill-columns";
 import { CODE_HOST, CODE_HOST_YAML } from "./settings-fixture";
 import { into, look } from "./printed";
 
@@ -59,7 +59,7 @@ describe("parseSettings", () => {
           "for-the-builder": null,
           repositories: null,
         },
-        labels: { spec: "spec", kodor: "kodor" },
+        labels: { spec: "spec", lunamill: "lunamill" },
       },
       codeHost: {
         type: "github",
@@ -102,7 +102,7 @@ describe("parseSettings", () => {
         dependencies: 50,
       },
       rules: { smallChangeLines: 30, reviewRounds: 2 },
-      approvalPolicies: [KODOR_POLICY],
+      approvalPolicies: [LUNAMILL_POLICY],
     });
   });
 
@@ -145,12 +145,12 @@ describe("parseSettings", () => {
       expect(() =>
         parse({ ...MINIMAL, rules: { "review-rounds": value } }),
       ).toThrow(
-        ".claude/kodor.yaml: rules.review-rounds: must be a whole number above zero",
+        ".claude/lunamill.yaml: rules.review-rounds: must be a whole number above zero",
       );
       expect(() =>
         parse({ ...MINIMAL, rules: { "small-change-lines": value } }),
       ).toThrow(
-        ".claude/kodor.yaml: rules.small-change-lines: must be a whole number above zero",
+        ".claude/lunamill.yaml: rules.small-change-lines: must be a whole number above zero",
       );
     });
   });
@@ -257,7 +257,7 @@ describe("parseSettings", () => {
 
   it("fails on a ticket system other than GitHub, naming the one supported", () => {
     expect(() => parse({ ...MINIMAL, tickets: { type: "jira" } })).toThrow(
-      '.claude/kodor.yaml: tickets.type "jira" is not supported. "github" is the only ticket system built.',
+      '.claude/lunamill.yaml: tickets.type "jira" is not supported. "github" is the only ticket system built.',
     );
   });
 
@@ -284,7 +284,7 @@ describe("parseSettings", () => {
     it("refuses its key under another ticket system", () => {
       expect(() =>
         parseWith({ ...MINIMAL, tickets: { site: "https://tickets.example" } }),
-      ).toThrow(".claude/kodor.yaml: tickets.site: unknown key");
+      ).toThrow(".claude/lunamill.yaml: tickets.site: unknown key");
     });
 
     it("takes a second code host's name and a second runner's", () => {
@@ -310,7 +310,7 @@ describe("parseSettings", () => {
       expect(() =>
         parseWith({ ...MINIMAL, tickets: { type: "jira" } }),
       ).toThrow(
-        '.claude/kodor.yaml: tickets.type "jira" is not supported. The ticket systems built are "github" and "fake".',
+        '.claude/lunamill.yaml: tickets.type "jira" is not supported. The ticket systems built are "github" and "fake".',
       );
     });
   });
@@ -329,7 +329,7 @@ describe("parseSettings", () => {
       return "accepted";
     };
     const REQUIRED =
-      '.claude/kodor.yaml: code-host.branch-name: is required. Run kodor init to set it, or add it, such as branch-name: "{ticket}"';
+      '.claude/lunamill.yaml: code-host.branch-name: is required. Run lunamill init to set it, or add it, such as branch-name: "{ticket}"';
 
     it("is required", () => {
       expect(() => parse({ ...MINIMAL, "code-host": undefined })).toThrow(
@@ -361,7 +361,7 @@ describe("parseSettings", () => {
 
     it("says to quote a pattern YAML read as a map", () => {
       expect(refusal(load("{ticket}"))).toBe(
-        '.claude/kodor.yaml: code-host.branch-name: is a map, not a pattern. Quote it: branch-name: "{ticket}"',
+        '.claude/lunamill.yaml: code-host.branch-name: is a map, not a pattern. Quote it: branch-name: "{ticket}"',
       );
     });
 
@@ -369,14 +369,14 @@ describe("parseSettings", () => {
       "refuses %j, which is not text",
       (value) => {
         expect(refusal(value)).toBe(
-          '.claude/kodor.yaml: code-host.branch-name: must be a pattern, such as branch-name: "{ticket}"',
+          '.claude/lunamill.yaml: code-host.branch-name: must be a pattern, such as branch-name: "{ticket}"',
         );
       },
     );
 
     it("names the first placeholder it doesn't know", () => {
       expect(refusal("{slug}/{ticket}-{type}")).toBe(
-        ".claude/kodor.yaml: code-host.branch-name: {slug} is not a placeholder. The placeholders are {ticket} and {user}",
+        ".claude/lunamill.yaml: code-host.branch-name: {slug} is not a placeholder. The placeholders are {ticket} and {user}",
       );
     });
 
@@ -384,7 +384,7 @@ describe("parseSettings", () => {
       "refuses %j, which has no {ticket}",
       (value) => {
         expect(refusal(value)).toBe(
-          ".claude/kodor.yaml: code-host.branch-name: needs {ticket}, or every build gets the same branch",
+          ".claude/lunamill.yaml: code-host.branch-name: needs {ticket}, or every build gets the same branch",
         );
       },
     );
@@ -412,7 +412,7 @@ describe("parseSettings", () => {
       ["a.lock/{ticket}", "a part ends with .lock"],
     ])("refuses %j, which git refuses: %s", (pattern, reason) => {
       expect(refusal(pattern)).toBe(
-        `.claude/kodor.yaml: code-host.branch-name: ${pattern} can't be a git branch name: ${reason}`,
+        `.claude/lunamill.yaml: code-host.branch-name: ${pattern} can't be a git branch name: ${reason}`,
       );
       const filled = pattern.replace("{ticket}", "1");
       expect(
@@ -422,13 +422,13 @@ describe("parseSettings", () => {
 
     it("names the first of several faults: an unknown placeholder before git's rules", () => {
       expect(refusal("a b/{slug}")).toBe(
-        ".claude/kodor.yaml: code-host.branch-name: {slug} is not a placeholder. The placeholders are {ticket} and {user}",
+        ".claude/lunamill.yaml: code-host.branch-name: {slug} is not a placeholder. The placeholders are {ticket} and {user}",
       );
     });
 
     it("names a missing {ticket} before git's rules", () => {
       expect(refusal("a b")).toBe(
-        ".claude/kodor.yaml: code-host.branch-name: needs {ticket}, or every build gets the same branch",
+        ".claude/lunamill.yaml: code-host.branch-name: needs {ticket}, or every build gets the same branch",
       );
     });
 
@@ -449,7 +449,7 @@ describe("parseSettings", () => {
   it("fails on a code host other than GitHub, naming the one supported", () => {
     for (const written of ["gitlab", { type: "gitlab" }])
       expect(() => parse({ ...MINIMAL, "code-host": written })).toThrow(
-        '.claude/kodor.yaml: code-host.type "gitlab" is not supported. "github" is the only code host built.',
+        '.claude/lunamill.yaml: code-host.type "gitlab" is not supported. "github" is the only code host built.',
       );
   });
 
@@ -472,7 +472,7 @@ describe("parseSettings", () => {
     expect(() =>
       parse({ ...MINIMAL, builds: { runner: "buildkite" } }),
     ).toThrow(
-      '.claude/kodor.yaml: builds.runner "buildkite" is not supported. "github-actions" is the only runner built.',
+      '.claude/lunamill.yaml: builds.runner "buildkite" is not supported. "github-actions" is the only runner built.',
     );
   });
 
@@ -501,7 +501,7 @@ describe("parseSettings", () => {
     expect(() =>
       parse({ ...MINIMAL, builds: { "max-per-hour": max } }),
     ).toThrow(
-      ".claude/kodor.yaml: builds.max-per-hour: must be a whole number, 1 or more",
+      ".claude/lunamill.yaml: builds.max-per-hour: must be a whole number, 1 or more",
     );
   });
 
@@ -552,7 +552,7 @@ describe("parseSettings", () => {
     ])("fails on %j, which is not a host name", (host) => {
       expect(() => hosts(["repo.packagist.org", host])).toThrow(
         new SettingsError(
-          ".claude/kodor.yaml: builds.hosts[1]: must be a host name",
+          ".claude/lunamill.yaml: builds.hosts[1]: must be a host name",
         ),
       );
     });
@@ -563,7 +563,7 @@ describe("parseSettings", () => {
       [[443], "builds.hosts[0]: must be text"],
     ])("fails on %j as any list of text does", (v, message) => {
       expect(() => hosts(v)).toThrow(
-        new SettingsError(`.claude/kodor.yaml: ${message}`),
+        new SettingsError(`.claude/lunamill.yaml: ${message}`),
       );
     });
 
@@ -580,7 +580,7 @@ describe("parseSettings", () => {
     ])("fails on %s, which is GitHub", (host) => {
       expect(() => hosts(["repo.packagist.org", host])).toThrow(
         new SettingsError(
-          ".claude/kodor.yaml: builds.hosts can't name GitHub: a build has no GitHub access",
+          ".claude/lunamill.yaml: builds.hosts can't name GitHub: a build has no GitHub access",
         ),
       );
     });
@@ -620,20 +620,20 @@ describe("parseSettings", () => {
       expect(() =>
         parse({ ...MINIMAL, builds: { trigger, "poll-minutes": 15 } }),
       ).toThrow(
-        ".claude/kodor.yaml: builds.poll-minutes needs builds.trigger: github-action",
+        ".claude/lunamill.yaml: builds.poll-minutes needs builds.trigger: github-action",
       );
     },
   );
 
   it.each([3, "1", undefined])("fails on version %s", (version) => {
     expect(() => parse({ ...MINIMAL, version })).toThrow(
-      ".claude/kodor.yaml: version: must be 1",
+      ".claude/lunamill.yaml: version: must be 1",
     );
   });
 
   it("fails on version 2, saying where to read how to move the file", () => {
     expect(() => parse({ ...MINIMAL, version: 2 })).toThrow(
-      ".claude/kodor.yaml: version: must be 1: this file is version 2, see https://github.com/kodor-ai/kodor/blob/main/docs/maintain/upgrade-notes.md#moving-to-kodor",
+      ".claude/lunamill.yaml: version: must be 1: this file is version 2, see https://github.com/lunamill-ai/lunamill/blob/main/docs/maintain/upgrade-notes.md#moving-to-lunamill",
     );
   });
 
@@ -660,7 +660,7 @@ describe("parseSettings", () => {
       const s = parse(MINIMAL);
       expect(s.tickets.labels).toEqual({
         spec: "spec",
-        kodor: "kodor",
+        lunamill: "lunamill",
       });
       expect(s.codeHost.labels).toEqual({
         "merge-automatic": "merge-automatic",
@@ -676,7 +676,7 @@ describe("parseSettings", () => {
       );
       expect(s.tickets.labels).toEqual({
         spec: "needs-spec",
-        kodor: "kodor",
+        lunamill: "lunamill",
       });
       expect(s.codeHost.labels["merge-manual"]).toBe("needs owner");
       expect(s.codeHost.labels["merge-automatic"]).toBe("merge-automatic");
@@ -685,15 +685,15 @@ describe("parseSettings", () => {
     it.each([
       [
         labeled({ "follow-up": "x" }),
-        ".claude/kodor.yaml: tickets.labels.follow-up: unknown key",
+        ".claude/lunamill.yaml: tickets.labels.follow-up: unknown key",
       ],
       [
         labeled({ "merge-manual": "x" }),
-        ".claude/kodor.yaml: tickets.labels.merge-manual: unknown key",
+        ".claude/lunamill.yaml: tickets.labels.merge-manual: unknown key",
       ],
       [
         labeled(undefined, { spec: "x" }),
-        ".claude/kodor.yaml: code-host.labels.spec: unknown key",
+        ".claude/lunamill.yaml: code-host.labels.spec: unknown key",
       ],
     ])("refuses a key that is not one of its side's", (raw, message) => {
       expect(() => parse(raw)).toThrow(message);
@@ -701,7 +701,7 @@ describe("parseSettings", () => {
 
     it.each(["", "   "])("refuses an empty name, %j", (name) => {
       expect(() => parse(labeled({ spec: name }))).toThrow(
-        ".claude/kodor.yaml: tickets.labels.spec: must not be empty",
+        ".claude/lunamill.yaml: tickets.labels.spec: must not be empty",
       );
     });
 
@@ -709,34 +709,35 @@ describe("parseSettings", () => {
       expect(() =>
         parse(labeled({ spec: "Spec" }, { "merge-manual": "spec" })),
       ).toThrow(
-        '.claude/kodor.yaml: code-host.labels.merge-manual: "spec" is already tickets.labels.spec. Give each label its own name',
+        '.claude/lunamill.yaml: code-host.labels.merge-manual: "spec" is already tickets.labels.spec. Give each label its own name',
       );
     });
 
     it("counts a default name, and names the key the file sets", () => {
-      expect(() => parse(labeled({ spec: "kodor" }))).toThrow(
-        '.claude/kodor.yaml: tickets.labels.spec: "kodor" is already tickets.labels.kodor. Give each label its own name',
+      expect(() => parse(labeled({ spec: "lunamill" }))).toThrow(
+        '.claude/lunamill.yaml: tickets.labels.spec: "lunamill" is already tickets.labels.lunamill. Give each label its own name',
       );
     });
 
-    it("takes the kodor label's name", () => {
+    it("takes the lunamill label's name", () => {
       expect(
-        parse(labeled({ kodor: "built-by-factory" })).tickets.labels.kodor,
+        parse(labeled({ lunamill: "built-by-factory" })).tickets.labels
+          .lunamill,
       ).toBe("built-by-factory");
     });
 
-    it("puts the kodor label after spec, and before a pull request's, in the order a clash names", () => {
-      expect(() => parse(labeled({ kodor: "spec" }))).toThrow(
-        '.claude/kodor.yaml: tickets.labels.kodor: "spec" is already tickets.labels.spec. Give each label its own name',
+    it("puts the lunamill label after spec, and before a pull request's, in the order a clash names", () => {
+      expect(() => parse(labeled({ lunamill: "spec" }))).toThrow(
+        '.claude/lunamill.yaml: tickets.labels.lunamill: "spec" is already tickets.labels.spec. Give each label its own name',
       );
       expect(() =>
-        parse(labeled({ kodor: "x" }, { "merge-manual": "X" })),
+        parse(labeled({ lunamill: "x" }, { "merge-manual": "X" })),
       ).toThrow("code-host.labels.merge-manual");
     });
 
     it("names the later of two keys the file sets", () => {
-      expect(() => parse(labeled({ spec: "kind", kodor: "Kind" }))).toThrow(
-        '.claude/kodor.yaml: tickets.labels.kodor: "Kind" is already tickets.labels.spec. Give each label its own name',
+      expect(() => parse(labeled({ spec: "kind", lunamill: "Kind" }))).toThrow(
+        '.claude/lunamill.yaml: tickets.labels.lunamill: "Kind" is already tickets.labels.spec. Give each label its own name',
       );
     });
 
@@ -770,14 +771,14 @@ describe("parseSettings", () => {
       });
 
       it("still refuses two ticket labels with one name", () => {
-        expect(() => parseWith(fake({ spec: "x", kodor: "x" }))).toThrow(
-          'tickets.labels.kodor: "x" is already tickets.labels.spec',
+        expect(() => parseWith(fake({ spec: "x", lunamill: "x" }))).toThrow(
+          'tickets.labels.lunamill: "x" is already tickets.labels.spec',
         );
       });
 
       it("gives the ticket system's reason for a name it refuses", () => {
         expect(() => parseWith(fake({ spec: "needs spec" }))).toThrow(
-          ".claude/kodor.yaml: tickets.labels.spec: Fake Tickets doesn't allow a space in a label",
+          ".claude/lunamill.yaml: tickets.labels.spec: Fake Tickets doesn't allow a space in a label",
         );
       });
     });
@@ -803,7 +804,7 @@ describe("parseSettings", () => {
       expect(() =>
         parseWith({ ...MINIMAL, tickets: { type: "fake" } }),
       ).toThrow(
-        ".claude/kodor.yaml: tickets.columns: is required with tickets.type: fake: run kodor init to choose which status shows each state",
+        ".claude/lunamill.yaml: tickets.columns: is required with tickets.type: fake: run lunamill init to choose which status shows each state",
       );
     });
 
@@ -835,7 +836,7 @@ describe("parseSettings", () => {
       "says where a top-level %s moved to",
       (key) => {
         expect(() => parse({ ...MINIMAL, [key]: ["npm test"] })).toThrow(
-          `.claude/kodor.yaml: ${key}: moved to commands.${key}`,
+          `.claude/lunamill.yaml: ${key}: moved to commands.${key}`,
         );
       },
     );
@@ -844,7 +845,7 @@ describe("parseSettings", () => {
       expect(() =>
         parse({ ...MINIMAL, plugins: [{ agent: "a", role: "reviewer" }] }),
       ).toThrow(
-        ".claude/kodor.yaml: plugins: must be grouped by phase: refine, build, test, conflicts",
+        ".claude/lunamill.yaml: plugins: must be grouped by phase: refine, build, test, conflicts",
       );
     });
   });
@@ -882,7 +883,7 @@ describe("parseSettings", () => {
       "fails on %j, a check with no specs to check",
       (specs) => {
         expect(() => parse({ ...MINIMAL, specs })).toThrow(
-          ".claude/kodor.yaml: specs.check needs specs.type: openspec",
+          ".claude/lunamill.yaml: specs.check needs specs.type: openspec",
         );
       },
     );
@@ -892,7 +893,7 @@ describe("parseSettings", () => {
       (check) => {
         expect(() =>
           parse({ ...MINIMAL, specs: { type: "openspec", check } }),
-        ).toThrow(".claude/kodor.yaml: specs.check: must be text");
+        ).toThrow(".claude/lunamill.yaml: specs.check: must be text");
       },
     );
   });
@@ -937,10 +938,10 @@ describe("parseSettings", () => {
       "fails on %s that is not a list of text, naming the key",
       (key) => {
         expect(() => commands({ [key]: "npm test" })).toThrow(
-          `.claude/kodor.yaml: commands.${key}: must be a list`,
+          `.claude/lunamill.yaml: commands.${key}: must be a list`,
         );
         expect(() => commands({ [key]: ["npm test", 1] })).toThrow(
-          `.claude/kodor.yaml: commands.${key}[1]: must be text`,
+          `.claude/lunamill.yaml: commands.${key}[1]: must be text`,
         );
       },
     );
@@ -950,7 +951,7 @@ describe("parseSettings", () => {
       (key) => {
         for (const value of ["", 7, null])
           expect(() => commands({ [key]: value })).toThrow(
-            `.claude/kodor.yaml: commands.${key}: must be text`,
+            `.claude/lunamill.yaml: commands.${key}: must be text`,
           );
       },
     );
@@ -962,7 +963,7 @@ describe("parseSettings", () => {
       ["report", { run: "npm run coverage", report: "" }],
     ])("fails on coverage without %s: %j", (key, coverage) => {
       expect(() => commands({ coverage })).toThrow(
-        `.claude/kodor.yaml: commands.coverage.${key}: is required when commands.coverage is written`,
+        `.claude/lunamill.yaml: commands.coverage.${key}: is required when commands.coverage is written`,
       );
     });
   });
@@ -1081,7 +1082,7 @@ describe("parseSettings", () => {
       ],
     ])("fails on an agent where a skill goes: %j", (written, key) => {
       expect(() => plugins(written)).toThrow(
-        `.claude/kodor.yaml: ${key}: names a skill`,
+        `.claude/lunamill.yaml: ${key}: names a skill`,
       );
     });
 
@@ -1093,7 +1094,7 @@ describe("parseSettings", () => {
       [{ test: { reviewers: [{ skill: "a" }] } }, "plugins.test.reviewers[0]"],
     ])("fails on a skill where an agent goes: %j", (written, key) => {
       expect(() => plugins(written)).toThrow(
-        `.claude/kodor.yaml: ${key}: names an agent`,
+        `.claude/lunamill.yaml: ${key}: names an agent`,
       );
     });
 
@@ -1116,7 +1117,7 @@ describe("parseSettings", () => {
       ],
     ])("fails on %j, which leaves out what its role needs", (written, key) => {
       expect(() => plugins(written)).toThrow(
-        `.claude/kodor.yaml: ${key}: is required`,
+        `.claude/lunamill.yaml: ${key}: is required`,
       );
     });
 
@@ -1158,7 +1159,7 @@ describe("parseSettings", () => {
         "plugins.conflicts.resolvers[0].labels",
       ],
     ])("fails on %j, naming the key its role does not take", (written, key) => {
-      expect(() => plugins(written)).toThrow(`.claude/kodor.yaml: ${key}:`);
+      expect(() => plugins(written)).toThrow(`.claude/lunamill.yaml: ${key}:`);
     });
 
     it("fails on a plugin whose file does not exist, naming its role and the file", () => {
@@ -1170,12 +1171,12 @@ describe("parseSettings", () => {
         },
       };
       expect(() => plugins(written, exists)).toThrow(
-        ".claude/kodor.yaml: plugins.build.builders[0].skill: .claude/skills/gone/SKILL.md does not exist",
+        ".claude/lunamill.yaml: plugins.build.builders[0].skill: .claude/skills/gone/SKILL.md does not exist",
       );
       expect(() =>
         plugins({ test: { reviewers: [{ agent: "gone" }] } }, exists),
       ).toThrow(
-        ".claude/kodor.yaml: plugins.test.reviewers[0].agent: .claude/agents/gone.md does not exist",
+        ".claude/lunamill.yaml: plugins.test.reviewers[0].agent: .claude/agents/gone.md does not exist",
       );
     });
 
@@ -1193,11 +1194,11 @@ describe("parseSettings", () => {
     });
 
     describe("the end-to-end reviewer", () => {
-      const e2e = { test: { reviewers: [{ agent: "kodor-e2e-reviewer" }] } };
+      const e2e = { test: { reviewers: [{ agent: "lunamill-e2e-reviewer" }] } };
 
       it("needs commands.end-to-end", () => {
         expect(() => parse({ ...MINIMAL, plugins: e2e })).toThrow(
-          ".claude/kodor.yaml: commands.end-to-end: is required to list kodor-e2e-reviewer",
+          ".claude/lunamill.yaml: commands.end-to-end: is required to list lunamill-e2e-reviewer",
         );
       });
 
@@ -1208,23 +1209,23 @@ describe("parseSettings", () => {
             commands: { "end-to-end": "make e2e" },
             plugins: e2e,
           }).plugins.map((p) => p.name),
-        ).toEqual(["kodor-e2e-reviewer"]);
+        ).toEqual(["lunamill-e2e-reviewer"]);
       });
 
       it("is asked for its command before its file, which no sync writes without the command", () => {
         expect(() => parse({ ...MINIMAL, plugins: e2e }, () => false)).toThrow(
-          "commands.end-to-end: is required to list kodor-e2e-reviewer",
+          "commands.end-to-end: is required to list lunamill-e2e-reviewer",
         );
       });
     });
   });
 });
 
-describe("kodor's own approval policy", () => {
+describe("lunamill's own approval policy", () => {
   const CREDENTIALS = {
     name: "credentials",
     run: "node .claude/approval-policies/credentials/find.mts",
-    agent: "kodor-credentials-reader",
+    agent: "lunamill-credentials-reader",
     in: null,
     files: ["**"],
   };
@@ -1363,13 +1364,13 @@ describe("approval-policies", () => {
       "approval-policies[0].off: must be true",
     ],
   ])("fails on %j, naming the item and what it lacks", (item, words) => {
-    expect(() => policies([item])).toThrow(`.claude/kodor.yaml: ${words}`);
+    expect(() => policies([item])).toThrow(`.claude/lunamill.yaml: ${words}`);
   });
 
   it("fails on two policies of one name", () => {
     const one = { name: "licenses", run: "x", files: ["a"] };
     expect(() => policies([one, one])).toThrow(
-      ".claude/kodor.yaml: approval-policies[1].name: licenses is named twice, here and at [0]",
+      ".claude/lunamill.yaml: approval-policies[1].name: licenses is named twice, here and at [0]",
     );
   });
 
@@ -1380,34 +1381,34 @@ describe("approval-policies", () => {
         () => false,
       ),
     ).toThrow(
-      ".claude/kodor.yaml: approval-policies[0].agent: .claude/agents/gone.md does not exist",
+      ".claude/lunamill.yaml: approval-policies[0].agent: .claude/agents/gone.md does not exist",
     );
   });
 
   it("fails when it is not a list", () => {
     expect(() => policies({ name: "licenses" })).toThrow(
-      ".claude/kodor.yaml: approval-policies: must be a list",
+      ".claude/lunamill.yaml: approval-policies: must be a list",
     );
   });
 });
 
 describe("pluginsOf", () => {
-  const SKILL = ".claude/skills/kodor-design/SKILL.md";
+  const SKILL = ".claude/skills/lunamill-design/SKILL.md";
   const site = { start: "npm start", url: "http://localhost:$PORT" };
   const lines = (raw: object, exists: (p: string) => boolean = () => true) =>
     pluginsOf(parse({ ...MINIMAL, ...raw }), exists).map(
       (p) => `${p.kind} ${p.name} ${p.role}`,
     );
 
-  it("gives kodor's refiner, prover, and test reviewer to a file that names none", () => {
+  it("gives lunamill's refiner, prover, and test reviewer to a file that names none", () => {
     expect(lines({})).toEqual([
-      "skill kodor-refine refiner",
-      "skill kodor-mutate prover",
-      "agent kodor-test-reviewer test-reviewer",
+      "skill lunamill-refine refiner",
+      "skill lunamill-mutate prover",
+      "agent lunamill-test-reviewer test-reviewer",
     ]);
   });
 
-  it("lists every plugin in the roles' order, yours in place of kodor's", () => {
+  it("lists every plugin in the roles' order, yours in place of lunamill's", () => {
     const plugins = {
       conflicts: { resolvers: [{ skill: "regen", files: ["gen/**"] }] },
       test: {
@@ -1438,11 +1439,11 @@ describe("pluginsOf", () => {
   });
 
   it("adds the design skill as a site's mockups, once it is synced", () => {
-    expect(lines({ site })).toContain("skill kodor-design mockups");
+    expect(lines({ site })).toContain("skill lunamill-design mockups");
     expect(lines({ site }, (p) => p !== SKILL)).not.toContain(
-      "skill kodor-design mockups",
+      "skill lunamill-design mockups",
     );
-    expect(lines({})).not.toContain("skill kodor-design mockups");
+    expect(lines({})).not.toContain("skill lunamill-design mockups");
   });
 });
 
@@ -1484,7 +1485,7 @@ function deps(over: Partial<Deps> = {}) {
         CODE_HOST_YAML,
         "tickets:",
         "  board: 3",
-        KODOR_COLUMNS_YAML,
+        LUNAMILL_COLUMNS_YAML,
         "plugins:",
         "  refine:",
         "    mockups:",
@@ -1512,7 +1513,7 @@ function deps(over: Partial<Deps> = {}) {
   return { d, out, err, looks };
 }
 
-describe("kodor config explain", () => {
+describe("lunamill config explain", () => {
   const explain = async (file: string[]) => {
     const r = deps({ readFile: () => file.join("\n") });
     const code = await main(["explain"], r.d);
@@ -1584,7 +1585,7 @@ describe("kodor config explain", () => {
     const r = await explain(SMALL);
     expect(r.code).toBe(0);
     expect(r.out.join("\n")).toMatchInlineSnapshot(`
-      "# The settings in effect. "# default" marks kodor's own value,
+      "# The settings in effect. "# default" marks lunamill's own value,
       # a preset's name marks that preset's, and an unmarked line is yours.
       version: 1
       repository: owner/name
@@ -1609,7 +1610,7 @@ describe("kodor config explain", () => {
           repositories: none                                                       # default
         labels:
           spec: spec                                                               # default
-          kodor: kodor                                                             # default
+          lunamill: lunamill                                                       # default
       code-host:
         type: github
         branch-name: "{ticket}"
@@ -1639,16 +1640,16 @@ describe("kodor config explain", () => {
       plugins:
         refine:
           refiner:                                                                 # default
-            skill: kodor-refine                                                    # default
+            skill: lunamill-refine                                                 # default
           # mockups: none (default)
         build:
           builders: []                                                             # default
           reviewers: []                                                            # default
         test:
           prover:                                                                  # default
-            skill: kodor-mutate                                                    # default
+            skill: lunamill-mutate                                                 # default
           reviewers:                                                               # default
-            - agent: kodor-test-reviewer                                           # default
+            - agent: lunamill-test-reviewer                                        # default
         conflicts:
           resolvers: []                                                            # default
       auto-merge:
@@ -1668,7 +1669,7 @@ describe("kodor config explain", () => {
       approval-policies:
         - name: credentials                                                        # default
           run: node .claude/approval-policies/credentials/find.mts                 # default
-          agent: kodor-credentials-reader                                          # default
+          agent: lunamill-credentials-reader                                       # default
           files:                                                                   # default
             - "**"                                                                 # default"
     `);
@@ -1728,7 +1729,7 @@ describe("kodor config explain", () => {
       "  url: http://localhost:$PORT",
     ]);
     expect(r.out).toContain("  # design-guide: none (default)");
-    expect(r.out).toContain("  # pages: found by kodor (default)");
+    expect(r.out).toContain("  # pages: found by lunamill (default)");
   });
 
   it("prints the ticket-side fields without a board, and no columns or board fields", async () => {
@@ -1778,7 +1779,7 @@ describe("kodor config explain", () => {
     "      skill: our-prover",
     "    reviewers:",
     "      - agent: ours",
-    "      - agent: kodor-e2e-reviewer",
+    "      - agent: lunamill-e2e-reviewer",
     "        files: [e2e/**]",
     "  conflicts:",
     "    resolvers:",
@@ -1802,7 +1803,7 @@ describe("kodor config explain", () => {
     ["plugins, lists, and a site", RICH],
   ])("prints %s so it reads as the same settings", async (_, file) => {
     const r = await explain(file);
-    // The settings in effect: the output writes out kodor's own
+    // The settings in effect: the output writes out lunamill's own
     // plugins, which the file leaves to their defaults.
     const inEffect = (text: string) => {
       const s = parse(load(text));
@@ -1908,7 +1909,7 @@ describe("kodor config explain", () => {
         .slice(out.indexOf("plugins:"), out.indexOf("auto-merge:"))
         .map((l) => l.replace(/ +# default$/, " # default"));
 
-    it("prints them by phase, kodor's own marked as defaults and the empty lists written out", async () => {
+    it("prints them by phase, lunamill's own marked as defaults and the empty lists written out", async () => {
       const r = await explain([
         "version: 1",
         "repository: owner/name",
@@ -1918,16 +1919,16 @@ describe("kodor config explain", () => {
         "plugins:",
         "  refine:",
         "    refiner: # default",
-        "      skill: kodor-refine # default",
+        "      skill: lunamill-refine # default",
         "    # mockups: none (default)",
         "  build:",
         "    builders: [] # default",
         "    reviewers: [] # default",
         "  test:",
         "    prover: # default",
-        "      skill: kodor-mutate # default",
+        "      skill: lunamill-mutate # default",
         "    reviewers: # default",
-        "      - agent: kodor-test-reviewer # default",
+        "      - agent: lunamill-test-reviewer # default",
         "  conflicts:",
         "    resolvers: [] # default",
       ]);
@@ -1941,7 +1942,7 @@ describe("kodor config explain", () => {
         "    refiner:",
         "      skill: our-refiner",
         "    mockups: # default",
-        "      skill: kodor-design # default",
+        "      skill: lunamill-design # default",
         "  build:",
         "    builders:",
         "      - skill: build",
@@ -1957,7 +1958,7 @@ describe("kodor config explain", () => {
         "      skill: our-prover",
         "    reviewers:",
         "      - agent: ours",
-        "      - agent: kodor-e2e-reviewer",
+        "      - agent: lunamill-e2e-reviewer",
         "        files:",
         "          - e2e/**",
         "  conflicts:",
@@ -1979,12 +1980,12 @@ describe("kodor config explain", () => {
       ];
       const r = deps({
         readFile: () => file.join("\n"),
-        exists: (path) => path !== ".claude/skills/kodor-design/SKILL.md",
+        exists: (path) => path !== ".claude/skills/lunamill-design/SKILL.md",
       });
       await main(["explain"], r.d);
       expect(r.out).toContain("    # mockups: none (default)");
       expect((await explain(file)).out).toContainEqual(
-        expect.stringMatching(/^ {6}skill: kodor-design +# default$/),
+        expect.stringMatching(/^ {6}skill: lunamill-design +# default$/),
       );
     });
 
@@ -1999,7 +2000,7 @@ describe("kodor config explain", () => {
       ]);
       expect(plugins(r.out)).toContain("    reviewers: []");
       expect(plugins(r.out)).not.toContain(
-        "      - agent: kodor-test-reviewer # default",
+        "      - agent: lunamill-test-reviewer # default",
       );
     });
   });
@@ -2027,7 +2028,7 @@ describe("kodor config explain", () => {
       every.concat([
         "tickets:",
         "  board: 3",
-        KODOR_COLUMNS_YAML,
+        LUNAMILL_COLUMNS_YAML,
         "pr-review: true",
         "approval-policies:",
         "  - name: licenses",
@@ -2104,7 +2105,7 @@ describe("kodor config explain", () => {
   it("fails as config check does on settings it cannot read", async () => {
     const r = await explain(["version: 3"]);
     expect(r.code).toBe(1);
-    expect(r.err).toEqual([".claude/kodor.yaml: version: must be 1"]);
+    expect(r.err).toEqual([".claude/lunamill.yaml: version: must be 1"]);
     const missing = deps({
       loadYaml: () => Promise.reject(new Error("Cannot find package")),
     });
@@ -2132,11 +2133,11 @@ describe("main", () => {
   it.each([
     [
       'code-host:\n  type: gitlab\n  branch-name: "{ticket}"',
-      '.claude/kodor.yaml: code-host.type "gitlab" is not supported. "github" is the only code host built.',
+      '.claude/lunamill.yaml: code-host.type "gitlab" is not supported. "github" is the only code host built.',
     ],
     [
       `${CODE_HOST_YAML}\nbuilds:\n  runner: buildkite`,
-      '.claude/kodor.yaml: builds.runner "buildkite" is not supported. "github-actions" is the only runner built.',
+      '.claude/lunamill.yaml: builds.runner "buildkite" is not supported. "github-actions" is the only runner built.',
     ],
   ])("fails the check on %s", async (written, message) => {
     const { d, err } = deps({
@@ -2153,7 +2154,7 @@ describe("main", () => {
     });
     expect(await main(["check"], d)).toBe(1);
     expect(err).toEqual([
-      '.claude/kodor.yaml: line 7: verdict-override: owner: pass needs quotes around the name, such as verdict-override: "owner: pass"',
+      '.claude/lunamill.yaml: line 7: verdict-override: owner: pass needs quotes around the name, such as verdict-override: "owner: pass"',
     ]);
   });
 
@@ -2163,7 +2164,7 @@ describe("main", () => {
     });
     expect(await main(["check"], d)).toBe(1);
     expect(err[0]).toMatch(
-      /^\.claude\/kodor\.yaml: deficient indentation \(3:1\)/,
+      /^\.claude\/lunamill\.yaml: deficient indentation \(3:1\)/,
     );
   });
 
@@ -2261,7 +2262,7 @@ describe("main", () => {
       expect(await get(file, key)).toEqual({
         code: 1,
         out: [],
-        err: [`.claude/kodor.yaml: ${key}: not a setting that prints`],
+        err: [`.claude/lunamill.yaml: ${key}: not a setting that prints`],
       });
     });
 
@@ -2300,11 +2301,11 @@ describe("main", () => {
     });
     expect(await main(["check"], d)).toBe(1);
     expect(err).toEqual([
-      ".claude/kodor.yaml: commands.build-setup: must be a list",
+      ".claude/lunamill.yaml: commands.build-setup: must be a list",
     ]);
   });
 
-  describe("kodor plugins", () => {
+  describe("lunamill plugins", () => {
     const BARE = `version: 1\nrepository: owner/name\n${CODE_HOST_YAML}\n`;
     const run = async (argv: string[], file?: string) => {
       const r = deps(file === undefined ? {} : { readFile: () => file });
@@ -2312,14 +2313,14 @@ describe("main", () => {
       return { code, out: r.out, err: r.err };
     };
 
-    it("prints each plugin kodor will use: its kind, name, and role, then its files or labels", async () => {
+    it("prints each plugin lunamill will use: its kind, name, and role, then its files or labels", async () => {
       expect((await run([])).out).toEqual([
-        "skill kodor-refine refiner",
+        "skill lunamill-refine refiner",
         "skill mock mockups",
         "skill build builder new-thing",
         "agent rev reviewer src/** public/**",
-        "skill kodor-mutate prover",
-        "agent kodor-test-reviewer test-reviewer",
+        "skill lunamill-mutate prover",
+        "agent lunamill-test-reviewer test-reviewer",
       ]);
     });
 
@@ -2345,9 +2346,9 @@ describe("main", () => {
       },
     );
 
-    it("prints kodor's refiner when the settings name none", async () => {
+    it("prints lunamill's refiner when the settings name none", async () => {
       expect((await run(["refiner"], BARE)).out).toEqual([
-        "skill kodor-refine refiner",
+        "skill lunamill-refine refiner",
       ]);
     });
 
@@ -2358,9 +2359,9 @@ describe("main", () => {
       ]);
     });
 
-    it("prints kodor's prover when the settings name none", async () => {
+    it("prints lunamill's prover when the settings name none", async () => {
       expect((await run(["prover"], BARE)).out).toEqual([
-        "skill kodor-mutate prover",
+        "skill lunamill-mutate prover",
       ]);
     });
 
@@ -2369,9 +2370,9 @@ describe("main", () => {
       expect((await run(["prover"], file)).out).toEqual(["skill ours prover"]);
     });
 
-    it("prints kodor's test reviewer when the list is not written", async () => {
+    it("prints lunamill's test reviewer when the list is not written", async () => {
       expect((await run(["test-reviewer"], BARE)).out).toEqual([
-        "agent kodor-test-reviewer test-reviewer",
+        "agent lunamill-test-reviewer test-reviewer",
       ]);
     });
 
@@ -2383,10 +2384,10 @@ describe("main", () => {
       ]);
     });
 
-    it("prints kodor's test reviewer when a written list names it", async () => {
-      const file = `${BARE}plugins:\n  test:\n    reviewers:\n      - agent: kodor-test-reviewer\n      - agent: ours\n`;
+    it("prints lunamill's test reviewer when a written list names it", async () => {
+      const file = `${BARE}plugins:\n  test:\n    reviewers:\n      - agent: lunamill-test-reviewer\n      - agent: ours\n`;
       expect((await run(["test-reviewer"], file)).out).toEqual([
-        "agent kodor-test-reviewer test-reviewer",
+        "agent lunamill-test-reviewer test-reviewer",
         "agent ours test-reviewer",
       ]);
     });
@@ -2402,8 +2403,8 @@ describe("main", () => {
   });
 
   describe("the design skill as a website's mockups plugin", () => {
-    const SKILL = ".claude/skills/kodor-design/SKILL.md";
-    const WARNING = `? ${SKILL} is missing: run kodor sync to give the site its design skill`;
+    const SKILL = ".claude/skills/lunamill-design/SKILL.md";
+    const WARNING = `? ${SKILL} is missing: run lunamill sync to give the site its design skill`;
     const settings = (plugins: string[]) =>
       [
         "version: 1",
@@ -2425,7 +2426,7 @@ describe("main", () => {
       });
 
       await main(["plugins", "mockups"], d);
-      expect(out).toEqual(["skill kodor-design mockups"]);
+      expect(out).toEqual(["skill lunamill-design mockups"]);
     });
 
     it("is listed among every plugin, after the refiner", async () => {
@@ -2436,8 +2437,8 @@ describe("main", () => {
 
       await main(["plugins"], d);
       expect(out.slice(0, 2)).toEqual([
-        "skill kodor-refine refiner",
-        "skill kodor-design mockups",
+        "skill lunamill-refine refiner",
+        "skill lunamill-design mockups",
       ]);
     });
 
@@ -2504,7 +2505,7 @@ describe("main", () => {
     const { d, out, err } = deps({ listFiles: () => ["src/a.ts"] });
     expect(await main(["check"], d)).toBe(0);
     expect(err).toEqual([
-      "? .claude/kodor.yaml: plugins.build.reviewers[0].files: public/** matches no file",
+      "? .claude/lunamill.yaml: plugins.build.reviewers[0].files: public/** matches no file",
     ]);
     expect(out).toEqual(["✓ The settings are valid."]);
   });
@@ -2527,7 +2528,7 @@ describe("main", () => {
     const { d, err } = deps({ readFile: () => "version: 2\nrepository: a/b" });
     expect(await main(["check"], d)).toBe(1);
     expect(err).toEqual([
-      ".claude/kodor.yaml: version: must be 1: this file is version 2, see https://github.com/kodor-ai/kodor/blob/main/docs/maintain/upgrade-notes.md#moving-to-kodor",
+      ".claude/lunamill.yaml: version: must be 1: this file is version 2, see https://github.com/lunamill-ai/lunamill/blob/main/docs/maintain/upgrade-notes.md#moving-to-lunamill",
     ]);
   });
 
@@ -2538,7 +2539,7 @@ describe("main", () => {
     expect(await main(["repository"], d)).toBe(1);
     expect(out).toEqual([]);
     expect(err).toEqual([
-      "kodor's settings cannot be read until dependencies are installed: run npm ci.",
+      "lunamill's settings cannot be read until dependencies are installed: run npm ci.",
     ]);
   });
 });
@@ -2615,11 +2616,11 @@ describe("site settings", () => {
       {
         plugins: {
           build: {
-            reviewers: [{ agent: "kodor-ui-reviewer", files: ["src/**"] }],
+            reviewers: [{ agent: "lunamill-ui-reviewer", files: ["src/**"] }],
           },
         },
       },
-      "site: is required to list kodor-ui-reviewer",
+      "site: is required to list lunamill-ui-reviewer",
     ],
   ])("rejects an unsound site", (raw, message) => {
     expect(() => parse({ ...MINIMAL, ...raw })).toThrow(message);
@@ -2715,7 +2716,7 @@ describe("reachOf", () => {
   });
 });
 
-describe("kodor config explain, in color", () => {
+describe("lunamill config explain, in color", () => {
   const dim = (t: string) => `{skip:${t}}`;
   const at = (text: string, mark: string) => `${text.padEnd(26)}# ${mark}`;
 
@@ -2781,7 +2782,7 @@ describe("kodor config explain, in color", () => {
       expect.stringMatching(/^\{skip: {2}type: github +# default\}$/),
     );
     expect(r.looks.slice(0, 3)).toEqual([
-      dim('# The settings in effect. "# default" marks kodor\'s own value,'),
+      dim('# The settings in effect. "# default" marks lunamill\'s own value,'),
       dim(
         "# a preset's name marks that preset's, and an unmarked line is yours.",
       ),
@@ -2796,7 +2797,9 @@ describe("commands by path", () => {
     exists: (p: string) => boolean = () => true,
   ) => parse({ ...MINIMAL, commands: written }, exists).commands;
   const fails = (written: unknown, message: string) =>
-    expect(() => commands(written)).toThrow(`.claude/kodor.yaml: ${message}`);
+    expect(() => commands(written)).toThrow(
+      `.claude/lunamill.yaml: ${message}`,
+    );
 
   it("takes an item with run, in, and files, and in as one folder or a list", () => {
     expect(
@@ -2913,7 +2916,7 @@ describe("commands by path", () => {
     expect(() =>
       commands({ gate: [{ run: "x", in: "services/biling" }] }, () => false),
     ).toThrow(
-      ".claude/kodor.yaml: commands.gate[0].in: services/biling is not a folder",
+      ".claude/lunamill.yaml: commands.gate[0].in: services/biling is not a folder",
     );
   });
 
@@ -2960,7 +2963,7 @@ describe("a list of sites", () => {
     expect(() =>
       parse({ ...MINIMAL, site: [{ ...site, in: "a" }, site] }),
     ).toThrow(
-      ".claude/kodor.yaml: site[1].in: is required when site lists more than one site",
+      ".claude/lunamill.yaml: site[1].in: is required when site lists more than one site",
     );
   });
 });
@@ -3023,13 +3026,13 @@ describe("config check for commands by path", () => {
       "  ignore: [notes/**]",
     ]);
     expect(r.err).toContain(
-      "? .claude/kodor.yaml: commands.gate[0].in: apps/* matches no folder",
+      "? .claude/lunamill.yaml: commands.gate[0].in: apps/* matches no folder",
     );
     expect(r.err).toContain(
-      "? .claude/kodor.yaml: commands.gate[1].files: lib/** matches no file",
+      "? .claude/lunamill.yaml: commands.gate[1].files: lib/** matches no file",
     );
     expect(r.err).toContain(
-      "? .claude/kodor.yaml: commands.ignore: notes/** matches no file",
+      "? .claude/lunamill.yaml: commands.ignore: notes/** matches no file",
     );
   });
 
@@ -3042,7 +3045,7 @@ describe("config check for commands by path", () => {
       "      files: [packages/*/src/**, packages/api/**]",
     ]);
     expect(r.err).toContain(
-      "? .claude/kodor.yaml: commands.gate[0].files: packages/*/src/** is in every folder of packages/*, so a change in one runs all of them; write ./src/** for each folder's own",
+      "? .claude/lunamill.yaml: commands.gate[0].files: packages/*/src/** is in every folder of packages/*, so a change in one runs all of them; write ./src/** for each folder's own",
     );
     expect(r.err.join("\n")).not.toContain(
       "packages/api/** is in every folder",
@@ -3058,7 +3061,7 @@ describe("config check for commands by path", () => {
       "      report: coverage/lcov.info",
     ]);
     expect(r.err).toContain(
-      "? .claude/kodor.yaml: commands.coverage[0].report: coverage/lcov.info is the same file in every folder of packages/*; write ./coverage/lcov.info",
+      "? .claude/lunamill.yaml: commands.coverage[0].report: coverage/lcov.info is the same file in every folder of packages/*; write ./coverage/lcov.info",
     );
   });
 });
@@ -3097,11 +3100,11 @@ describe("config get for commands by path", () => {
     ]);
   });
 
-  it("fails on coverage.run for a list, naming kodor coverage", async () => {
+  it("fails on coverage.run for a list, naming lunamill coverage", async () => {
     const r = await get(ITEMS, "commands.coverage.run");
     expect(r.code).toBe(1);
     expect(r.err).toEqual([
-      ".claude/kodor.yaml: commands.coverage.run: commands.coverage is a list: run kodor coverage, which runs each",
+      ".claude/lunamill.yaml: commands.coverage.run: commands.coverage is a list: run lunamill coverage, which runs each",
     ]);
   });
 

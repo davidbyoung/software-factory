@@ -1,11 +1,11 @@
 #!/usr/bin/env node
-// kodor's settings, from `.claude/kodor.yaml`. This is the one place
+// lunamill's settings, from `.claude/lunamill.yaml`. This is the one place
 // they are read: a command loads them once when it starts and passes down
 // what its functions need, and nothing under src/lib/ loads them.
 //
-//   kodor config get KEY     # e.g. repository, tickets.board
-//   kodor plugins [ROLE]     # kind, name, role, files or labels
-//   kodor config check       # ✓ The settings are valid., or what is wrong
+//   lunamill config get KEY     # e.g. repository, tickets.board
+//   lunamill plugins [ROLE]     # kind, name, role, files or labels
+//   lunamill config check       # ✓ The settings are valid., or what is wrong
 //
 // A list prints one item per line. A failure names the key and exits 1.
 import { execFileSync } from "node:child_process";
@@ -49,10 +49,10 @@ export class SettingsError extends Error {}
 export class UnknownKeyError extends SettingsError {}
 
 /** A name under `presets` that is no preset's, or is not pinned yet:
- * `kodor sync` and the preset commands print it with their mark. */
+ * `lunamill sync` and the preset commands print it with their mark. */
 export class PresetsError extends SettingsError {}
 
-/** What a plugin does, in the order `kodor plugins` prints them. */
+/** What a plugin does, in the order `lunamill plugins` prints them. */
 export const ROLES = [
   "refiner",
   "mockups",
@@ -179,11 +179,11 @@ export type Settings = {
     columns: Record<StateKey, readonly string[] | null>;
     /** The board's field for each of three the sync writes, null for none. */
     fields: Record<FieldKey, string | null>;
-    /** Each ticket-side key under `tickets.fields`, the four kodor fields
+    /** Each ticket-side key under `tickets.fields`, the four lunamill fields
      * first and then any heading of the repository's own, with the ticket
      * field that holds it, or null for the description. */
     ticketFields: FieldMapping;
-    /** The name of each label kodor puts on tickets. */
+    /** The name of each label lunamill puts on tickets. */
     labels: Labels["tickets"];
   };
   /** Where pull requests are, and the pattern a build's branch is named
@@ -192,7 +192,7 @@ export type Settings = {
   codeHost: {
     type: string;
     branchName: string | null;
-    /** The name of each label kodor puts on pull requests. */
+    /** The name of each label lunamill puts on pull requests. */
     labels: Labels["codeHost"];
   };
   builds: {
@@ -234,7 +234,7 @@ export type Settings = {
     ignore: string[];
   };
   /** The plugins the settings name, in the roles' order. `pluginsOf` adds
-   * kodor's own for each role left out. */
+   * lunamill's own for each role left out. */
   plugins: Plugin[];
   /** Whether `plugins.test.reviewers` is written. Written, it is the whole
    * list of test reviewers, even when it is empty. */
@@ -242,12 +242,12 @@ export type Settings = {
   autoMerge: { allow: string[]; deny: string[]; commands: string[] };
   /** Whether the pull request review is on: `pr-review: true`. */
   prReview: boolean;
-  /** How kodor looks at the repository's websites; empty when the
+  /** How lunamill looks at the repository's websites; empty when the
    * repository has none. */
   sites: Site[];
   /** How long each kind of unattended session may run, in minutes. */
   sessionMinutes: Record<SessionKind, number>;
-  /** The numbers the process rules use, which `kodor sync` writes into
+  /** The numbers the process rules use, which `lunamill sync` writes into
    * the copies of the rules and skills that state them. */
   rules: { smallChangeLines: number; reviewRounds: number };
   /** The checks whose findings wait for a person's approval on a pull
@@ -334,9 +334,9 @@ export const ACCESSIBILITY = [
 export type Accessibility = (typeof ACCESSIBILITY)[number];
 
 /** The agent that needs `site`. */
-export const SITE_AGENT = "kodor-ui-reviewer";
+export const SITE_AGENT = "lunamill-ui-reviewer";
 /** The agent that needs `commands.end-to-end`. */
-export const E2E_AGENT = "kodor-e2e-reviewer";
+export const E2E_AGENT = "lunamill-e2e-reviewer";
 /** `commands.relock` where none is written. */
 export const DEFAULT_RELOCK = "npm install";
 export const NO_PLAYWRIGHT = "site needs Playwright: npm install -D playwright";
@@ -502,7 +502,7 @@ function parseSites(
   return sites;
 }
 
-/** `kodor config get site`: every key in the table's order. */
+/** `lunamill config get site`: every key in the table's order. */
 export function siteLines(site: Site): string[] {
   const show = (v: string | number | boolean | string[] | null) =>
     Array.isArray(v) ? v.join(", ") || "none" : v === null ? "none" : String(v);
@@ -532,7 +532,7 @@ export function repoRoot(from = process.cwd()): string {
     if (dirname(dir) === dir) return from;
   }
 }
-export const SETTINGS_FILE = ".claude/kodor.yaml";
+export const SETTINGS_FILE = ".claude/lunamill.yaml";
 
 type Obj = Record<string, unknown>;
 
@@ -689,7 +689,7 @@ function sameNames(
 /** A key under `tickets.fields` naming a heading of the repository's own. */
 export const OWN_HEADING = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
-/** The ticket-side keys under `tickets.fields`: kodor fields and the
+/** The ticket-side keys under `tickets.fields`: lunamill fields and the
  * repositories, each a ticket field's name or none, and any other key a heading of the
  * repository's own. Spec and Acceptance criteria may share a field. */
 function ticketFieldsOf(o: Obj): FieldMapping {
@@ -722,9 +722,9 @@ function ticketFieldsOf(o: Obj): FieldMapping {
 }
 
 /** Each state's columns: a name, a list of names, or none. With a board,
- * every state is written, since kodor's own names describe one
+ * every state is written, since lunamill's own names describe one
  * board and a state left to them would read any other wrong. Without one,
- * each state keeps its own name, for the comments and `kodor status`.
+ * each state keeps its own name, for the comments and `lunamill status`.
  * `partial` lets a board's block leave states out, each read as no column
  * and listed in `missing`, for init alone, which fills them in. Only an
  * approved ticket goes to ready, so it takes one name. */
@@ -752,8 +752,8 @@ function columnNames(
     fail(
       "tickets.columns",
       board === null
-        ? `is required with tickets.type: ${statusesOf}: run kodor init to choose which status shows each state`
-        : `is required with tickets.board: run kodor init to choose which of board ${board}'s columns shows each state`,
+        ? `is required with tickets.type: ${statusesOf}: run lunamill init to choose which status shows each state`
+        : `is required with tickets.board: run lunamill init to choose which of board ${board}'s columns shows each state`,
     );
   const o = empty ? {} : object(v, "tickets.columns");
   const missing = states.map(([k]) => k).filter((k) => o[k] === undefined);
@@ -761,8 +761,8 @@ function columnNames(
     fail(
       "tickets.columns",
       missing.length === 1
-        ? `${missing[0]} has no column: give it a column, a list of columns, or none, or run kodor init to choose it`
-        : `${listed(missing)} have no column: give each a column, a list of columns, or none, or run kodor init to choose them`,
+        ? `${missing[0]} has no column: give it a column, a list of columns, or none, or run lunamill init to choose it`
+        : `${listed(missing)} have no column: give each a column, a list of columns, or none, or run lunamill init to choose them`,
     );
   const out = {} as Record<StateKey, readonly string[] | null>;
   for (const [k] of states) {
@@ -799,7 +799,7 @@ function branchNameOf(v: unknown, partial: boolean): string | null {
     if (partial) return null;
     return fail(
       key,
-      `is required. Run kodor init to set it, or add it, such as ${QUOTED_EXAMPLE}`,
+      `is required. Run lunamill init to set it, or add it, such as ${QUOTED_EXAMPLE}`,
     );
   }
   if (isObj(v))
@@ -1133,25 +1133,25 @@ function commandsOf(
 }
 
 /** The approval policy every repository has unless it names one of the same
- * name: `kodor sync` writes its two files. */
-export const KODOR_POLICY: ApprovalPolicy = {
+ * name: `lunamill sync` writes its two files. */
+export const LUNAMILL_POLICY: ApprovalPolicy = {
   name: "credentials",
   run: "node .claude/approval-policies/credentials/find.mts",
-  agent: "kodor-credentials-reader",
+  agent: "lunamill-credentials-reader",
   in: null,
   files: ["**"],
 };
 
 /** `approval-policies` as written, those turned off with `off: true` left
- * out, and kodor's own after them when nothing names it. An agent's
- * file is checked as a plugin's is, but kodor's own, which the sync
+ * out, and lunamill's own after them when nothing names it. An agent's
+ * file is checked as a plugin's is, but lunamill's own, which the sync
  * writes after reading these. */
 function approvalPoliciesOf(
   v: unknown,
   preset: boolean,
   exists: (p: string) => boolean,
 ): ApprovalPolicy[] {
-  const factory = preset ? [] : [KODOR_POLICY];
+  const factory = preset ? [] : [LUNAMILL_POLICY];
   if (v === undefined) return factory;
   if (!Array.isArray(v)) return fail("approval-policies", "must be a list");
   const named = new Map<string, number>();
@@ -1186,7 +1186,11 @@ function approvalPoliciesOf(
     const files = patternsOf(o.files, `${key}.files`);
     if (folders === null && files === null)
       fail(key, "needs in, files, or both, to say which changes set it off");
-    if (typeof agent === "string" && !preset && agent !== KODOR_POLICY.agent) {
+    if (
+      typeof agent === "string" &&
+      !preset &&
+      agent !== LUNAMILL_POLICY.agent
+    ) {
       const path = `.claude/agents/${agent}.md`;
       if (!exists(path)) fail(`${key}.agent`, `${path} does not exist`);
     }
@@ -1200,7 +1204,7 @@ function approvalPoliciesOf(
       },
     ];
   });
-  return named.has(KODOR_POLICY.name) ? written : [...written, ...factory];
+  return named.has(LUNAMILL_POLICY.name) ? written : [...written, ...factory];
 }
 
 /** The settings with every default filled in. Throws a SettingsError naming
@@ -1224,7 +1228,7 @@ export function parseSettings(
     if (written.version === 2)
       fail(
         "version",
-        `must be 1: this file is version 2, see ${docsPage(installedVersion(), DOCS_PAGES.movingToKodor)}`,
+        `must be 1: this file is version 2, see ${docsPage(installedVersion(), DOCS_PAGES.movingToLunamill)}`,
       );
     if (written.version !== 1) fail("version", "must be 1");
     for (const key of ["before-commit", "build-setup"])
@@ -1414,7 +1418,7 @@ export function parseSettings(
   const sites = parseSites(top.site, exists, preset);
   const commands = commandsOf(top.commands, preset, exists);
   const { plugins, testReviewersWritten } = pluginsWritten(top.plugins);
-  // What an agent of kodor's needs comes before its file: the sync
+  // What an agent of lunamill's needs comes before its file: the sync
   // writes the file only once the setting is there.
   const lists = (agent: string) =>
     plugins.some((p) => p.kind === "agent" && p.name === agent);
@@ -1628,7 +1632,7 @@ export function uncoveredLines(
 type YamlLoad = (text: string) => unknown;
 
 export type Deps = {
-  /** `.claude/kodor.yaml`, or the file KODOR_SETTINGS names. */
+  /** `.claude/lunamill.yaml`, or the file LUNAMILL_SETTINGS names. */
   readFile: () => string;
   exists: (path: string) => boolean;
   /** Whether an npm package resolves from the repository's root. */
@@ -1641,7 +1645,7 @@ export type Deps = {
    * `check` stops on a stale one. Unset, they are resolved from the files
    * the lock is made from. */
   lock?: { read: () => string | null; check: boolean };
-  /** `.claude/kodor.choices.yaml`, null when there is none. */
+  /** `.claude/lunamill.choices.yaml`, null when there is none. */
   readChoices?: () => string | null;
   /** The text of `.npmrc` at the root, or null. Read from disk unless
    * given. */
@@ -1657,7 +1661,7 @@ export type Deps = {
 };
 
 export const NO_DEPENDENCIES =
-  "kodor's settings cannot be read until dependencies are installed: run npm ci.";
+  "lunamill's settings cannot be read until dependencies are installed: run npm ci.";
 
 /** js-yaml is loaded when needed, so a checkout without dependencies gets
  * one line saying what to do rather than a stack trace. */
@@ -1678,13 +1682,13 @@ const readOrNull = (path: string) => {
 };
 
 /** The settings resolved from the files the lock is made from: the
- * presets, `.claude/kodor.yaml`, and the choices between them. */
+ * presets, `.claude/lunamill.yaml`, and the choices between them. */
 export type Resolved = {
   settings: Settings;
   resolution: import("./preset.mts").Resolution;
   /** Each preset listed, as the lock pins it. */
   presets: import("./preset.mts").Pinned[];
-  /** `.claude/kodor.yaml` as written, and its text. */
+  /** `.claude/lunamill.yaml` as written, and its text. */
   own: Record<string, unknown>;
   ownText: string;
   choices: Record<string, string>;
@@ -1701,7 +1705,7 @@ export function parseChoices(
   if (text === null) return {};
   const bad = () =>
     new SettingsError(
-      '.claude/kodor.choices.yaml: each line must be KEY: "PRESET"',
+      '.claude/lunamill.choices.yaml: each line must be KEY: "PRESET"',
     );
   let v: unknown;
   try {
@@ -1740,11 +1744,11 @@ export function readYaml(text: string, name: string, load: YamlLoad): unknown {
   }
 }
 
-/** The settings combined from kodor's defaults, each preset in
- * `presets` as the lock pins it, and `.claude/kodor.yaml`, as
- * `kodor sync` combines them into the lock. No preset's repository is
+/** The settings combined from lunamill's defaults, each preset in
+ * `presets` as the lock pins it, and `.claude/lunamill.yaml`, as
+ * `lunamill sync` combines them into the lock. No preset's repository is
  * read. `factoryFile` and `ownFile` say which preset files are kept back:
- * kodor's own, and the repository's own. */
+ * lunamill's own, and the repository's own. */
 export async function resolveFiles(
   d: Deps,
   {
@@ -1793,7 +1797,7 @@ export async function resolveFiles(
     const pin = pins.find((p) => p.name === name);
     if (!pin)
       throw new PresetsError(
-        `presets: ${name} is not pinned yet. Run: kodor preset add ${name}`,
+        `presets: ${name} is not pinned yet. Run: lunamill preset add ${name}`,
       );
     const fault = P.pinnedFaults(pin).find((f) => f.kind !== "value");
     if (fault) throw new SettingsError(`${name}: ${fault.text}`);
@@ -1866,7 +1870,7 @@ function withPoller(s: Settings, pollerIn: string | undefined): Settings {
 }
 
 /** A fault the settings' check found in a value a preset gave, named by
- * that preset rather than by `.claude/kodor.yaml`. Where the value's
+ * that preset rather than by `.claude/lunamill.yaml`. Where the value's
  * source does not say whose it is, as in a list, `alone` gives the fault
  * as the preset that has it by itself would be told it. */
 function fromPreset(
@@ -1950,7 +1954,7 @@ async function fromLock(
   };
 }
 
-/** The lines of the lock's `settings` block, as `kodor config explain`
+/** The lines of the lock's `settings` block, as `lunamill config explain`
  * printed them when the lock was written. */
 export function lockSettingsLines(text: string): string[] {
   const lines = text.split("\n");
@@ -1964,17 +1968,17 @@ export function lockSettingsLines(text: string): string[] {
   return out;
 }
 
-/** The settings file: KODOR_SETTINGS where it is set, for trying settings
+/** The settings file: LUNAMILL_SETTINGS where it is set, for trying settings
  * against a board without changing the repository's, and otherwise the
  * repository's own. */
 export const settingsPath = (
   root: string,
   env: Record<string, string | undefined> = process.env,
-) => env.KODOR_SETTINGS || `${root}/${SETTINGS_FILE}`;
+) => env.LUNAMILL_SETTINGS || `${root}/${SETTINGS_FILE}`;
 
 /** The settings of the checkout at `root`, read from its lock, or from
- * the lock KODOR_LOCK names without checking it is current, or from the
- * settings file KODOR_SETTINGS names with no lock at all: no lock pins
+ * the lock LUNAMILL_LOCK names without checking it is current, or from the
+ * settings file LUNAMILL_SETTINGS names with no lock at all: no lock pins
  * a preset for that file, so it can list none. */
 export const defaultDeps = (
   root = repoRoot(),
@@ -1983,22 +1987,22 @@ export const defaultDeps = (
   readFile: () => readFileSync(settingsPath(root, env), "utf8"),
   root,
   readChoices: () =>
-    env.KODOR_SETTINGS
+    env.LUNAMILL_SETTINGS
       ? null
-      : readOrNull(join(root, ".claude/kodor.choices.yaml")),
+      : readOrNull(join(root, ".claude/lunamill.choices.yaml")),
   readLock: () => {
-    if (env.KODOR_SETTINGS)
+    if (env.LUNAMILL_SETTINGS)
       throw new SettingsError(
-        "KODOR_SETTINGS: presets are read through the lock. Use KODOR_LOCK",
+        "LUNAMILL_SETTINGS: presets are read through the lock. Use LUNAMILL_LOCK",
       );
-    return readOrNull(join(root, ".claude/kodor.lock"));
+    return readOrNull(join(root, ".claude/lunamill.lock"));
   },
-  lock: env.KODOR_LOCK
-    ? { read: () => readOrNull(env.KODOR_LOCK!), check: false }
-    : env.KODOR_SETTINGS
+  lock: env.LUNAMILL_LOCK
+    ? { read: () => readOrNull(env.LUNAMILL_LOCK!), check: false }
+    : env.LUNAMILL_SETTINGS
       ? undefined
       : {
-          read: () => readOrNull(join(root, ".claude/kodor.lock")),
+          read: () => readOrNull(join(root, ".claude/lunamill.lock")),
           check: true,
         },
   changed: () => {
@@ -2010,7 +2014,7 @@ export const defaultDeps = (
           "--porcelain",
           "--",
           SETTINGS_FILE,
-          ".claude/kodor.choices.yaml",
+          ".claude/lunamill.choices.yaml",
         ],
         { cwd: root, encoding: "utf8" },
       )
@@ -2120,13 +2124,13 @@ const COMMAND_KEYS: Record<
  * nothing. */
 const UNSET_PRINTS_NONE = ["test-one", "end-to-end", "coverage", "relock"];
 
-/** kodor's design skill, which `kodor sync` writes where there is a
+/** lunamill's design skill, which `lunamill sync` writes where there is a
  * site. */
-const DESIGN_SKILL = ".claude/skills/kodor-design/SKILL.md";
+const DESIGN_SKILL = ".claude/skills/lunamill-design/SKILL.md";
 
-/** Every plugin kodor will use, in the roles' order: the settings'
- * own, and kodor's for each role they leave out. The refiner and the
- * prover are always there. kodor's test reviewer is there unless the
+/** Every plugin lunamill will use, in the roles' order: the settings'
+ * own, and lunamill's for each role they leave out. The refiner and the
+ * prover are always there. lunamill's test reviewer is there unless the
  * settings write the list. Its design skill is the mockups plugin of a
  * site that names none, once it is synced. */
 export function pluginsOf(
@@ -2141,17 +2145,17 @@ export function pluginsOf(
     labels: [],
   });
   const fallback: Record<Role, Plugin[]> = {
-    refiner: [builtIn("skill", "kodor-refine", "refiner")],
+    refiner: [builtIn("skill", "lunamill-refine", "refiner")],
     mockups:
       s.sites.length > 0 && exists(DESIGN_SKILL)
-        ? [builtIn("skill", "kodor-design", "mockups")]
+        ? [builtIn("skill", "lunamill-design", "mockups")]
         : [],
     builder: [],
     reviewer: [],
-    prover: [builtIn("skill", "kodor-mutate", "prover")],
+    prover: [builtIn("skill", "lunamill-mutate", "prover")],
     "test-reviewer": s.testReviewersWritten
       ? []
-      : [builtIn("agent", "kodor-test-reviewer", "test-reviewer")],
+      : [builtIn("agent", "lunamill-test-reviewer", "test-reviewer")],
     resolver: [],
   };
   return ROLES.flatMap((role) => {
@@ -2165,7 +2169,7 @@ export async function main(argv: string[], d: Deps): Promise<number> {
   if (!command) {
     d.err(
       say.text(
-        "Usage: kodor config get KEY | config check | config explain | plugins [ROLE]",
+        "Usage: lunamill config get KEY | config check | config explain | plugins [ROLE]",
       ),
     );
     return 2;
@@ -2207,7 +2211,7 @@ export async function main(argv: string[], d: Deps): Promise<number> {
         d.err(
           say.mark("look", [
             `${DESIGN_SKILL} is missing: run `,
-            say.copy("kodor sync"),
+            say.copy("lunamill sync"),
             " to give the site its design skill",
           ]),
         );
@@ -2227,7 +2231,7 @@ export async function main(argv: string[], d: Deps): Promise<number> {
           );
     // Printed only: the lock holds the settings, not how to read them.
     const header = [
-      '# The settings in effect. "# default" marks kodor\'s own value,',
+      '# The settings in effect. "# default" marks lunamill\'s own value,',
       "# a preset's name marks that preset's, and an unmarked line is yours.",
     ];
     for (const line of explainedLines([...header, ...lines])) d.out(line);
@@ -2267,7 +2271,7 @@ export async function main(argv: string[], d: Deps): Promise<number> {
     if (more.length > 0 || (one && hasPaths(one))) {
       d.err(
         say.text(
-          `${SETTINGS_FILE}: ${command}: commands.coverage is a list: run kodor coverage, which runs each`,
+          `${SETTINGS_FILE}: ${command}: commands.coverage is a list: run lunamill coverage, which runs each`,
         ),
       );
       return 1;
@@ -2328,8 +2332,8 @@ export async function main(argv: string[], d: Deps): Promise<number> {
   return 0;
 }
 
-/** `kodor config get KEY`, `kodor config check`, and
- * `kodor plugins [ROLE]`. */
+/** `lunamill config get KEY`, `lunamill config check`, and
+ * `lunamill plugins [ROLE]`. */
 export async function run(argv: string[]): Promise<number> {
   const words = ["check", "explain"].includes(argv[0] ?? "")
     ? `config ${argv[0]}`
@@ -2345,11 +2349,11 @@ export type Target = {
   watch: Watch | null;
   /** The column each state shows in on the board. */
   columns: Columns;
-  /** The name of the label on every ticket kodor works on. */
-  kodor: string;
+  /** The name of the label on every ticket lunamill works on. */
+  lunamill: string;
 };
 
-/** The settings' answer, with KODOR_BOARD_NUMBER winning where it is
+/** The settings' answer, with LUNAMILL_BOARD_NUMBER winning where it is
  * set. A run's own name for the repository does not: the command acts on
  * the repository of the checkout it runs in. */
 export function targetOf(
@@ -2358,12 +2362,12 @@ export function targetOf(
 ): Target {
   return {
     repository: s.repository,
-    board: env.KODOR_BOARD_NUMBER
-      ? Number(env.KODOR_BOARD_NUMBER)
+    board: env.LUNAMILL_BOARD_NUMBER
+      ? Number(env.LUNAMILL_BOARD_NUMBER)
       : s.tickets.board,
     watch: watchOf(s.builds.trigger, s.builds.pollMinutes, s.builds.pollerIn),
     columns: columnsOf(s),
-    kodor: s.tickets.labels.kodor,
+    lunamill: s.tickets.labels.lunamill,
   };
 }
 

@@ -35,8 +35,8 @@ import {
 import { into } from "./printed";
 import { CODE_HOST_YAML } from "./settings-fixture";
 
-const OWN = ".claude/kodor.yaml";
-const PRESET = "kodor-preset.yaml";
+const OWN = ".claude/lunamill.yaml";
+const PRESET = "lunamill-preset.yaml";
 
 let root = "";
 afterEach(() => {
@@ -89,7 +89,7 @@ const presetDepsAt = (cwd: string, said: string[]) => ({
 });
 
 const OWN_READERS: Record<string, Reader> = {
-  "kodor sync": {
+  "lunamill sync": {
     named: OWN,
     read: async (file) => {
       root = repo(file);
@@ -107,7 +107,7 @@ const OWN_READERS: Record<string, Reader> = {
       return { code, said };
     },
   },
-  "kodor config check": {
+  "lunamill config check": {
     named: OWN,
     read: async (file) => {
       root = repo(file);
@@ -116,7 +116,7 @@ const OWN_READERS: Record<string, Reader> = {
       return { code, said: r.err };
     },
   },
-  "kodor init": {
+  "lunamill init": {
     named: OWN,
     read: async (file) => {
       root = repo(own([]));
@@ -127,7 +127,7 @@ const OWN_READERS: Record<string, Reader> = {
 };
 
 const PRESET_READERS: Record<string, Reader> = {
-  "kodor preset check": {
+  "lunamill preset check": {
     named: PRESET,
     read: async (file) => {
       root = repo(own([]));
@@ -140,7 +140,7 @@ const PRESET_READERS: Record<string, Reader> = {
       return { code, said };
     },
   },
-  "kodor preset add": {
+  "lunamill preset add": {
     named: ACME,
     read: async (file) => {
       root = repo(own([]));
@@ -150,7 +150,7 @@ const PRESET_READERS: Record<string, Reader> = {
       return { code, said };
     },
   },
-  "kodor update": {
+  "lunamill update": {
     named: ACME,
     read: async (file) => {
       root = repo(own([]));
@@ -174,7 +174,7 @@ const PRESET_READERS: Record<string, Reader> = {
       return { code, said };
     },
   },
-  "kodor init --org": {
+  "lunamill init --org": {
     named: PRESET,
     read: async (file) => {
       root = repo(own([]));
@@ -226,7 +226,7 @@ const PRESET_READERS: Record<string, Reader> = {
           fetch: async () => {
             throw new Error("read the board");
           },
-          env: { GITHUB_REPOSITORY: "acme/kodor-config" },
+          env: { GITHUB_REPOSITORY: "acme/lunamill-config" },
           now: () => 0,
           log: (line) => said.push(line),
           marker: () => "st_0123456789ab",
@@ -293,7 +293,7 @@ describe.each(Object.entries({ ...OWN_READERS, ...PRESET_READERS }))(
     it("refuses an older version in the shared words", () =>
       readIt(
         file([]).replace("version: 1", "version: 2"),
-        "version: must be 1: this file is version 2, see https://github.com/kodor-ai/kodor/blob/main/docs/maintain/upgrade-notes.md#moving-to-kodor",
+        "version: must be 1: this file is version 2, see https://github.com/lunamill-ai/lunamill/blob/main/docs/maintain/upgrade-notes.md#moving-to-lunamill",
       ));
 
     it("refuses a file YAML cannot read in YAML's own words", async () => {
@@ -314,22 +314,22 @@ describe.each(Object.entries({ ...OWN_READERS, ...PRESET_READERS }))(
   },
 );
 
-it("kodor config check reads no settings from the old settings file", async () => {
+it("lunamill config check reads no settings from the old settings file", async () => {
   root = repo(own([]));
   renameSync(`${root}/${OWN}`, `${root}/.claude/factory.yaml`);
   const r = deps(root);
   expect(await config(["check"], r.d)).toBe(1);
   expect(r.err).toEqual([
-    expect.stringMatching(/^\.claude\/kodor\.yaml: ENOENT: /),
+    expect.stringMatching(/^\.claude\/lunamill\.yaml: ENOENT: /),
   ]);
 });
 
-it("kodor config check names the settings file when there is none to read", async () => {
+it("lunamill config check names the settings file when there is none to read", async () => {
   root = repo(own([]));
   rmSync(`${root}/${OWN}`);
   const r = deps(root);
   expect(await config(["check"], r.d)).toBe(1);
   expect(r.err).toEqual([
-    expect.stringMatching(/^\.claude\/kodor\.yaml: ENOENT: /),
+    expect.stringMatching(/^\.claude\/lunamill\.yaml: ENOENT: /),
   ]);
 });

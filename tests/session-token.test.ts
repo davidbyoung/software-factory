@@ -15,7 +15,7 @@ const KEY = privateKey.export({ type: "pkcs1", format: "pem" }).toString();
 const NOW = Date.UTC(2026, 10, 23, 12, 0, 0);
 const MINUTE = 60 * 1000;
 const NOT_INSTALLED =
-  "kodor's app for acme is not installed on acme/web. An owner of acme adds it: https://github.com/organizations/acme/settings/installations";
+  "lunamill's app for acme is not installed on acme/web. An owner of acme adds it: https://github.com/organizations/acme/settings/installations";
 
 type Answer = { status: number; body: unknown };
 const ok = (body: unknown): Answer => ({ status: 200, body });
@@ -47,7 +47,7 @@ function world(
   const answer = (url: string): Answer => {
     if (url.endsWith("/repos/acme/web/installation"))
       return o.installation ?? ok({ id: 52811 });
-    if (url.endsWith("/app")) return ok({ slug: "kodor-acme" });
+    if (url.endsWith("/app")) return ok({ slug: "lunamill-acme" });
     if (url.endsWith("/app/installations/52811/access_tokens")) {
       const next = tokens.shift() ?? ok({ token: "ghs_last" });
       const { token } = next.body as { token?: string };
@@ -58,8 +58,8 @@ function world(
   };
   const w: World = {
     env: {
-      KODOR_APP_CLIENT_ID: "Iv23client",
-      KODOR_APP_PRIVATE_KEY: KEY,
+      LUNAMILL_APP_CLIENT_ID: "Iv23client",
+      LUNAMILL_APP_PRIVATE_KEY: KEY,
       ...o.env,
     },
     fetch: (async (input: unknown, init: RequestInit = {}) => {
@@ -86,7 +86,7 @@ function world(
       },
     },
     repository: "acme/web",
-    repositories: ["web", "kodor-config"],
+    repositories: ["web", "lunamill-config"],
     out: (line) => out.push(line),
     output: (line) => output.push(line),
   };
@@ -108,7 +108,7 @@ function world(
 const signedIn = (cli: { args: string[]; input: string | null }[]) =>
   cli.filter((c) => c.args[1] === "login").map((c) => c.input);
 
-describe("kodor session token", () => {
+describe("lunamill session token", () => {
   it("signs the GitHub CLI and git in with a token for the run's repositories, and names the app's bot for a later step", async () => {
     const t = world();
 
@@ -118,7 +118,7 @@ describe("kodor session token", () => {
       repositories: string[];
       permissions: Record<string, string>;
     };
-    expect(asked.repositories).toEqual(["web", "kodor-config"]);
+    expect(asked.repositories).toEqual(["web", "lunamill-config"]);
     expect(asked.permissions).toMatchObject({ contents: "write" });
     expect(asked.permissions).not.toHaveProperty(
       "repository_custom_properties",
@@ -128,9 +128,9 @@ describe("kodor session token", () => {
       "auth setup-git",
     ]);
     expect(signedIn(t.cli)).toEqual(["ghs_1"]);
-    expect(t.output).toEqual(["slug=kodor-acme"]);
+    expect(t.output).toEqual(["slug=lunamill-acme"]);
     expect(t.out).toEqual([
-      "Signed the GitHub CLI and git in as kodor-acme[bot].",
+      "Signed the GitHub CLI and git in as lunamill-acme[bot].",
     ]);
     expect(t.slept).toEqual([]);
   });
@@ -159,15 +159,15 @@ describe("kodor session token", () => {
   });
 
   it.each([
-    ["the client ID", { KODOR_APP_CLIENT_ID: "" }],
-    ["the key", { KODOR_APP_PRIVATE_KEY: "" }],
+    ["the client ID", { LUNAMILL_APP_CLIENT_ID: "" }],
+    ["the key", { LUNAMILL_APP_PRIVATE_KEY: "" }],
   ])("fails, asking GitHub nothing, without %s", async (_, env) => {
     const t = world({ env });
 
     expect(await main(t.w)).toBe(1);
 
     expect(t.out).toEqual([
-      "::error::KODOR_APP_CLIENT_ID and KODOR_APP_PRIVATE_KEY do not both reach this step.",
+      "::error::LUNAMILL_APP_CLIENT_ID and LUNAMILL_APP_PRIVATE_KEY do not both reach this step.",
     ]);
     expect(t.asked).toEqual([]);
   });
@@ -200,8 +200,8 @@ describe("what the command prints, hands to a later step, and gives the CLI as a
 
 // The command itself: with no key in its environment it stops before it
 // asks GitHub anything, so it runs with no network.
-describe("kodor session token, as the workflow's step runs it", () => {
-  const CLI = join(import.meta.dirname, "..", "bin", "kodor.js");
+describe("lunamill session token, as the workflow's step runs it", () => {
+  const CLI = join(import.meta.dirname, "..", "bin", "lunamill.js");
 
   it("fails with one line when the app's key does not reach it", () => {
     const r = spawnSync("node", [CLI, "session", "token"], {
@@ -209,14 +209,14 @@ describe("kodor session token, as the workflow's step runs it", () => {
       env: {
         ...process.env,
         GITHUB_REPOSITORY: "acme/web",
-        KODOR_APP_CLIENT_ID: "Iv23client",
-        KODOR_APP_PRIVATE_KEY: "",
+        LUNAMILL_APP_CLIENT_ID: "Iv23client",
+        LUNAMILL_APP_PRIVATE_KEY: "",
       },
     });
 
     expect({ code: r.status, out: r.stdout, err: r.stderr }).toEqual({
       code: 1,
-      out: "::error::KODOR_APP_CLIENT_ID and KODOR_APP_PRIVATE_KEY do not both reach this step.\n",
+      out: "::error::LUNAMILL_APP_CLIENT_ID and LUNAMILL_APP_PRIVATE_KEY do not both reach this step.\n",
       err: "",
     });
   });

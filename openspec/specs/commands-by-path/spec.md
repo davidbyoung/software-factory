@@ -2,13 +2,13 @@
 
 ## Purpose
 
-Commands for some folders: a command under `commands` written as an item with `in` and `files`, which folders it runs in and which changed files set it off, what each setting reads as the change, the rule that a changed file nothing covers runs every command, `commands.ignore`, and what `kodor config check` says about them.
+Commands for some folders: a command under `commands` written as an item with `in` and `files`, which folders it runs in and which changed files set it off, what each setting reads as the change, the rule that a changed file nothing covers runs every command, `commands.ignore`, and what `lunamill config check` says about them.
 
 ## Requirements
 
 ### Requirement: A command written as an item
 
-kodor SHALL behave as this line says: When a command under `commands` is written as a map, it is an item: `run` is required, `in` and `files` are optional, and `report` is allowed only under `commands.coverage`. Text keeps today's meaning: from the root, on every change.
+lunamill SHALL behave as this line says: When a command under `commands` is written as a map, it is an item: `run` is required, `in` and `files` are optional, and `report` is allowed only under `commands.coverage`. Text keeps today's meaning: from the root, on every change.
 
 #### Scenario: A command written as an item
 
@@ -17,7 +17,7 @@ kodor SHALL behave as this line says: When a command under `commands` is written
 
 ### Requirement: A folder pattern in in
 
-kodor SHALL behave as this line says: When an item's `in` ends in `/*`, the item is one command for each folder directly under that path that exists on disk and holds a file git tracks or an untracked file git doesn't ignore, in name order.
+lunamill SHALL behave as this line says: When an item's `in` ends in `/*`, the item is one command for each folder directly under that path that exists on disk and holds a file git tracks or an untracked file git doesn't ignore, in name order.
 
 #### Scenario: A folder pattern in in
 
@@ -26,7 +26,7 @@ kodor SHALL behave as this line says: When an item's `in` ends in `/*`, the item
 
 ### Requirement: A list of folders in in
 
-kodor SHALL behave as this line says: When an item's `in` is a list, the item is one command for each folder the list names, each `*` expanded.
+lunamill SHALL behave as this line says: When an item's `in` is a list, the item is one command for each folder the list names, each `*` expanded.
 
 #### Scenario: A list of folders in in
 
@@ -35,7 +35,7 @@ kodor SHALL behave as this line says: When an item's `in` is a list, the item is
 
 ### Requirement: An item's files by default
 
-kodor SHALL behave as this line says: When an item has no `files`, its files are `./**`; with neither `in` nor `files`, every file.
+lunamill SHALL behave as this line says: When an item has no `files`, its files are `./**`; with neither `in` nor `files`, every file.
 
 #### Scenario: An item's files by default
 
@@ -44,7 +44,7 @@ kodor SHALL behave as this line says: When an item has no `files`, its files are
 
 ### Requirement: Paths from the item's folder
 
-kodor SHALL behave as this line says: When a path in an item's `files` or `report` starts with `./`, it is read from the item's folder; any other path, from the repository's root.
+lunamill SHALL behave as this line says: When a path in an item's `files` or `report` starts with `./`, it is read from the item's folder; any other path, from the repository's root.
 
 #### Scenario: Paths from the item's folder
 
@@ -53,16 +53,16 @@ kodor SHALL behave as this line says: When a path in an item's `files` or `repor
 
 ### Requirement: The branch's change
 
-kodor SHALL behave as this line says: When `kodor gate`, `kodor coverage`, or `kodor site compare` reads the change, it is the files `git diff --name-only --no-renames` lists from `git merge-base HEAD origin/DEFAULT` to the working tree, and the files `git ls-files --others --exclude-standard` lists.
+lunamill SHALL behave as this line says: When `lunamill gate`, `lunamill coverage`, or `lunamill site compare` reads the change, it is the files `git diff --name-only --no-renames` lists from `git merge-base HEAD origin/DEFAULT` to the working tree, and the files `git ls-files --others --exclude-standard` lists.
 
 #### Scenario: The branch's change
 
-- **WHEN** When `kodor gate`
-- **THEN** `kodor coverage`, or `kodor site compare` reads the change, it is the files `git diff --name-only --no-renames` lists from `git merge-base HEAD origin/DEFAULT` to the working tree, and the files `git ls-files --others --exclude-standard` lists.
+- **WHEN** When `lunamill gate`
+- **THEN** `lunamill coverage`, or `lunamill site compare` reads the change, it is the files `git diff --name-only --no-renames` lists from `git merge-base HEAD origin/DEFAULT` to the working tree, and the files `git ls-files --others --exclude-standard` lists.
 
 ### Requirement: The change before a commit
 
-kodor SHALL behave as this line says: When the commit guard reads the change, it is the files that differ from `HEAD`, staged or not, and new files; in a repository with no commit yet, every command runs.
+lunamill SHALL behave as this line says: When the commit guard reads the change, it is the files that differ from `HEAD`, staged or not, and new files; in a repository with no commit yet, every command runs.
 
 #### Scenario: The change before a commit
 
@@ -71,16 +71,16 @@ kodor SHALL behave as this line says: When the commit guard reads the change, it
 
 ### Requirement: The change for relock
 
-kodor SHALL behave as this line says: When `kodor relock` reads the change, it is the files that differ between `origin/DEFAULT` and the working tree, and new files.
+lunamill SHALL behave as this line says: When `lunamill relock` reads the change, it is the files that differ between `origin/DEFAULT` and the working tree, and new files.
 
 #### Scenario: The change for relock
 
-- **WHEN** When `kodor relock` reads the change
+- **WHEN** When `lunamill relock` reads the change
 - **THEN** it is the files that differ between `origin/DEFAULT` and the working tree, and new files.
 
 ### Requirement: An item runs where its files change
 
-kodor SHALL behave as this line says: When a changed file that `commands.ignore` doesn't match matches an item's `files` in one of its folders, the item runs in that folder. A `./` pattern matches in its own folder only; a root pattern, in every folder.
+lunamill SHALL behave as this line says: When a changed file that `commands.ignore` doesn't match matches an item's `files` in one of its folders, the item runs in that folder. A `./` pattern matches in its own folder only; a root pattern, in every folder.
 
 #### Scenario: An item runs where its files change
 
@@ -89,7 +89,7 @@ kodor SHALL behave as this line says: When a changed file that `commands.ignore`
 
 ### Requirement: A file nothing covers runs every command
 
-kodor SHALL behave as this line says: When the gate has an item and a changed file matches neither a gate item's `files` nor `commands.ignore`, every command of the gate, before-commit, relock, and site runs, each in its folders.
+lunamill SHALL behave as this line says: When the gate has an item and a changed file matches neither a gate item's `files` nor `commands.ignore`, every command of the gate, before-commit, relock, and site runs, each in its folders.
 
 #### Scenario: A file nothing covers runs every command
 
@@ -98,7 +98,7 @@ kodor SHALL behave as this line says: When the gate has an item and a changed fi
 
 ### Requirement: An all-text gate
 
-kodor SHALL behave as this line says: When the gate has no item, a changed file no item matches runs no item, in every setting.
+lunamill SHALL behave as this line says: When the gate has no item, a changed file no item matches runs no item, in every setting.
 
 #### Scenario: An all-text gate
 
@@ -107,16 +107,16 @@ kodor SHALL behave as this line says: When the gate has no item, a changed file 
 
 ### Requirement: A change to the settings runs every command
 
-kodor SHALL behave as this line says: When the change includes `.claude/kodor.yaml`, `.claude/kodor.lock`, or `.claude/kodor.choices.yaml`, every command of the gate, before-commit, relock, and site runs.
+lunamill SHALL behave as this line says: When the change includes `.claude/lunamill.yaml`, `.claude/lunamill.lock`, or `.claude/lunamill.choices.yaml`, every command of the gate, before-commit, relock, and site runs.
 
 #### Scenario: A change to the settings runs every command
 
-- **WHEN** When the change includes `.claude/kodor.yaml`
-- **THEN** `.claude/kodor.lock`, or `.claude/kodor.choices.yaml`, every command of the gate, before-commit, relock, and site runs.
+- **WHEN** When the change includes `.claude/lunamill.yaml`
+- **THEN** `.claude/lunamill.lock`, or `.claude/lunamill.choices.yaml`, every command of the gate, before-commit, relock, and site runs.
 
 ### Requirement: Only ignored files changed
 
-kodor SHALL behave as this line says: When every changed file matches `commands.ignore`, only text commands run.
+lunamill SHALL behave as this line says: When every changed file matches `commands.ignore`, only text commands run.
 
 #### Scenario: Only ignored files changed
 
@@ -125,7 +125,7 @@ kodor SHALL behave as this line says: When every changed file matches `commands.
 
 ### Requirement: No default branch to compare with
 
-kodor SHALL behave as this line says: When there is no `origin/DEFAULT`, every command of the setting runs, after `? Can't tell what changed, since there is no origin/DEFAULT to compare with. Every KEY command runs.` and `Fetch it with: git fetch origin DEFAULT`, where KEY is `gate`, `relock`, or `site`.
+lunamill SHALL behave as this line says: When there is no `origin/DEFAULT`, every command of the setting runs, after `? Can't tell what changed, since there is no origin/DEFAULT to compare with. Every KEY command runs.` and `Fetch it with: git fetch origin DEFAULT`, where KEY is `gate`, `relock`, or `site`.
 
 #### Scenario: No default branch to compare with
 
@@ -134,7 +134,7 @@ kodor SHALL behave as this line says: When there is no `origin/DEFAULT`, every c
 
 ### Requirement: A branch that shares no commit
 
-kodor SHALL behave as this line says: When `HEAD` shares no commit with `origin/DEFAULT`, every command of the setting runs, after `? Can't tell what changed, since this branch shares no commit with origin/DEFAULT. Every KEY command runs.` and `In a shallow clone, fetch the history with: git fetch --unshallow origin`.
+lunamill SHALL behave as this line says: When `HEAD` shares no commit with `origin/DEFAULT`, every command of the setting runs, after `? Can't tell what changed, since this branch shares no commit with origin/DEFAULT. Every KEY command runs.` and `In a shallow clone, fetch the history with: git fetch --unshallow origin`.
 
 #### Scenario: A branch that shares no commit
 
@@ -143,7 +143,7 @@ kodor SHALL behave as this line says: When `HEAD` shares no commit with `origin/
 
 ### Requirement: The base commit
 
-kodor SHALL behave as this line says: When a command runs, `$BASE` holds the merge base (`HEAD` for before-commit), and is empty when there is none.
+lunamill SHALL behave as this line says: When a command runs, `$BASE` holds the merge base (`HEAD` for before-commit), and is empty when there is none.
 
 #### Scenario: The base commit
 
@@ -152,7 +152,7 @@ kodor SHALL behave as this line says: When a command runs, `$BASE` holds the mer
 
 ### Requirement: An item that fails in one folder
 
-kodor SHALL behave as this line says: When an item's command fails in one folder, in any setting that runs a list, it still runs in the item's other matching folders, and the commands after the item don't run.
+lunamill SHALL behave as this line says: When an item's command fails in one folder, in any setting that runs a list, it still runs in the item's other matching folders, and the commands after the item don't run.
 
 #### Scenario: An item that fails in one folder
 
@@ -161,7 +161,7 @@ kodor SHALL behave as this line says: When an item's command fails in one folder
 
 ### Requirement: A setting with no item
 
-kodor SHALL behave as this line says: When no command in a setting is an item, every command runs on every change, and the command prints what it printed before this ticket.
+lunamill SHALL behave as this line says: When no command in a setting is an item, every command runs on every change, and the command prints what it printed before this ticket.
 
 #### Scenario: A setting with no item
 
@@ -170,72 +170,72 @@ kodor SHALL behave as this line says: When no command in a setting is an item, e
 
 ### Requirement: An item config check refuses
 
-kodor SHALL behave as this line says: When `kodor config check` reads an item with no `run`, a key it doesn't know, `report` outside `commands.coverage`, an empty `files`, a `*` anywhere but as the whole last name of `in`, or an `in` or `./` path that leaves the repository, it fails naming the key.
+lunamill SHALL behave as this line says: When `lunamill config check` reads an item with no `run`, a key it doesn't know, `report` outside `commands.coverage`, an empty `files`, a `*` anywhere but as the whole last name of `in`, or an `in` or `./` path that leaves the repository, it fails naming the key.
 
 #### Scenario: An item config check refuses
 
-- **WHEN** When `kodor config check` reads an item with no `run`
+- **WHEN** When `lunamill config check` reads an item with no `run`
 - **THEN** a key it doesn't know, `report` outside `commands.coverage`, an empty `files`, a `*` anywhere but as the whole last name of `in`, or an `in` or `./` path that leaves the repository, it fails naming the key.
 
 ### Requirement: A folder that does not exist
 
-kodor SHALL behave as this line says: When an `in` without a `*` is not a folder, `kodor config check` fails with `.claude/kodor.yaml: commands.KEY[N].in: PATH is not a folder`.
+lunamill SHALL behave as this line says: When an `in` without a `*` is not a folder, `lunamill config check` fails with `.claude/lunamill.yaml: commands.KEY[N].in: PATH is not a folder`.
 
 #### Scenario: A folder that does not exist
 
 - **WHEN** When an `in` without a `*` is not a folder
-- **THEN** `kodor config check` fails with `.claude/kodor.yaml: commands.KEY[N].in: PATH is not a folder`.
+- **THEN** `lunamill config check` fails with `.claude/lunamill.yaml: commands.KEY[N].in: PATH is not a folder`.
 
 ### Requirement: Files on build-setup
 
-kodor SHALL behave as this line says: When `commands.build-setup` has an item with `files`, `kodor config check` fails with `.claude/kodor.yaml: commands.build-setup[N].files: build-setup runs before there is a change, so every command runs. Leave files out`.
+lunamill SHALL behave as this line says: When `commands.build-setup` has an item with `files`, `lunamill config check` fails with `.claude/lunamill.yaml: commands.build-setup[N].files: build-setup runs before there is a change, so every command runs. Leave files out`.
 
 #### Scenario: Files on build-setup
 
 - **WHEN** When `commands.build-setup` has an item with `files`
-- **THEN** `kodor config check` fails with `.claude/kodor.yaml: commands.build-setup[N].files: build-setup runs before there is a change, so every command runs. Leave files out`.
+- **THEN** `lunamill config check` fails with `.claude/lunamill.yaml: commands.build-setup[N].files: build-setup runs before there is a change, so every command runs. Leave files out`.
 
 ### Requirement: Text before an item
 
-kodor SHALL behave as this line says: When text comes before an item in `commands.test-one` or `commands.end-to-end`, `kodor config check` fails with `.claude/kodor.yaml: commands.KEY[N]: text at [M] covers every file first, so this is never run. Put text last`.
+lunamill SHALL behave as this line says: When text comes before an item in `commands.test-one` or `commands.end-to-end`, `lunamill config check` fails with `.claude/lunamill.yaml: commands.KEY[N]: text at [M] covers every file first, so this is never run. Put text last`.
 
 #### Scenario: Text before an item
 
 - **WHEN** When text comes before an item in `commands.test-one` or `commands.end-to-end`
-- **THEN** `kodor config check` fails with `.claude/kodor.yaml: commands.KEY[N]: text at [M] covers every file first, so this is never run. Put text last`.
+- **THEN** `lunamill config check` fails with `.claude/lunamill.yaml: commands.KEY[N]: text at [M] covers every file first, so this is never run. Put text last`.
 
 ### Requirement: A pattern that matches nothing
 
-kodor SHALL behave as this line says: When an `in` with a `*` matches no folder, or a pattern in `files` or `commands.ignore` matches no file, `kodor config check` warns with `?`, naming the key and the pattern.
+lunamill SHALL behave as this line says: When an `in` with a `*` matches no folder, or a pattern in `files` or `commands.ignore` matches no file, `lunamill config check` warns with `?`, naming the key and the pattern.
 
 #### Scenario: A pattern that matches nothing
 
 - **WHEN** When an `in` with a `*` matches no folder
-- **THEN** or a pattern in `files` or `commands.ignore` matches no file, `kodor config check` warns with `?`, naming the key and the pattern.
+- **THEN** or a pattern in `files` or `commands.ignore` matches no file, `lunamill config check` warns with `?`, naming the key and the pattern.
 
 ### Requirement: A root pattern inside every folder
 
-kodor SHALL behave as this line says: When a root pattern in an item's `files` names a path inside each of its folders, such as `packages/*/src/**` on `in: packages/*`, `kodor config check` warns with `? .claude/kodor.yaml: commands.KEY[N].files: PATTERN is in every folder of IN, so a change in one runs all of them; write ./REST for each folder's own`.
+lunamill SHALL behave as this line says: When a root pattern in an item's `files` names a path inside each of its folders, such as `packages/*/src/**` on `in: packages/*`, `lunamill config check` warns with `? .claude/lunamill.yaml: commands.KEY[N].files: PATTERN is in every folder of IN, so a change in one runs all of them; write ./REST for each folder's own`.
 
 #### Scenario: A root pattern inside every folder
 
 - **WHEN** When a root pattern in an item's `files` names a path inside each of its folders
-- **THEN** such as `packages/*/src/**` on `in: packages/*`, `kodor config check` warns with `? .claude/kodor.yaml: commands.KEY[N].files: PATTERN is in every folder of IN, so a change in one runs all of them; write ./REST for each folder's own`.
+- **THEN** such as `packages/*/src/**` on `in: packages/*`, `lunamill config check` warns with `? .claude/lunamill.yaml: commands.KEY[N].files: PATTERN is in every folder of IN, so a change in one runs all of them; write ./REST for each folder's own`.
 
 ### Requirement: A coverage report in every folder
 
-kodor SHALL behave as this line says: When a coverage item with several folders has a `report` without `./`, `kodor config check` warns with `? .claude/kodor.yaml: commands.coverage[N].report: PATH is the same file in every folder of IN; write ./PATH`.
+lunamill SHALL behave as this line says: When a coverage item with several folders has a `report` without `./`, `lunamill config check` warns with `? .claude/lunamill.yaml: commands.coverage[N].report: PATH is the same file in every folder of IN; write ./PATH`.
 
 #### Scenario: A coverage report in every folder
 
 - **WHEN** When a coverage item with several folders has a `report` without `./`
-- **THEN** `kodor config check` warns with `? .claude/kodor.yaml: commands.coverage[N].report: PATH is the same file in every folder of IN; write ./PATH`.
+- **THEN** `lunamill config check` warns with `? .claude/lunamill.yaml: commands.coverage[N].report: PATH is the same file in every folder of IN; write ./PATH`.
 
 ### Requirement: The files nothing covers
 
-kodor SHALL behave as this line says: When the gate has an item, `kodor config check` warns about the tracked files no gate item covers and `commands.ignore` doesn't match, as `? N paths are in no gate command's files and not in commands.ignore, so a change to one runs every command:`, one line per path, a folder with nothing covered in it as `FOLDER/` and its file count, N counting those lines, then `Add each to commands.ignore, or to the files of the gate commands it affects.`
+lunamill SHALL behave as this line says: When the gate has an item, `lunamill config check` warns about the tracked files no gate item covers and `commands.ignore` doesn't match, as `? N paths are in no gate command's files and not in commands.ignore, so a change to one runs every command:`, one line per path, a folder with nothing covered in it as `FOLDER/` and its file count, N counting those lines, then `Add each to commands.ignore, or to the files of the gate commands it affects.`
 
 #### Scenario: The files nothing covers
 
 - **WHEN** When the gate has an item
-- **THEN** `kodor config check` warns about the tracked files no gate item covers and `commands.ignore` doesn't match, as `? N paths are in no gate command's files and not in commands.ignore, so a change to one runs every command:`, one line per path, a folder with nothing covered in it as `FOLDER/` and its file count, N counting those lines, then `Add each to commands.ignore, or to the files of the gate commands it affects.`
+- **THEN** `lunamill config check` warns about the tracked files no gate item covers and `commands.ignore` doesn't match, as `? N paths are in no gate command's files and not in commands.ignore, so a change to one runs every command:`, one line per path, a folder with nothing covered in it as `FOLDER/` and its file count, N counting those lines, then `Add each to commands.ignore, or to the files of the gate commands it affects.`

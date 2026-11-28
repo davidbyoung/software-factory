@@ -4,11 +4,11 @@ For anyone with tickets in flight. At the end you know each ticket's state,
 which session has it, what it cost, and which ones wait on you.
 
 ```bash
-kodor status
+lunamill status
 ```
 
-It lists kodor's open tickets, those with its
-[label](tickets.md#which-tickets-are-kodors), under their
+It lists lunamill's open tickets, those with its
+[label](tickets.md#which-tickets-are-lunamills), under their
 [six states](README.md#the-six-states), each with how long it has been in
 its state, what it has cost, and the session that has it:
 
@@ -27,7 +27,7 @@ In progress  1
 ```
 
 **It worked when** it lists your open tickets, or prints each state with
-nothing under it. `kodor status --watch` reads it again every 15 seconds.
+nothing under it. `lunamill status --watch` reads it again every 15 seconds.
 
 **Waiting on you** in the Session column means nothing moves until you
 act: a refinement waits for your answers or your approval, or a build ended
@@ -36,7 +36,7 @@ says which.
 
 When the coding agent's token, or on your own account the code host's
 access token, stops working within 30 days, `status` ends with a line that
-says when, and [Troubleshooting](../maintain/troubleshooting.md#kodor-status-says-a-token-stops-working-soon)
+says when, and [Troubleshooting](../maintain/troubleshooting.md#lunamill-status-says-a-token-stops-working-soon)
 says what to do.
 
 Where you have a [board](../features/board.md), it shows the same, kept up

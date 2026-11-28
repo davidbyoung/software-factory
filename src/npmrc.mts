@@ -1,11 +1,11 @@
-// What kodor reads from the repository's own `.npmrc`: the variables
+// What lunamill reads from the repository's own `.npmrc`: the variables
 // its sign-in lines read, which the workflows set from secrets of the same
 // names, and the registries it names, which Dependabot has to know.
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 export const NPMRC = ".npmrc";
-const SYNC = "kodor sync";
+const SYNC = "lunamill sync";
 const PUBLIC_REGISTRY = "https://registry.npmjs.org/";
 const SIGN_IN = /:(_authToken|_auth|_password|username)$/;
 /** npm's own pattern (`@npmcli/config`'s `env-replace.js`): an odd run of

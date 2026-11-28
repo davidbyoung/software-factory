@@ -8,8 +8,8 @@
 // the organization's preset, and starts the builds of every repository
 // with a ticket in the Ready column of the one board.
 //
-// Hosted, its environment is KODOR_REPOSITORY (owner/name) and
-// KODOR_BOARD_TOKEN (a classic token with the repo and project scopes,
+// Hosted, its environment is LUNAMILL_REPOSITORY (owner/name) and
+// LUNAMILL_BOARD_TOKEN (a classic token with the repo and project scopes,
 // or a fine-grained one that can also write Actions: it starts the
 // workflow). It has no checkout, so at every pass it reads the settings
 // the scheduled pass reads from the lock on the default branch.
@@ -51,7 +51,7 @@ import {
 import { githubCodeHost, githubOrganization } from "./code-host/github.mts";
 import type { CodeHost } from "./code-host/types.mts";
 import {
-  KODOR_WORKFLOW,
+  LUNAMILL_WORKFLOW,
   githubActionsRunner,
 } from "./runner/github-actions.mts";
 import type { Runner } from "./runner/types.mts";
@@ -70,15 +70,15 @@ import { linkPulls, ownLinks } from "./lib/pull-tickets.mts";
 import * as say from "./lib/output.mts";
 
 /** The image each release publishes the hosted poller as. */
-export const POLLER_IMAGE = "ghcr.io/kodor-ai/kodor-poller";
+export const POLLER_IMAGE = "ghcr.io/lunamill-ai/lunamill-poller";
 
 /** The variables a hosted poller read before it read the settings. */
 const RETIRED = [
-  "KODOR_BOARD_OWNER",
-  "KODOR_BOARD_NUMBER",
-  "KODOR_READY_COLUMN",
-  "KODOR_LABEL",
-  "KODOR_MAX_PER_HOUR",
+  "LUNAMILL_BOARD_OWNER",
+  "LUNAMILL_BOARD_NUMBER",
+  "LUNAMILL_READY_COLUMN",
+  "LUNAMILL_LABEL",
+  "LUNAMILL_MAX_PER_HOUR",
 ];
 
 const MINUTE = 60_000;
@@ -115,12 +115,12 @@ export function startMarker(): string {
 }
 
 /** The columns `tick` reads a board by: the defaults, with the column
- * that approves a build from KODOR_READY_COLUMN, which `readConfig`
+ * that approves a build from LUNAMILL_READY_COLUMN, which `readConfig`
  * requires and each pass sets from its settings. */
 export function columnsFrom(env: Record<string, string | undefined>): Columns {
   return {
     ...DEFAULT_COLUMNS,
-    Ready: [env.KODOR_READY_COLUMN!.trim()],
+    Ready: [env.LUNAMILL_READY_COLUMN!.trim()],
   };
 }
 
@@ -180,23 +180,23 @@ export function readConfig(
   env: Record<string, string | undefined>,
 ): Config | { missing: string[] } | { wrong: string } {
   const names = [
-    "KODOR_BOARD_OWNER",
-    "KODOR_BOARD_NUMBER",
-    "KODOR_BOARD_TOKEN",
-    "KODOR_READY_COLUMN",
+    "LUNAMILL_BOARD_OWNER",
+    "LUNAMILL_BOARD_NUMBER",
+    "LUNAMILL_BOARD_TOKEN",
+    "LUNAMILL_READY_COLUMN",
   ];
   const missing = names.filter((name) => !env[name]?.trim());
   if (missing.length) return { missing };
-  const max = env.KODOR_MAX_PER_HOUR?.trim();
+  const max = env.LUNAMILL_MAX_PER_HOUR?.trim();
   const maxPerHour = max ? Number(max) : FIRE_LIMIT;
   if (!/^\d+$/.test(String(maxPerHour)) || maxPerHour < 1)
     return {
-      wrong: "KODOR_MAX_PER_HOUR must be a whole number, 1 or more",
+      wrong: "LUNAMILL_MAX_PER_HOUR must be a whole number, 1 or more",
     };
   return {
-    owner: env.KODOR_BOARD_OWNER!,
-    number: Number(env.KODOR_BOARD_NUMBER),
-    githubToken: env.KODOR_BOARD_TOKEN!,
+    owner: env.LUNAMILL_BOARD_OWNER!,
+    number: Number(env.LUNAMILL_BOARD_NUMBER),
+    githubToken: env.LUNAMILL_BOARD_TOKEN!,
     maxPerHour,
   };
 }
@@ -232,9 +232,9 @@ export type Deps = {
     options: Record<string, unknown>;
     own: boolean;
   };
-  /** The ticket systems to open it from; kodor's own unless given. */
+  /** The ticket systems to open it from; lunamill's own unless given. */
   systems?: Registry["tickets"];
-  /** kodor's own version; the package's unless given. */
+  /** lunamill's own version; the package's unless given. */
   version?: string;
 };
 
@@ -285,7 +285,7 @@ export async function sources(d: Deps, c: Config) {
 
 /** The `builds.trigger` in effect in a repository, from its default
  * branch: its own settings file's key, else what its lock records, which
- * `kodor sync` combined from its presets, its choices, and the default.
+ * `lunamill sync` combined from its presets, its choices, and the default.
  * Null when the file is missing or cannot be read, or when it sets none
  * and the lock cannot say: one missing, unreadable, from a release that
  * recorded no settings, or not pinning a preset the file lists. */
@@ -322,7 +322,7 @@ async function readAll(tickets: Tickets, codeHost: CodeHost, d: Deps) {
   const [read, open] = await Promise.all([
     tickets.readAll({
       board: true,
-      label: d.env.KODOR_LABEL?.trim() || TICKET_LABELS.kodor,
+      label: d.env.LUNAMILL_LABEL?.trim() || TICKET_LABELS.lunamill,
     }),
     codeHost.open(),
   ]);
@@ -437,7 +437,7 @@ export async function tick(d: Deps, state: State): Promise<void> {
     fired.push(d.now());
     const outcome = await dispatch(runner, d.defaultBranch, issue);
     if (outcome.ok) {
-      d.log(`${ref} started ${marker}: dispatched ${KODOR_WORKFLOW}`);
+      d.log(`${ref} started ${marker}: dispatched ${LUNAMILL_WORKFLOW}`);
       continue;
     }
     d.log(`${ref} dispatch failed: ${outcome.status} (${outcome.reason})`);
@@ -466,8 +466,8 @@ export async function tick(d: Deps, state: State): Promise<void> {
 export type OnceSettings = {
   board: number | null;
   ready: string | null;
-  /** The name of the label on every ticket kodor works on. */
-  kodor: string;
+  /** The name of the label on every ticket lunamill works on. */
+  lunamill: string;
   /** How many builds it starts in any one hour; 20 unless given. */
   maxPerHour?: number;
   /** The settings' ticket system; the default one when not given. */
@@ -478,7 +478,7 @@ export function onceSettings(s: Settings): OnceSettings {
   return {
     board: s.tickets.board,
     ready: columnsOf(s).Ready?.[0] ?? null,
-    kodor: s.tickets.labels.kodor,
+    lunamill: s.tickets.labels.lunamill,
     maxPerHour: s.builds.maxPerHour,
     ticketSystem: {
       type: s.tickets.type,
@@ -521,11 +521,11 @@ function onceEnv(s: OnceSettings, d: Deps, file: string): Deps["env"] | null {
 function envOf(s: OnceSettings, d: Deps): Deps["env"] {
   return {
     ...d.env,
-    KODOR_BOARD_OWNER: d.repository.split("/")[0],
-    KODOR_BOARD_NUMBER: String(s.board),
-    KODOR_READY_COLUMN: s.ready!,
-    KODOR_LABEL: s.kodor,
-    KODOR_MAX_PER_HOUR: String(s.maxPerHour ?? FIRE_LIMIT),
+    LUNAMILL_BOARD_OWNER: d.repository.split("/")[0],
+    LUNAMILL_BOARD_NUMBER: String(s.board),
+    LUNAMILL_READY_COLUMN: s.ready!,
+    LUNAMILL_LABEL: s.lunamill,
+    LUNAMILL_MAX_PER_HOUR: String(s.maxPerHour ?? FIRE_LIMIT),
   };
 }
 
@@ -543,7 +543,7 @@ function used(raw: Record<string, unknown>): Record<string, unknown> {
   const type = isObj(tickets.type) ? tickets.type.type : tickets.type;
   const options = typeof type === "string" ? (BUILT.tickets[type] ?? []) : [];
   const columns = pick(tickets.columns, ["ready"]);
-  const labels = pick(tickets.labels, ["kodor"]);
+  const labels = pick(tickets.labels, ["lunamill"]);
   return {
     ...pick(raw, ["version", "repository"]),
     tickets: {
@@ -568,7 +568,7 @@ export async function hostedSettings(
   const fault = (words: string, written: string) =>
     `${P.LOCK_FILE} on ${branch}: ${words}${
       written && written !== own
-        ? ` (written by kodor ${written}, and this poller is ${own}: run ${POLLER_IMAGE}:${written})`
+        ? ` (written by lunamill ${written}, and this poller is ${own}: run ${POLLER_IMAGE}:${written})`
         : ""
     }`;
   let lock: ReturnType<typeof P.readLock>;
@@ -612,7 +612,7 @@ export async function hostedSettings(
   return { settings };
 }
 
-/** kodor's version, from its package's manifest. */
+/** lunamill's version, from its package's manifest. */
 function ownVersion(): string {
   const root = dirname(dirname(fileURLToPath(import.meta.url)));
   return (
@@ -625,9 +625,9 @@ function ownVersion(): string {
 /** One pass of the hosted poller: the settings from the lock on the
  * default branch, then the board as `tick` reads it. It never throws. */
 export async function hosted(d: Deps, state: State): Promise<void> {
-  const token = d.env.KODOR_BOARD_TOKEN?.trim();
+  const token = d.env.LUNAMILL_BOARD_TOKEN?.trim();
   if (!token) {
-    d.log("not polling: KODOR_BOARD_TOKEN not set");
+    d.log("not polling: LUNAMILL_BOARD_TOKEN not set");
     state.failuresInARow += 1;
     return;
   }
@@ -662,7 +662,7 @@ export async function hosted(d: Deps, state: State): Promise<void> {
   const read =
     text === null
       ? {
-          reason: `no ${LOCK_FILE} on ${branch} yet. Merge the pull request that sets kodor up.`,
+          reason: `no ${LOCK_FILE} on ${branch} yet. Merge the pull request that sets lunamill up.`,
         }
       : await hostedSettings(text, branch, d.version ?? ownVersion());
   if ("reason" in read) {
@@ -681,7 +681,7 @@ export async function hosted(d: Deps, state: State): Promise<void> {
   }
   state.reason = null;
   const s = read.settings;
-  const line = `settings from ${LOCK_FILE} on ${branch}: board ${s.board}, ready column "${s.ready}", label "${s.kodor}", ${s.maxPerHour ?? FIRE_LIMIT} builds an hour`;
+  const line = `settings from ${LOCK_FILE} on ${branch}: board ${s.board}, ready column "${s.ready}", label "${s.lunamill}", ${s.maxPerHour ?? FIRE_LIMIT} builds an hour`;
   if (line !== state.settingsLine) d.log(line);
   state.settingsLine = line;
   await tick(
@@ -783,7 +783,7 @@ export async function onceEach(
   return 0;
 }
 
-/** `kodor poller --once --preset FILE`: one pass for the organization
+/** `lunamill poller --once --preset FILE`: one pass for the organization
  * whose preset the file at `path` is, in a workflow of the repository that
  * holds it, which GITHUB_REPOSITORY names. */
 export async function oncePreset(
@@ -857,10 +857,10 @@ export async function serve(
 }
 
 async function main(): Promise<number> {
-  const repository = process.env.KODOR_REPOSITORY;
+  const repository = process.env.LUNAMILL_REPOSITORY;
   if (!repository) {
     say.plainError(
-      "ready-poller not started: KODOR_REPOSITORY is not set. Set it to the repository, as owner/name.",
+      "ready-poller not started: LUNAMILL_REPOSITORY is not set. Set it to the repository, as owner/name.",
     );
     return 1;
   }
@@ -872,7 +872,7 @@ async function main(): Promise<number> {
   return 0;
 }
 
-/** `kodor poller`, `kodor poller --once`, and `kodor poller --once
+/** `lunamill poller`, `lunamill poller --once`, and `lunamill poller --once
  * --preset FILE`. The settings are loaded only for `--once` alone, since
  * the hosted poller has no checkout and an organization's has no settings
  * but its preset. */
@@ -881,7 +881,7 @@ export async function run(argv: string[] = []): Promise<number> {
   if (at >= 0) {
     const file = argv[at + 1];
     if (!file || !argv.includes("--once")) {
-      say.plainError("Usage: kodor poller --once --preset FILE");
+      say.plainError("Usage: lunamill poller --once --preset FILE");
       process.exit(2);
     }
     process.exit(await oncePreset(file, liveDeps()));

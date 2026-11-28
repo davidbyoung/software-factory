@@ -6,11 +6,11 @@ these only when it does. A repository coming from an old release takes
 them oldest first, from the bottom of the page up, as
 [Updating](updating.md) says.
 
-## Moving to kodor
+## Moving to lunamill
 
 For a repository that uses the software factory, `@davidbyoung/software-factory`,
-whose owner wants it on kodor, the same product under its new name. At the
-end the repository runs `kodor`, its files and checks carry the new name,
+whose owner wants it on lunamill, the same product under its new name. At the
+end the repository runs `lunamill`, its files and checks carry the new name,
 and its updates come again.
 
 The old package gets no more releases, and nothing moves a repository
@@ -30,51 +30,51 @@ deletes them.
 1. Install the new command:
 
    ```bash
-   npm install -g @kodor-ai/kodor
+   npm install -g @lunamill-ai/lunamill
    ```
 
-   **It worked when** `kodor`, run in any folder, prints the list of its
+   **It worked when** `lunamill`, run in any folder, prints the list of its
    commands.
 
-2. Make a branch, and rename the two settings files kodor reads: your
+2. Make a branch, and rename the two settings files lunamill reads: your
    settings, and the lock, which names the version your repository runs.
 
    ```bash
-   git switch -c move-to-kodor
-   git mv .claude/factory.yaml .claude/kodor.yaml
-   git mv .claude/factory.lock .claude/kodor.lock
+   git switch -c move-to-lunamill
+   git mv .claude/factory.yaml .claude/lunamill.yaml
+   git mv .claude/factory.lock .claude/lunamill.lock
    ```
 
    If `.claude/factory.choices.yaml` is there too, which holds your
    answers to a [preset's](../customize/presets.md) questions, rename it the same way:
 
    ```bash
-   git mv .claude/factory.choices.yaml .claude/kodor.choices.yaml
+   git mv .claude/factory.choices.yaml .claude/lunamill.choices.yaml
    ```
 
    **It worked when** `git status` lists each file as renamed.
 
-3. In `.claude/kodor.yaml`, change the first line, `version: 2`, to
-   `version: 1`: kodor counts its settings versions from 1 again, and the
-   shape is the same. Until you do, every `kodor` command that reads the
+3. In `.claude/lunamill.yaml`, change the first line, `version: 2`, to
+   `version: 1`: lunamill counts its settings versions from 1 again, and the
+   shape is the same. Until you do, every `lunamill` command that reads the
    settings stops with:
 
    ```text
-   .claude/kodor.yaml: version: must be 1: this file is version 2, see https://github.com/kodor-ai/kodor/blob/v0.2.0/docs/maintain/upgrade-notes.md#moving-to-kodor
+   .claude/lunamill.yaml: version: must be 1: this file is version 2, see https://github.com/lunamill-ai/lunamill/blob/v0.2.0/docs/maintain/upgrade-notes.md#moving-to-lunamill
    ```
 
    If it names your ticket label under
    [`tickets.labels`](../reference/settings/tickets.md#ticketslabels), rename the key
-   `factory` to `kodor`, and leave its value as it is:
+   `factory` to `lunamill`, and leave its value as it is:
 
    ```yaml
    tickets:
      labels:
-       kodor: factory # was `factory: factory`
+       lunamill: factory # was `factory: factory`
    ```
 
 4. In `.claude/settings.json`, delete what the old command wrote, since
-   kodor does not recognize it as its own, and keep every entry of your
+   lunamill does not recognize it as its own, and keep every entry of your
    own. The update in the next step writes the new ones.
    - Under `hooks`, each entry whose `command` runs `factory`, such as
      `factory session-start`, `factory guard`, or
@@ -93,53 +93,53 @@ deletes them.
    works while the lock still names the old one:
 
    ```bash
-   kodor update
+   lunamill update
    ```
 
    ```text
-   kodor 0.1.21 → 0.2.0
+   lunamill 0.1.21 → 0.2.0
    ✓ Wrote 24 files. Commit them on a branch and open a pull request.
    ```
 
    It deletes every file the old version wrote, such as
    `.claude/skills/factory-build/` and `.github/workflows/factory.yml`,
-   and writes the new ones, such as `.claude/skills/kodor-build/` and
-   `.github/workflows/kodor.yml`.
+   and writes the new ones, such as `.claude/skills/lunamill-build/` and
+   `.github/workflows/lunamill.yml`.
 
 6. In `CLAUDE.md`, delete the line `@.claude/factory/rules.md`. The update
-   added `@.claude/kodor/rules.md` beside it. Then commit, push, and open
+   added `@.claude/lunamill/rules.md` beside it. Then commit, push, and open
    the pull request:
 
    ```bash
    git add -A
-   git commit -m "Move to kodor"
-   git push -u origin move-to-kodor
+   git commit -m "Move to lunamill"
+   git push -u origin move-to-lunamill
    gh pr create --fill
    ```
 
 7. Before you merge it, on GitHub:
    - **The label.** If your settings name it under `tickets.labels`,
-     which step 3 kept, leave the label alone. Otherwise kodor now looks
-     for the label `kodor`, so rename yours, which keeps it on every
-     ticket: `gh label edit factory --name kodor`.
+     which step 3 kept, leave the label alone. Otherwise lunamill now looks
+     for the label `lunamill`, so rename yours, which keeps it on every
+     ticket: `gh label edit factory --name lunamill`.
    - **Secrets and variables.** List the ones you have:
      `gh secret list` and `gh variable list`. Create each one whose name
-     starts `FACTORY_` again with `KODOR_` in its place, such as
-     `gh secret set KODOR_BOARD_TOKEN`, which asks for the value. GitHub
+     starts `FACTORY_` again with `LUNAMILL_` in its place, such as
+     `gh secret set LUNAMILL_BOARD_TOKEN`, which asks for the value. GitHub
      cannot rename a secret or show its value, so you paste each one again,
      from wherever you keep it. `CLAUDE_CODE_OAUTH_TOKEN` and
      `ANTHROPIC_API_KEY` keep their names.
-   - **A rule you made yourself.** The ruleset kodor makes requires
+   - **A rule you made yourself.** The ruleset lunamill makes requires
      "Review verdict", whose name stays the same. A rule of your own may
      require one of the old checks by name. Under Settings, Rules,
      change `review / Factory files in step` to
-     `review / kodor files in step`, and a name that starts `factory /`,
+     `review / lunamill files in step`, and a name that starts `factory /`,
      such as `factory / Pull request / Record the verdict`, to the same
-     name starting `kodor /`.
+     name starting `lunamill /`.
    - **A poller you host.** If you [host the poller](../features/hosting-the-poller.md#hosting-the-poller-own-server),
-     run the image `ghcr.io/kodor-ai/kodor-poller` of the version in
-     `.claude/kodor.lock`, and rename its `FACTORY_REPOSITORY` and
-     `FACTORY_BOARD_TOKEN` to `KODOR_REPOSITORY` and `KODOR_BOARD_TOKEN`.
+     run the image `ghcr.io/lunamill-ai/lunamill-poller` of the version in
+     `.claude/lunamill.lock`, and rename its `FACTORY_REPOSITORY` and
+     `FACTORY_BOARD_TOKEN` to `LUNAMILL_REPOSITORY` and `LUNAMILL_BOARD_TOKEN`.
 
 8. Merge the pull request. Then delete each `FACTORY_` secret and
    variable, such as with `gh secret delete FACTORY_BOARD_TOKEN`, and
@@ -153,8 +153,8 @@ deletes them.
    token or other credentials in its credentials file, move the file:
 
    ```bash
-   mkdir -p ~/.config/kodor
-   mv ~/.config/software-factory/credentials.yaml ~/.config/kodor/
+   mkdir -p ~/.config/lunamill
+   mv ~/.config/software-factory/credentials.yaml ~/.config/lunamill/
    ```
 
    The two other folders hold nothing you keep: downloaded versions, and
@@ -172,16 +172,16 @@ deletes them.
 
 Your own instructions may also name the old skills, such as
 `/factory-build` in your `CLAUDE.md` or in a [plugin](../customize/plugins.md) of
-yours: change each to its new name, such as `/kodor-build`.
+yours: change each to its new name, such as `/lunamill-build`.
 
 This covers a repository. No organization was set up with the old
 package's `factory init --org`, so there is nothing of an organization's
-to move: set one up with `kodor init --org`, as
+to move: set one up with `lunamill init --org`, as
 [Setting up an organization](../setup/organization.md) says.
 
-**It worked when** [`kodor doctor`](../reference/cli.md), which checks the whole
+**It worked when** [`lunamill doctor`](../reference/cli.md), which checks the whole
 setup, passes in the repository, and each pull request opened after the merge
-lists the new checks, such as `review / kodor files in step`.
+lists the new checks, such as `review / lunamill files in step`.
 
 ## Grouped checks
 
@@ -391,7 +391,7 @@ this release, and do these steps in the repository's checkout.
 ## Labeling your open tickets
 
 From this release the factory works only on tickets with its label
-([Which tickets are the factory's](../workflow/tickets.md#which-tickets-are-kodors)).
+([Which tickets are the factory's](../workflow/tickets.md#which-tickets-are-lunamills)).
 Before it, every open ticket was the factory's, so you label each open
 ticket once, before you merge the update, and no card changes column.
 Run this on the update's branch, after `factory update` or the

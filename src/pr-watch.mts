@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 // Wait until a pull request needs its session's attention, say why, and exit.
 //
-//   kodor pr watch N             # run in the background
-//   kodor pr watch N --release   # stop claiming the pull request
+//   lunamill pr watch N             # run in the background
+//   lunamill pr watch N --release   # stop claiming the pull request
 //
 // Each event is reported once, so a check judged fine as-is does not wake the
 // session again. Run it again after working what it reported, until it prints
 // "merged" or "closed". While it runs, the pull request's body carries a mark
-// that the `kodor-address-review` skill reads, so a workflow does not answer the owner's
+// that the `lunamill-address-review` skill reads, so a workflow does not answer the owner's
 // review alongside this session.
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -71,7 +71,7 @@ const FAILED_CONCLUSIONS = new Set([
 const AGENT_MARKER = "<!-- agent -->";
 /** The review run's checks, as a job of the workflow a pull request starts
  * is named: the calling job, the run, then its job. */
-const REVIEW_CHECKS = "kodor / Review / ";
+const REVIEW_CHECKS = "lunamill / Review / ";
 const REVIEW_BOT = "github-actions[bot]";
 
 export function toChecks(runs: CheckRun[], statuses: CommitStatus[]): Check[] {
@@ -284,7 +284,7 @@ async function main(argv: string[]) {
   const { out, err } = say.printersFor("pr watch");
   const pr = argv[0];
   if (!/^\d+$/.test(pr ?? "")) {
-    err(say.text("Usage: kodor pr watch PR_NUMBER [--release]"));
+    err(say.text("Usage: lunamill pr watch PR_NUMBER [--release]"));
     process.exit(2);
   }
   const { repository, codeHost } = await reachOf(process.env);
@@ -354,7 +354,7 @@ async function main(argv: string[]) {
 }
 
 // Only run as a CLI. Importing this module for tests must not call GitHub.
-/** `kodor pr watch N [--release]`. */
+/** `lunamill pr watch N [--release]`. */
 export async function run(argv: string[]): Promise<number> {
   await main(argv);
   return 0;

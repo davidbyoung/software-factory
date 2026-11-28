@@ -1,4 +1,4 @@
-// `kodor init`: sets a repository up in one run. It settles which
+// `lunamill init`: sets a repository up in one run. It settles which
 // repository the checkout is for, follows the owner's presets, says what
 // it found, asks only what nothing has decided, shows everything it will
 // do, and once told to go ahead writes the settings, syncs, runs the gate,
@@ -142,9 +142,9 @@ import {
   LABEL_LOOK as POLICY_LABEL_LOOK,
 } from "./approval-policies.mts";
 import {
-  KODOR_EVENTS,
-  KODOR_FILE,
-  KODOR_REPOSITORY,
+  LUNAMILL_EVENTS,
+  LUNAMILL_FILE,
+  LUNAMILL_REPOSITORY,
   HELD_EVENT,
 } from "./workflow-files.mts";
 import {
@@ -160,11 +160,11 @@ import { STATE_KEYS, sameName, type StateKey } from "./lib/work-status.mts";
 import {
   askReady,
   everyColumn,
-  KODOR_LINES,
+  LUNAMILL_LINES,
   fillColumns,
   suggestColumns,
 } from "./columns-suggest.mts";
-import { KODOR_FIELDS, suggestFields } from "./ticket-fields.mts";
+import { LUNAMILL_FIELDS, suggestFields } from "./ticket-fields.mts";
 import type { TicketField } from "./tickets/types.mts";
 import {
   askBranchName,
@@ -214,7 +214,7 @@ export type Presets = {
     codeHost: string,
     from: string,
   ) => Promise<{ name: string; about: string }[] | null>;
-  /** Pins a preset as `kodor preset add` does, in files that read as
+  /** Pins a preset as `lunamill preset add` does, in files that read as
    * `files`, with that command's summary and questions: the files as they
    * then read, or null when it refuses. Nothing is written. */
   add: (
@@ -272,21 +272,21 @@ export type InitDeps = {
   now?: () => Date;
 };
 
-const SIGNING_TITLE = "kodor builds";
+const SIGNING_TITLE = "lunamill builds";
 /** A month of runs at each interval the scheduled poller allows. */
 const RUNS_A_MONTH = (minutes: number) => (30 * 24 * 60) / minutes;
-const AGAIN = "Run kodor init again to add it.";
+const AGAIN = "Run lunamill init again to add it.";
 const NOTHING = "Nothing changed.";
 const NOTHING_ELSE = "Nothing else changed.";
 const NOTHING_TO_COMMIT = "Nothing to commit: the files already match.";
 const NOT_COMMITTED = "The files are written, and nothing is committed.";
-const USAGE = "Usage: kodor init [--preset NAME]... [--org ADDRESS]";
+const USAGE = "Usage: lunamill init [--preset NAME]... [--org ADDRESS]";
 /** The branch the setup's commit is made on. */
-const BRANCH = "set-up-kodor";
-const SET_UP = "Set up kodor";
+const BRANCH = "set-up-lunamill";
+const SET_UP = "Set up lunamill";
 /** The message of the commit that gives an empty repository a branch. */
 const FIRST_COMMIT = "Start the repository";
-const CHANGE = "Change kodor's settings";
+const CHANGE = "Change lunamill's settings";
 
 /** Each state `tickets.columns` writes, as its columns or null for none,
  * from the settings as parsed YAML. */
@@ -346,7 +346,7 @@ const GATE_QUESTION =
   "Which command checks a change here, such as npm test? (leave empty to add it later)";
 
 /** The repository and code host a remote's address names, or null for one
- * on a code host kodor does not support. */
+ * on a code host lunamill does not support. */
 export function parseRemote(
   url: string,
   tools: Registry = TOOLS,
@@ -424,9 +424,9 @@ export async function whichRepository(
     d.out(
       say.text(
         remotes.length === 1
-          ? `The ${remotes[0]!.name} remote, ${remotes[0]!.url}, is not on a code host kodor supports: ${hosts}.`
+          ? `The ${remotes[0]!.name} remote, ${remotes[0]!.url}, is not on a code host lunamill supports: ${hosts}.`
           : remotes.length
-            ? `No remote here is on a code host kodor supports: ${hosts}.`
+            ? `No remote here is on a code host lunamill supports: ${hosts}.`
             : "This is not a git repository with a remote. Run it in your repository's checkout.",
       ),
     );
@@ -542,7 +542,7 @@ export async function startRepository(
   const branch = d.git(["symbolic-ref", "--short", "HEAD"]).stdout.trim();
   if (!branch)
     return stop(
-      `✗ ${o.repository} has no commits yet, and this checkout is on no branch. Switch to one, then run kodor init again.`,
+      `✗ ${o.repository} has no commits yet, and this checkout is on no branch. Switch to one, then run lunamill init again.`,
       NOTHING,
     );
   const unborn =
@@ -556,7 +556,7 @@ export async function startRepository(
     );
     if (!make)
       return stop(
-        `Push a first commit, then run kodor init again: git commit --allow-empty -m "${FIRST_COMMIT}" && ${push}`,
+        `Push a first commit, then run lunamill init again: git commit --allow-empty -m "${FIRST_COMMIT}" && ${push}`,
         NOTHING,
       );
     // Only: whatever is staged stays staged, and out of the commit.
@@ -578,7 +578,7 @@ export async function startRepository(
     );
     if (!go)
       return stop(
-        `Push ${branch}, then run kodor init again: ${push}`,
+        `Push ${branch}, then run lunamill init again: ${push}`,
         NOTHING,
       );
   }
@@ -620,7 +620,7 @@ export function checkedOut(
   );
   if (!(ahead > 0)) return { sha };
   const branch = d.git(["rev-parse", "--abbrev-ref", "HEAD"]).stdout.trim();
-  const again = `Switch to ${o.base}, then run kodor init again.`;
+  const again = `Switch to ${o.base}, then run lunamill init again.`;
   return stop(
     branch && branch !== "HEAD"
       ? `✗ This checkout is on the branch ${branch}, which has commits ${o.base} does not. ${again}`
@@ -629,7 +629,7 @@ export function checkedOut(
 }
 
 /** The presets a repository is to follow, pinned: those `--preset` names,
- * or those chosen from the ones the owner's `kodor-config` holds, or
+ * or those chosen from the ones the owner's `lunamill-config` holds, or
  * those this machine last used for the owner, when the person says so.
  * Settings that list presets already look for no other. The files as they
  * then read, or an exit status when a preset is refused. */
@@ -641,7 +641,7 @@ export async function followPresets(
     /** The presets the settings list. */
     listed: string[];
     flags: string[];
-    /** What the owner's `kodor-config` holds, or null without one. */
+    /** What the owner's `lunamill-config` holds, or null without one. */
     held: { name: string; about: string }[] | null;
     remembered: string[];
   },
@@ -760,13 +760,13 @@ function presetStop(o: {
       `The presets turn on ${o.parts}. They need ${owner}'s secrets, and ${why}`,
     );
   const under = (text: string) => say.text(`     ${text}`);
-  const command = under(`kodor init --org ${o.address}`);
+  const command = under(`lunamill init --org ${o.address}`);
   const steps = (page: string) => under(docsPage(o.version, page));
   if (o.lacks === "plan")
     return [
       fails(`${plan} does not share them with a private repository.`),
       say.text(
-        `Make ${repository} public, or move ${owner} to a paid plan. Then run kodor init again.`,
+        `Make ${repository} public, or move ${owner} to a paid plan. Then run lunamill init again.`,
       ),
       say.text(`What ${plan} leaves out:`),
       steps(DOCS_PAGES.freePlan),
@@ -775,7 +775,7 @@ function presetStop(o: {
     return [
       fails(`${owner} is not set up.`),
       say.text(
-        `An owner of ${owner} runs this once, from any folder. Then run kodor init again.`,
+        `An owner of ${owner} runs this once, from any folder. Then run lunamill init again.`,
       ),
       command,
       ...(plan
@@ -802,7 +802,7 @@ function presetStop(o: {
   return [
     fails(`those do not reach ${repository}.`),
     say.text(
-      `An owner of ${owner} gives ${repository} access to each of these, under "Repository access". Then run kodor init again.`,
+      `An owner of ${owner} gives ${repository} access to each of these, under "Repository access". Then run lunamill init again.`,
     ),
     ...(secrets.length
       ? [
@@ -924,7 +924,7 @@ export function fileRows(
   if (copies.length)
     rows.push([
       "files",
-      `Copy kodor's skills, agents, rules, and guards${ships ? `, and ${ships}` : ""}`,
+      `Copy lunamill's skills, agents, rules, and guards${ships ? `, and ${ships}` : ""}`,
     ]);
   if (workflows.length)
     rows.push([
@@ -953,7 +953,7 @@ export async function runGate(
       d.out(say.verbatim(`    ${line}`));
     d.out(
       say.text(
-        `Fix it, or change commands.gate in ${SETTINGS_FILE}, then run kodor init again. Nothing is committed.`,
+        `Fix it, or change commands.gate in ${SETTINGS_FILE}, then run lunamill init again. Nothing is committed.`,
       ),
     );
     return false;
@@ -968,7 +968,7 @@ export async function runGate(
 }
 
 /** The first name of the setup's branch that is taken neither here nor on
- * the remote: `set-up-kodor`, then `set-up-kodor-2`, and so on. */
+ * the remote: `set-up-lunamill`, then `set-up-lunamill-2`, and so on. */
 export function freeBranch(d: Pick<InitDeps, "git">, remote: string): string {
   for (let n = 1; ; n++) {
     const name = n === 1 ? BRANCH : `${BRANCH}-${n}`;
@@ -1113,11 +1113,11 @@ export function afterMerge(
     say.text("       ", update),
     say.step(
       2,
-      "Start a new session of your coding agent here. It loads kodor from the files now in your repository.",
+      "Start a new session of your coding agent here. It loads lunamill from the files now in your repository.",
     ),
     say.step(
       3,
-      "Refine a ticket with /kodor-refine N, then build it with /kodor-build N.",
+      "Refine a ticket with /lunamill-refine N, then build it with /lunamill-build N.",
     ),
     say.text("The steps in full:"),
     say.text(`     ${docsPage(version, DOCS_PAGES.firstTicket)}`),
@@ -1426,15 +1426,15 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
       : null;
   const choosing = flags.length > 0 || (looks && (held?.length ?? 0) > 0);
 
-  d.out(say.text("Setting up kodor for ", say.name(repository)));
+  d.out(say.text("Setting up lunamill for ", say.name(repository)));
   d.out(say.BLANK);
   if (!agent.agent.installed(d.hasCommand)) {
     d.out(
       say.text(
-        `kodor runs in a coding agent, and ${agent.label} is not installed.`,
+        `lunamill runs in a coding agent, and ${agent.label} is not installed.`,
       ),
     );
-    d.out(say.text("Install it and run kodor init again."));
+    d.out(say.text("Install it and run lunamill init again."));
     d.out(say.text(NOTHING));
     return 1;
   }
@@ -1476,7 +1476,7 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
       lacks === "unlisted"
         ? `${owner}: its secrets could not be listed (${unlisted})`
         : lacks === "not set up"
-          ? `${owner}, not set up: an owner runs kodor init --org ${address}`
+          ? `${owner}, not set up: an owner runs lunamill init --org ${address}`
           : `${owner}, set up, but its secrets do not reach this repository: ${keepsBack ? `${keepsBack} shares them only with public repositories` : "GitHub Free shares them only with public repositories, or an owner narrowed them"}`,
     );
   if (looks && held) row("Presets", `${config} holds ${held.length}`);
@@ -1882,7 +1882,7 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
     if (!offerNew && existing.length === 0) {
       d.out(
         say.text(
-          "No board to use instead: create one on the code host, then run kodor init again.",
+          "No board to use instead: create one on the code host, then run lunamill init again.",
         ),
       );
       return null;
@@ -1891,7 +1891,7 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
       ...(offerNew
         ? [
             {
-              name: `Create "${name}", with kodor's columns`,
+              name: `Create "${name}", with lunamill's columns`,
               value: "new",
             },
           ]
@@ -1952,7 +1952,7 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
   }
 
   // The board's columns, all six written: the coding agent suggests them
-  // when an existing board lacks one of kodor's and the settings
+  // when an existing board lacks one of lunamill's and the settings
   // name none, a block that leaves states out is filled in, and a ready
   // column is asked for when builds from the board turn on without one.
   let columnLines: [string, string][] = [];
@@ -1996,7 +1996,7 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
       columnLines = got;
     } else if (suggests && names.length)
       columnLines = everyColumn(d, { board, columns: names });
-    else if (suggests) columnLines = KODOR_LINES;
+    else if (suggests) columnLines = LUNAMILL_LINES;
     else if (missing.length)
       columnLines = await fillColumns(
         { ask: d.ask, out: d.out },
@@ -2009,13 +2009,13 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
       );
   }
 
-  // kodor fields a refined ticket has: the coding agent suggests
+  // lunamill fields a refined ticket has: the coding agent suggests
   // which of the tickets' text fields holds each, when the settings name
   // none of the four.
   let fieldLines: [string, string][] = [];
   if (
     tickets.fields &&
-    !KODOR_FIELDS.some((f) => given("tickets", "fields", f.key))
+    !LUNAMILL_FIELDS.some((f) => given("tickets", "fields", f.key))
   ) {
     let text: TicketField[];
     try {
@@ -2408,7 +2408,7 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
   const posts =
     rule &&
     (await runner
-      .workflowState(KODOR_FILE.split("/").at(-1)!)
+      .workflowState(LUNAMILL_FILE.split("/").at(-1)!)
       .catch(() => "missing")) !== "missing";
 
   // The plan.
@@ -2468,12 +2468,12 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
   if (board === "new")
     planRow(
       "create",
-      `board "${name}" under ${owner}, linked to the repository, with kodor's columns and fields`,
+      `board "${name}" under ${owner}, linked to the repository, with lunamill's columns and fields`,
     );
   else if (parts.has("board") && typeof board === "number" && ownBoard)
     planRow(
       "board",
-      `give board ${board} any of kodor's columns and fields it lacks`,
+      `give board ${board} any of lunamill's columns and fields it lacks`,
     );
   if (toStore.length) planRow("secrets", toStore.join(", "));
   if (storesOnMachine || keeping.length)
@@ -2499,12 +2499,13 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
   // A code host may hold a workflow's events back in a repository anyone
   // can read. One that cannot say gets no row, and doctor's line instead.
   const eventsHeld =
-    (await codeHost.eventAllowed(KODOR_FILE, HELD_EVENT).catch(() => null)) ===
-    "blocked";
+    (await codeHost
+      .eventAllowed(LUNAMILL_FILE, HELD_EVENT)
+      .catch(() => null)) === "blocked";
   if (eventsHeld)
     planRow(
       "policy",
-      `Let ${KODOR_FILE} run on ${HELD_EVENT}, as the policy "${RULE}"`,
+      `Let ${LUNAMILL_FILE} run on ${HELD_EVENT}, as the policy "${RULE}"`,
     );
   if (installing)
     planRow(
@@ -2547,7 +2548,7 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
       doc.setIn(["tickets", "board"], board);
       // A block needs a board, so one init creates has none written yet.
       if (creating)
-        for (const [key, name] of KODOR_LINES)
+        for (const [key, name] of LUNAMILL_LINES)
           doc.setIn(["tickets", "columns", key], name);
       try {
         await giveBoard(d, boardOps, board, boardShape(await standing()));
@@ -2604,7 +2605,7 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
   // The gate, before anything is committed: a build could not finish in a
   // repository whose own check fails.
   const standingNow = await standing();
-  // Every command, each in its folders, as `kodor gate --all` runs them.
+  // Every command, each in its folders, as `lunamill gate --all` runs them.
   const git = gitIn(d.root);
   const tracked = git([
     "ls-files",
@@ -2704,7 +2705,7 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
     if (isNear(step) || (isAccessNear(step) && accessNear === "new"))
       d.out(
         say.text(
-          "Each of your other repositories keeps the old token until you run kodor init there. It stores this one from your machine.",
+          "Each of your other repositories keeps the old token until you run lunamill init there. It stores this one from your machine.",
         ),
       );
   }
@@ -2725,7 +2726,7 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
       );
       d.out(
         say.text(
-          "kodor's workflows install with it. Use a token that can only read.",
+          "lunamill's workflows install with it. Use a token that can only read.",
         ),
       );
       prompt = "Paste it (leave empty to do this later):";
@@ -2747,7 +2748,7 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
     if (!value) {
       d.out(
         say.text(
-          `No ${a.name} stored. kodor's workflows fail at npm ci until it is. ${AGAIN}`,
+          `No ${a.name} stored. lunamill's workflows fail at npm ci until it is. ${AGAIN}`,
         ),
       );
       continue;
@@ -2836,7 +2837,7 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
   if (
     settings?.approvalPolicies.length &&
     (await runner
-      .workflowState(KODOR_FILE.split("/").at(-1)!)
+      .workflowState(LUNAMILL_FILE.split("/").at(-1)!)
       .catch(() => "missing")) !== "missing"
   )
     await codeHost
@@ -2851,15 +2852,15 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
 
   let eventsLeft: string | null = null;
   if (eventsHeld)
-    await codeHost.allowEvents(RULE, KODOR_FILE, KODOR_EVENTS).then(
-      () => d.out(say.text(`✓ Allowed ${HELD_EVENT} for ${KODOR_FILE}.`)),
+    await codeHost.allowEvents(RULE, LUNAMILL_FILE, LUNAMILL_EVENTS).then(
+      () => d.out(say.text(`✓ Allowed ${HELD_EVENT} for ${LUNAMILL_FILE}.`)),
       (e) => {
         d.out(
           say.text(
             `Could not allow ${HELD_EVENT}: ${message(e)}. Carrying on.`,
           ),
         );
-        eventsLeft = `Let ${KODOR_FILE} run on ${HELD_EVENT}: your repository's Settings, Actions, Policies`;
+        eventsLeft = `Let ${LUNAMILL_FILE} run on ${HELD_EVENT}: your repository's Settings, Actions, Policies`;
       },
     );
 
@@ -2916,7 +2917,7 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
     left.push(
       pollerStep(repository, d.packageVersion, pull?.state === "opened", base),
     );
-  // Without a gate `kodor gate` fails, and a build cannot finish.
+  // Without a gate `lunamill gate` fails, and a build cannot finish.
   if (!gate.length)
     left.push(
       `Add the commands that check a change, under commands.gate in ${SETTINGS_FILE}`,
@@ -2934,7 +2935,7 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
     person !== null && person.toLowerCase() !== tokenAccount!.toLowerCase();
   if (waits && (!enrolls || anothers))
     left.push(
-      `Once it merges, an admin of ${repository} runs kodor init, to require "${REVIEW_VERDICT}"`,
+      `Once it merges, an admin of ${repository} runs lunamill init, to require "${REVIEW_VERDICT}"`,
     );
   if (pull?.state === "opened")
     d.out(
@@ -2978,8 +2979,8 @@ export function pollerStep(
 ): string {
   return [
     `Run the poller's image, ${POLLER_IMAGE}:${version}, where you host it, with:`,
-    `       KODOR_REPOSITORY=${repository}`,
-    "       KODOR_BOARD_TOKEN=the access token you just made",
+    `       LUNAMILL_REPOSITORY=${repository}`,
+    "       LUNAMILL_BOARD_TOKEN=the access token you just made",
     `     It reads the rest from your settings once ${opened ? "this pull request merges" : `they are on ${base}`}.`,
   ].join("\n");
 }
@@ -3223,7 +3224,7 @@ export async function initDeps(
     hasCommand,
     openPage,
     keygen: async () => {
-      const dir = mkdtempSync(join(tmpdir(), "kodor-key-"));
+      const dir = mkdtempSync(join(tmpdir(), "lunamill-key-"));
       try {
         const file = join(dir, "key");
         execFileSync(

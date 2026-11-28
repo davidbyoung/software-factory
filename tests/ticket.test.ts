@@ -59,11 +59,11 @@ function deps(
     stored?: number | string | null;
     groups?: Group[];
     pulls?: Partial<PullRequest>[];
-    /** The tickets' own fields, and which kodor field each holds. */
+    /** The tickets' own fields, and which lunamill field each holds. */
     ticketFields?: { fields: TicketField[]; mapping: FieldMapping };
     /** Label names the settings set, beside the defaults. */
     labels?: {
-      tickets?: Partial<Record<"spec" | "kodor", string>>;
+      tickets?: Partial<Record<"spec" | "lunamill", string>>;
       codeHost?: Partial<
         Record<"merge-automatic" | "merge-manual" | "verdict-override", string>
       >;
@@ -76,15 +76,15 @@ function deps(
     deciders?: string[];
     /** The in-memory adapter's own options, such as `strict`. */
     memory?: MemoryOptions;
-    /** Whether a ticket seeded with no labels gets the kodor label, as
-     * every ticket kodor works on has; true unless given. */
+    /** Whether a ticket seeded with no labels gets the lunamill label, as
+     * every ticket lunamill works on has; true unless given. */
     labeled?: boolean;
     /** The names the default branch has; every name unless given. */
     has?: string[];
   } = {},
 ) {
   if (options.labeled !== false)
-    seed = seed.map((t) => (t.labels ? t : { ...t, labels: ["kodor"] }));
+    seed = seed.map((t) => (t.labels ? t : { ...t, labels: ["lunamill"] }));
   const memory = memoryTickets(seed, {
     groups: options.groups,
     deciders: options.deciders,
@@ -111,7 +111,7 @@ function deps(
               "acme/shop",
               {
                 spec: "spec",
-                kodor: "kodor",
+                lunamill: "lunamill",
                 ...options.labels?.tickets,
               },
             )
@@ -222,7 +222,7 @@ describe("claim", () => {
     await main(["claim", "7"], d);
 
     // The first read is the check of its repositories, and the last that
-    // of the kodor label.
+    // of the lunamill label.
     expect(log).toEqual(["read", "post", "sleep", "read", "read"]);
   });
 
@@ -293,7 +293,7 @@ describe("claim", () => {
 
     expect(out).toEqual(["blocked by: #3"]);
     expect(last(memory, 7)).toContain(
-      "Stopped without a pull request: it waits on #3, which has to merge first. The card stays In progress, waiting on you. Run `kodor build 7` to try again, or move it to Ready.",
+      "Stopped without a pull request: it waits on #3, which has to merge first. The card stays In progress, waiting on you. Run `lunamill build 7` to try again, or move it to Ready.",
     );
     expect(
       memory
@@ -344,7 +344,7 @@ describe("claim", () => {
 
     expect(await main(["claim", "7"], d)).toBe(1);
     expect(last(memory, 7)).toContain(
-      "Stopped without a pull request: I could not read the claim back. The card stays In progress, waiting on you. Run `kodor build 7` to try again, or move it to Ready.",
+      "Stopped without a pull request: I could not read the claim back. The card stays In progress, waiting on you. Run `lunamill build 7` to try again, or move it to Ready.",
     );
   });
 
@@ -439,7 +439,7 @@ describe("stop", () => {
     expect(await main(["stop", "7", "the gate failed twice"], d)).toBe(0);
     expect(out).toEqual(["released"]);
     expect(last(memory, 7)).toContain(
-      "Stopped without a pull request: the gate failed twice. The card stays In progress, waiting on you. Run `kodor build 7` to try again, or move it to Ready.\n\n",
+      "Stopped without a pull request: the gate failed twice. The card stays In progress, waiting on you. Run `lunamill build 7` to try again, or move it to Ready.\n\n",
     );
     expect(last(memory, 7)).toContain("<!-- work-status: released -->");
   });
@@ -485,7 +485,7 @@ describe("start-check", () => {
   });
 });
 
-// A body `kodor-refine` writes for a ticket without the `spec` label, and
+// A body `lunamill-refine` writes for a ticket without the `spec` label, and
 // one for a ticket with it, whose tasks are grouped under level-two
 // headings as OpenSpec's `tasks.md` has them.
 const PLAIN_BODY = [
@@ -583,7 +583,7 @@ describe("refinement markers", () => {
 });
 
 describe("the refined check", () => {
-  /** `kodor ticket refined 7`, with `args` after it, on a ticket with this
+  /** `lunamill ticket refined 7`, with `args` after it, on a ticket with this
    * body and these labels, where the default branch has the names `has`
    * gives, or every name. */
   async function refined(
@@ -1389,7 +1389,7 @@ describe("the ticket commands", () => {
           "--label",
           "conflict",
           "--label",
-          "kodor",
+          "lunamill",
         ],
         d,
       ),
@@ -1398,7 +1398,7 @@ describe("the ticket commands", () => {
     expect(memory.state.get("8")).toMatchObject({
       title: "Conflict on #12",
       body: "A conflict needs you.",
-      labels: ["conflict", "kodor"],
+      labels: ["conflict", "lunamill"],
     });
   });
 
@@ -1520,7 +1520,7 @@ describe("the ticket commands", () => {
       );
       expect(memory.state.get(out[0]!)?.labels).toEqual([
         "needs-spec",
-        "kodor",
+        "lunamill",
       ]);
     });
 
@@ -1592,10 +1592,10 @@ describe("the ticket commands", () => {
           );
         },
       });
-      d.env = { ...d.env, KODOR_APP_SLUG: "kodor-acme" };
+      d.env = { ...d.env, LUNAMILL_APP_SLUG: "lunamill-acme" };
 
       expect(await main(["branch", "7"], d)).toBe(0);
-      expect(out).toEqual(["kodor-acme/7"]);
+      expect(out).toEqual(["lunamill-acme/7"]);
     });
 
     it("asks the code host who is signed in when the slug is empty, as in a run with no app", async () => {
@@ -1603,7 +1603,7 @@ describe("the ticket commands", () => {
         branchName: "{user}/{ticket}",
         signedInAs: async () => "dave",
       });
-      d.env = { ...d.env, KODOR_APP_SLUG: "" };
+      d.env = { ...d.env, LUNAMILL_APP_SLUG: "" };
 
       expect(await main(["branch", "7"], d)).toBe(0);
       expect(out).toEqual(["dave/7"]);
@@ -1877,7 +1877,7 @@ describe("a ticket opened with a bare tag in its title", () => {
   });
 });
 
-describe("tickets whose kodor fields sit in ticket fields", () => {
+describe("tickets whose lunamill fields sit in ticket fields", () => {
   const FIELDS: TicketField[] = [
     { name: "Priority", description: null, text: false },
     { name: "Acceptance criteria", description: null, text: true },
@@ -1983,7 +1983,7 @@ describe("tickets whose kodor fields sit in ticket fields", () => {
       "a ticket system without fields",
       MAPPING,
       ["board"] as Group[],
-      "This ticket system does not support fields; check with `kodor ticket supports fields` first.",
+      "This ticket system does not support fields; check with `lunamill ticket supports fields` first.",
     ],
   ])(
     "edit stops on %s, writing nothing",
@@ -2039,7 +2039,7 @@ describe("tickets whose kodor fields sit in ticket fields", () => {
 
     expect(await main(["view", "7"], d)).toBe(1);
     expect(errors).toEqual([
-      "This ticket system does not support fields; check with `kodor ticket supports fields` first.",
+      "This ticket system does not support fields; check with `lunamill ticket supports fields` first.",
     ]);
   });
 
@@ -2089,7 +2089,7 @@ describe("answers", () => {
     createdAt: `2026-11-22T16:${String(minute).padStart(2, "0")}:00Z`,
     body,
   });
-  // kodor's round, posted through an approver's account; that
+  // lunamill's round, posted through an approver's account; that
   // approver's reply; and a stranger's comment.
   const ROUND = said(10, "alice", `1. Option A or B?\n\n${AGENT}`, 0);
   const REPLY = said(
@@ -2101,7 +2101,7 @@ describe("answers", () => {
   const STRANGER = said(12, "mallory", "Do C instead.", 2);
   const TWENTY_EIGHT = { number: 28, comments: [ROUND, REPLY, STRANGER] };
 
-  it("prints each comment by someone who may decide, without kodor's mark, as view prints a comment", async () => {
+  it("prints each comment by someone who may decide, without lunamill's mark, as view prints a comment", async () => {
     const { d, out } = deps([TWENTY_EIGHT], { deciders: ["alice"] });
 
     expect(await main(["answers", "28"], d)).toBe(0);
@@ -2364,7 +2364,7 @@ describe("a ticket system's credential", () => {
   it("says no credential is set, naming every variable and init", async () => {
     await expect(open()).rejects.toThrow(
       new CredentialError(
-        "No Fake Tickets credential for acme.example. Set FAKE_TICKETS_EMAIL and FAKE_TICKETS_TOKEN, or run: kodor init",
+        "No Fake Tickets credential for acme.example. Set FAKE_TICKETS_EMAIL and FAKE_TICKETS_TOKEN, or run: lunamill init",
       ),
     );
     expect(opened).toEqual([]);
@@ -2384,7 +2384,7 @@ describe("a ticket system's credential", () => {
     const { tickets } = await open();
     await expect(tickets.read("7")).rejects.toThrow(
       new CredentialError(
-        "Fake Tickets refused the credential on this machine for acme.example (401 Unauthorized). It may have expired. Run: kodor init",
+        "Fake Tickets refused the credential on this machine for acme.example (401 Unauthorized). It may have expired. Run: lunamill init",
       ),
     );
   });
@@ -2392,7 +2392,7 @@ describe("a ticket system's credential", () => {
   it("words a 401 to the environment's credential naming the secrets, marked as an error in Actions", async () => {
     const fromEnv = { ...GOOD, [FAKE_TOKEN]: REFUSED };
     const line =
-      "Fake Tickets refused FAKE_TICKETS_EMAIL and FAKE_TICKETS_TOKEN for acme.example (401 Unauthorized). They may have expired. Run kodor init, and replace them.";
+      "Fake Tickets refused FAKE_TICKETS_EMAIL and FAKE_TICKETS_TOKEN for acme.example (401 Unauthorized). They may have expired. Run lunamill init, and replace them.";
     await expect((await open(fromEnv)).tickets.read("7")).rejects.toThrow(
       new CredentialError(line),
     );
@@ -2418,7 +2418,7 @@ describe("a ticket system's credential", () => {
     d.settings = async () => settings();
     expect(await main(["view", "7"], d)).toBe(1);
     expect(errors).toEqual([
-      "Fake Tickets refused the credential on this machine for acme.example (401 Unauthorized). It may have expired. Run: kodor init",
+      "Fake Tickets refused the credential on this machine for acme.example (401 Unauthorized). It may have expired. Run: lunamill init",
     ]);
     expect([...out, ...errors].join("\n")).not.toMatch(/dana@|t0k3n|\bbad\b/);
   });
@@ -2503,8 +2503,8 @@ describe("a ticket system that keeps the record apart", () => {
   });
 });
 
-describe("the kodor label", () => {
-  const strict = (seed: Seed[], labels?: { kodor?: string }) =>
+describe("the lunamill label", () => {
+  const strict = (seed: Seed[], labels?: { lunamill?: string }) =>
     deps(seed, {
       memory: { strict: true },
       labels: { tickets: labels },
@@ -2527,30 +2527,30 @@ describe("the kodor label", () => {
       }
 
       await main([command, "PROJ-7"], d);
-      expect(memory.state.get("PROJ-7")!.labels).toEqual(["kodor"]);
+      expect(memory.state.get("PROJ-7")!.labels).toEqual(["lunamill"]);
       expect(out[0]).toBe(
-        "PROJ-7 had no kodor label: added it, so kodor now tracks PROJ-7",
+        "PROJ-7 had no lunamill label: added it, so lunamill now tracks PROJ-7",
       );
     },
   );
 
   it("adds nothing and says nothing for a ticket that has it", async () => {
-    const { d, out } = strict([{ key: "PROJ-7", labels: ["kodor"] }]);
+    const { d, out } = strict([{ key: "PROJ-7", labels: ["lunamill"] }]);
 
     await main(["refining", "PROJ-7"], d);
     expect(out).toEqual(["posted"]);
   });
 
-  it("adds the name tickets.labels.kodor gives", async () => {
+  it("adds the name tickets.labels.lunamill gives", async () => {
     const { d, memory } = strict([{ key: "PROJ-7" }], {
-      kodor: "built-by-factory",
+      lunamill: "built-by-factory",
     });
 
     await main(["refining", "PROJ-7"], d);
     expect(memory.state.get("PROJ-7")!.labels).toEqual(["built-by-factory"]);
   });
 
-  it("puts the label on a ticket kodor ticket open opens, beside the ones asked for", async () => {
+  it("puts the label on a ticket lunamill ticket open opens, beside the ones asked for", async () => {
     const { d, memory, files } = strict([]);
     files.set("b.md", "Body.");
 
@@ -2558,20 +2558,20 @@ describe("the kodor label", () => {
       ["open", "--title", "T", "--body-file", "b.md", "--label", "spec"],
       d,
     );
-    expect(memory.state.get("PROJ-1")!.labels).toEqual(["spec", "kodor"]);
+    expect(memory.state.get("PROJ-1")!.labels).toEqual(["spec", "lunamill"]);
   });
 
-  it("takes the key factory in kodor ticket label", async () => {
-    const { d, memory } = strict([{ key: "PROJ-7" }], { kodor: "built" });
+  it("takes the key factory in lunamill ticket label", async () => {
+    const { d, memory } = strict([{ key: "PROJ-7" }], { lunamill: "built" });
 
-    expect(await main(["label", "PROJ-7", "--add", "kodor"], d)).toBe(0);
+    expect(await main(["label", "PROJ-7", "--add", "lunamill"], d)).toBe(0);
     expect(memory.state.get("PROJ-7")!.labels).toEqual(["built"]);
   });
 });
 
-describe("kodor ticket adopt", () => {
+describe("lunamill ticket adopt", () => {
   const tickets: Seed[] = [
-    { number: 1, labels: ["kodor"] },
+    { number: 1, labels: ["lunamill"] },
     { number: 2 },
     { number: 3, labels: ["bug"] },
     { number: 4, state: "closed", closedAt: "2026-11-01T00:00:00Z" },
@@ -2581,24 +2581,24 @@ describe("kodor ticket adopt", () => {
     const { d, out, memory } = deps(tickets, { labeled: false });
 
     expect(await main(["adopt", "1", "2"], d)).toBe(0);
-    expect(out).toEqual(["labeled #2", "✓ 2 tickets carry kodor"]);
-    expect(memory.state.get("2")!.labels).toEqual(["kodor"]);
+    expect(out).toEqual(["labeled #2", "✓ 2 tickets carry lunamill"]);
+    expect(memory.state.get("2")!.labels).toEqual(["lunamill"]);
   });
 
   it("labels every ticket not finished, whatever its labels", async () => {
     const { d, out, memory } = deps(tickets, { labeled: false });
 
     expect(await main(["adopt", "--all-open"], d)).toBe(0);
-    expect(out).toEqual(["labeled #2, #3", "✓ 3 open tickets carry kodor"]);
-    expect(memory.state.get("3")!.labels).toEqual(["bug", "kodor"]);
+    expect(out).toEqual(["labeled #2, #3", "✓ 3 open tickets carry lunamill"]);
+    expect(memory.state.get("3")!.labels).toEqual(["bug", "lunamill"]);
     expect(memory.state.get("4")!.labels).toEqual([]);
   });
 
   it("says none needed it when every open ticket has it", async () => {
-    const { d, out } = deps([{ number: 1, labels: ["kodor"] }]);
+    const { d, out } = deps([{ number: 1, labels: ["lunamill"] }]);
 
     expect(await main(["adopt", "--all-open"], d)).toBe(0);
-    expect(out).toEqual(["✓ 1 open ticket carries kodor; none needed it"]);
+    expect(out).toEqual(["✓ 1 open ticket carries lunamill; none needed it"]);
   });
 
   it("prints its usage and exits 2 given neither a key nor --all-open", async () => {
@@ -2606,21 +2606,21 @@ describe("kodor ticket adopt", () => {
     const { d } = deps(tickets, { labeled: false });
 
     expect(await main(["adopt"], d)).toBe(2);
-    expect(errors.join("\n")).toContain("kodor ticket adopt");
+    expect(errors.join("\n")).toContain("lunamill ticket adopt");
   });
 
   it("labels nothing when the lock an update replaces already has the label's setting", async () => {
     const { d, out, memory, files } = deps(tickets, { labeled: false });
     files.set(
       "old.lock",
-      "settings:\n  tickets:\n    labels:\n      kodor: kodor  # default\n",
+      "settings:\n  tickets:\n    labels:\n      lunamill: lunamill  # default\n",
     );
 
     expect(
       await main(["adopt", "--all-open", "--since-lock", "old.lock"], d),
     ).toBe(0);
     expect(out).toEqual([
-      "✓ nothing to label: old.lock already has tickets.labels.kodor",
+      "✓ nothing to label: old.lock already has tickets.labels.lunamill",
     ]);
     expect(memory.state.get("2")!.labels).toEqual([]);
   });
@@ -2638,7 +2638,7 @@ describe("kodor ticket adopt", () => {
     expect(
       await main(["adopt", "--all-open", "--since-lock", "old.lock"], d),
     ).toBe(0);
-    expect(out).toEqual(["labeled #2, #3", "✓ 3 open tickets carry kodor"]);
+    expect(out).toEqual(["labeled #2, #3", "✓ 3 open tickets carry lunamill"]);
   });
 });
 

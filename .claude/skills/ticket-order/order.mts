@@ -5,7 +5,7 @@
 //
 //   node .claude/skills/ticket-order/order.mts [--json]
 //
-// It reads tickets only through `kodor ticket`, so it works with any
+// It reads tickets only through `lunamill ticket`, so it works with any
 // ticket system that has an adapter. A failed read exits 1 with the error
 // and prints no order.
 import { execFile } from "node:child_process";
@@ -29,7 +29,7 @@ async function ticket(run: Run, args: string[]): Promise<string> {
   const { code, stdout, stderr } = await run(args);
   if (code !== 0)
     throw new Error(
-      `kodor ticket ${args.join(" ")} failed: ${stderr.trim() || `exit ${code}`}`,
+      `lunamill ticket ${args.join(" ")} failed: ${stderr.trim() || `exit ${code}`}`,
     );
   return stdout;
 }
@@ -199,12 +199,12 @@ export async function main(
   return 0;
 }
 
-/** Runs `kodor ticket ARGS` in the current directory. */
+/** Runs `lunamill ticket ARGS` in the current directory. */
 const factoryTicket: Run = (args) =>
   new Promise((resolve) => {
     execFile(
       "npx",
-      ["--no-install", "kodor", "ticket", ...args],
+      ["--no-install", "lunamill", "ticket", ...args],
       { maxBuffer: 16 * 1024 * 1024 },
       (error, stdout, stderr) =>
         resolve({

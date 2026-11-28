@@ -1,11 +1,11 @@
 // What GitHub Actions, as the runner, has doctor check and remove name:
-// whether kodor.yml is enabled, and a poller hosted elsewhere.
+// whether lunamill.yml is enabled, and a poller hosted elsewhere.
 import { describe, expect, it } from "vitest";
 import { parseSettings } from "../src/config.mts";
 import { TOOLS } from "../src/tools.mts";
 import { memoryContext } from "./memory-tools";
 import { memoryRunner } from "./memory-runner";
-import { KODOR_COLUMNS } from "./kodor-columns";
+import { LUNAMILL_COLUMNS } from "./lunamill-columns";
 import { CODE_HOST } from "./settings-fixture";
 
 const setup = TOOLS.runner["github-actions"]!.setup;
@@ -19,7 +19,7 @@ const withTrigger = (
         version: 1,
         repository: "acme/site",
         "code-host": CODE_HOST,
-        tickets: { board: 3, columns: KODOR_COLUMNS },
+        tickets: { board: 3, columns: LUNAMILL_COLUMNS },
         builds: { trigger },
       },
       () => true,
@@ -33,16 +33,16 @@ const withTrigger = (
 };
 
 describe.each(["github-action", "own-server", "manual"])(
-  "kodor.yml, in doctor, with the %s trigger",
+  "lunamill.yml, in doctor, with the %s trigger",
   (trigger) => {
     it("fails when it is disabled, saying how to enable it", async () => {
-      const c = withTrigger(trigger, { "kodor.yml": "disabled" });
+      const c = withTrigger(trigger, { "lunamill.yml": "disabled" });
 
       expect(await setup.checks!(c)).toEqual([
         {
           state: "fail",
-          text: "kodor.yml is disabled",
-          fix: "Enable it on the Actions tab, or run: gh workflow enable kodor.yml",
+          text: "lunamill.yml is disabled",
+          fix: "Enable it on the Actions tab, or run: gh workflow enable lunamill.yml",
         },
       ]);
     });
@@ -51,28 +51,28 @@ describe.each(["github-action", "own-server", "manual"])(
       expect(await setup.checks!(withTrigger(trigger))).toEqual([
         {
           state: "off",
-          text: "kodor.yml is not on the default branch yet",
+          text: "lunamill.yml is not on the default branch yet",
         },
       ]);
     });
 
     it("passes while it is enabled", async () => {
-      const c = withTrigger(trigger, { "kodor.yml": "active" });
+      const c = withTrigger(trigger, { "lunamill.yml": "active" });
 
       expect(await setup.checks!(c)).toEqual([
-        { state: "pass", text: "kodor.yml is enabled" },
+        { state: "pass", text: "lunamill.yml is enabled" },
       ]);
     });
   },
 );
 
-describe("kodor.yml, in doctor, when its state cannot be read", () => {
+describe("lunamill.yml, in doctor, when its state cannot be read", () => {
   it("is not known, with the reason in GitHub's words", async () => {
     const c = withTrigger("manual");
     const { runner } = memoryRunner({
       fail: {
         workflowState: new Error(
-          "gh api repos/acme/site/actions/workflows/kodor.yml: gh: Bad Gateway (HTTP 502)",
+          "gh api repos/acme/site/actions/workflows/lunamill.yml: gh: Bad Gateway (HTTP 502)",
         ),
       },
     });
@@ -82,7 +82,7 @@ describe("kodor.yml, in doctor, when its state cannot be read", () => {
     ).toEqual([
       {
         state: "unknown",
-        text: "Could not tell whether kodor.yml is enabled: Bad Gateway (HTTP 502)",
+        text: "Could not tell whether lunamill.yml is enabled: Bad Gateway (HTTP 502)",
       },
     ]);
   });

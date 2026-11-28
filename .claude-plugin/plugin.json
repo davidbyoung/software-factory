@@ -1,5 +1,5 @@
 {
-  "name": "kodor",
+  "name": "lunamill",
   "version": "0.1.0",
   "description": "Refines, builds, and reviews tickets with Claude Code sessions, from a board to a merged pull request."
 }

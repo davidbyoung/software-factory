@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 // What is being refined or built, and by which session, in the terminal.
 //
-//   kodor status
-//   kodor status --watch  # read again every 15 seconds
-//   status --hook   # the form `kodor session-start` prints
+//   lunamill status
+//   lunamill status --watch  # read again every 15 seconds
+//   status --hook   # the form `lunamill session-start` prints
 //
 // Reads the board as well as the repository, so the GitHub CLI needs the
-// project scope once, which `kodor ticket ready` also needs to write it:
+// project scope once, which `lunamill ticket ready` also needs to write it:
 // gh auth refresh -s project
-// The repository and the board come from kodor's settings, whose
+// The repository and the board come from lunamill's settings, whose
 // loader needs dependencies installed; before npm ci the hook prints
 // nothing.
 import { setTimeout as sleep } from "node:timers/promises";
@@ -508,7 +508,7 @@ export function formatRows(
 
     const groups = [
       ...GROUPS.map((name) => ({
-        // The repository's column for the state, or kodor's own name
+        // The repository's column for the state, or lunamill's own name
         // where the board has none.
         label: (style.columns ?? DEFAULT_COLUMNS)[name]?.[0] ?? name,
         cells: cells.filter(
@@ -614,7 +614,7 @@ export type Source = {
   reach: Reach;
   /** Whether a ticket's repositories are kept in a ticket field. */
   inField: boolean;
-  /** The clones `kodor workspace` left on this machine. */
+  /** The clones `lunamill workspace` left on this machine. */
   clones: () => { key: Key; name: string; folder: string }[];
   /** The lines on the tokens, from 30 days before the day each stops
    * working, and none before then. */
@@ -694,7 +694,7 @@ async function clonesLeft(source: Source): Promise<say.Line[]> {
       lines.push(
         say.mark("look", [
           `${name} is still cloned for ${full}: ${folder}. `,
-          `Run: kodor workspace ${full} --remove`,
+          `Run: lunamill workspace ${full} --remove`,
         ]),
       );
   }
@@ -716,7 +716,7 @@ async function snapshotLines(
   const [tickets, pulls] = await Promise.all([
     readAll(source.tickets, {
       board: target.board !== null,
-      label: target.kodor,
+      label: target.lunamill,
     }),
     source.pulls.open({ checks: true }),
   ]);
@@ -782,7 +782,7 @@ export type Deps = {
   onInterrupt: (leave: () => void) => void;
   /** Read on every draw, so --watch follows a resize. The hook is plain. */
   style?: () => Style;
-  /** kodor's settings, read once when the command starts. */
+  /** lunamill's settings, read once when the command starts. */
   settings: () => Promise<Settings>;
   env: Record<string, string | undefined>;
 };
@@ -881,7 +881,7 @@ export const terminalStyle = (): Style =>
   styleFor(say.colorOn(), process.stdout.columns);
 
 /** `status`'s read of the coding agent's token, over the tools it opened:
- * the repository's checkout, kodor's tools, and today, unless a test
+ * the repository's checkout, lunamill's tools, and today, unless a test
  * gives others. */
 export function tokenReader(
   settings: Settings,
@@ -911,7 +911,7 @@ export function tokenReader(
   };
 }
 
-/** `kodor status [--watch]`, and `kodor session-start`'s second half. */
+/** `lunamill status [--watch]`, and `lunamill session-start`'s second half. */
 export async function run(argv: string[]): Promise<number> {
   const code = await main(argv, {
     source: async (settings, target) => {

@@ -55,7 +55,7 @@ describe("pull request reads", () => {
     await expect(p.get(6)).rejects.toBeInstanceOf(NotFoundError);
   });
 
-  it("returns a pull request in kodor's words", async () => {
+  it("returns a pull request in lunamill's words", async () => {
     const { p } = pulls([
       [
         /pulls\/5$/,
@@ -256,7 +256,7 @@ describe("pull request reads", () => {
 });
 
 describe("pull request conversation and labels", () => {
-  it("lists conversation comments in kodor's words, a deleted account as ghost", async () => {
+  it("lists conversation comments in lunamill's words, a deleted account as ghost", async () => {
     const { p, calls } = pulls([
       [
         /--paginate --slurp repos\/acme\/widgets\/issues\/5\/comments/,
@@ -483,7 +483,7 @@ describe("reviews and their comments", () => {
     line: 3,
   };
 
-  it("returns a pull request's reviews in kodor's words, one with no body as empty", async () => {
+  it("returns a pull request's reviews in lunamill's words, one with no body as empty", async () => {
     const { p } = pulls([
       [
         /pulls\/5\/reviews\?/,
@@ -776,8 +776,8 @@ describe("the address of a pull request", () => {
 
 describe("where git reads a repository from", () => {
   it("is the repository's address on GitHub, whichever repository is asked for", () => {
-    expect(pulls([]).p.remote("acme/kodor-config")).toEqual({
-      url: "https://github.com/acme/kodor-config.git",
+    expect(pulls([]).p.remote("acme/lunamill-config")).toEqual({
+      url: "https://github.com/acme/lunamill-config.git",
       host: "github.com",
     });
   });
@@ -940,7 +940,7 @@ describe("the newest pull request from a branch", () => {
   });
 });
 
-describe("kodor's releases, and closing a pull request", () => {
+describe("lunamill's releases, and closing a pull request", () => {
   it("gives the tag of the newest release of the repository asked for", async () => {
     const { p, calls } = pulls([[/releases\/latest/, { tag_name: "v0.3.0" }]]);
     expect(await p.newestRelease("acme/factory")).toBe("v0.3.0");
@@ -1021,7 +1021,7 @@ describe("the rules and properties of a repository", () => {
       [/^api repos\/acme\/widgets\/rulesets/, []],
       [/-X POST repos\/acme\/widgets\/rulesets/, { id: 1 }],
     ]);
-    await h.requireCheck("kodor", "Review verdict", "runner");
+    await h.requireCheck("lunamill", "Review verdict", "runner");
     const body = calls[1]!.input as {
       rules: { parameters: { required_status_checks: unknown[] } }[];
     };
@@ -1030,8 +1030,8 @@ describe("the rules and properties of a repository", () => {
     ]);
   });
 
-  it("adds a check to kodor's rule when the rule is there already, and leaves one it holds", async () => {
-    const rule = { id: 9, name: "kodor" };
+  it("adds a check to lunamill's rule when the rule is there already, and leaves one it holds", async () => {
+    const rule = { id: 9, name: "lunamill" };
     const full = {
       rules: [{ type: "deletion" }, required("Review verdict")],
     };
@@ -1040,7 +1040,7 @@ describe("the rules and properties of a repository", () => {
       [/^api repos\/acme\/widgets\/rulesets\/9$/, full],
       [/-X PUT repos\/acme\/widgets\/rulesets\/9/, {}],
     ]);
-    await h.requireCheck("kodor", "Approval policies", "runner");
+    await h.requireCheck("lunamill", "Approval policies", "runner");
     const put = calls.find((c) => c.line.includes("-X PUT"))!;
     expect(put.input).toEqual({
       rules: [
@@ -1060,7 +1060,7 @@ describe("the rules and properties of a repository", () => {
       [/^api repos\/acme\/widgets\/rulesets\?/, [rule]],
       [/^api repos\/acme\/widgets\/rulesets\/9$/, full],
     ]);
-    await again.h.requireCheck("kodor", "Review verdict", "runner");
+    await again.h.requireCheck("lunamill", "Review verdict", "runner");
     expect(again.calls.some((c) => c.line.includes("-X PUT"))).toBe(false);
   });
 
@@ -1088,14 +1088,14 @@ describe("the rules and properties of a repository", () => {
       [
         /properties\/values$/,
         [
-          { property_name: "kodor", value: "on" },
+          { property_name: "lunamill", value: "on" },
           { property_name: "team", value: null },
           { property_name: "languages", value: ["go", "ts"] },
         ],
       ],
     ]);
     expect(await h.properties()).toEqual({
-      kodor: "on",
+      lunamill: "on",
       team: null,
       languages: ["go", "ts"],
     });
@@ -1105,24 +1105,24 @@ describe("the rules and properties of a repository", () => {
   it("says the owner defines a property its schema has", async () => {
     const { h, calls } = host([
       [
-        /properties\/schema\/kodor$/,
-        { property_name: "kodor", value_type: "single_select" },
+        /properties\/schema\/lunamill$/,
+        { property_name: "lunamill", value_type: "single_select" },
       ],
     ]);
-    expect(await h.ownerDefines("kodor")).toBe(true);
-    expect(calls[0]!.line).toBe("api orgs/acme/properties/schema/kodor");
+    expect(await h.ownerDefines("lunamill")).toBe(true);
+    expect(calls[0]!.line).toBe("api orgs/acme/properties/schema/lunamill");
   });
 
   it("says the owner defines no property its schema lacks", async () => {
     const { h } = host([[/properties\/schema\//, notFound()]]);
-    expect(await h.ownerDefines("kodor")).toBe(false);
+    expect(await h.ownerDefines("lunamill")).toBe(false);
   });
 
   it("rejects when the owner will not show its schema, so a caller can tell that from a property that is not there", async () => {
     const { h } = host([
       [/properties\/schema\//, new Error("gh: Forbidden (HTTP 403)")],
     ]);
-    await expect(h.ownerDefines("kodor")).rejects.toThrow("Forbidden");
+    await expect(h.ownerDefines("lunamill")).rejects.toThrow("Forbidden");
   });
 
   const UPGRADE = new Error(
@@ -1211,12 +1211,12 @@ describe("the rules and properties of a repository", () => {
 
   it("sets the repository's value for a property", async () => {
     const { h, calls } = host([[/properties\/values/, ""]]);
-    await h.setProperty("kodor", "on");
+    await h.setProperty("lunamill", "on");
     expect(calls[0]!.line).toMatch(
       /^api -X PATCH repos\/acme\/widgets\/properties\/values --input /,
     );
     expect(calls[0]!.input).toEqual({
-      properties: [{ property_name: "kodor", value: "on" }],
+      properties: [{ property_name: "lunamill", value: "on" }],
     });
   });
 });
@@ -1385,25 +1385,25 @@ describe("an organization, on GitHub", () => {
 
   it("finds a repository of the organization's, or none", async () => {
     const { o, calls } = org([
-      [/repos\/acme\/kodor-config$/, { private: true }],
+      [/repos\/acme\/lunamill-config$/, { private: true }],
     ]);
-    expect(await o.repository("kodor-config")).toEqual({ isPrivate: true });
-    expect(calls[0]!.line).toBe("api repos/acme/kodor-config");
+    expect(await o.repository("lunamill-config")).toEqual({ isPrivate: true });
+    expect(calls[0]!.line).toBe("api repos/acme/lunamill-config");
     expect(
-      await org([[/repos\/acme/, notFound()]]).o.repository("kodor-config"),
+      await org([[/repos\/acme/, notFound()]]).o.repository("lunamill-config"),
     ).toBeNull();
   });
 
   it("creates a repository, private or public", async () => {
     const { o, calls } = org([[/-X POST orgs\/acme\/repos/, { id: 1 }]]);
-    await o.createRepository("kodor-config", {
+    await o.createRepository("lunamill-config", {
       isPrivate: true,
-      description: "kodor's settings",
+      description: "lunamill's settings",
     });
     expect(calls[0]!.input).toEqual({
-      name: "kodor-config",
+      name: "lunamill-config",
       private: true,
-      description: "kodor's settings",
+      description: "lunamill's settings",
     });
   });
 
@@ -1411,7 +1411,7 @@ describe("an organization, on GitHub", () => {
     const text = "version: 1\n# café\n";
     const { o, calls } = org([
       [
-        /contents\/kodor-preset\.yaml$/,
+        /contents\/lunamill-preset\.yaml$/,
         {
           encoding: "base64",
           content: Buffer.from(text)
@@ -1421,26 +1421,26 @@ describe("an organization, on GitHub", () => {
       ],
       [/contents\//, notFound()],
     ]);
-    expect(await o.file("kodor-config", "kodor-preset.yaml")).toBe(text);
+    expect(await o.file("lunamill-config", "lunamill-preset.yaml")).toBe(text);
     expect(calls[0]!.line).toBe(
-      "api repos/acme/kodor-config/contents/kodor-preset.yaml",
+      "api repos/acme/lunamill-config/contents/lunamill-preset.yaml",
     );
     expect(
-      await o.file("kodor-config", ".github/workflows/kodor-poller.yml"),
+      await o.file("lunamill-config", ".github/workflows/lunamill-poller.yml"),
     ).toBeNull();
   });
 
   it("writes each file as a commit of its own, and names no file to replace", async () => {
     const { o, calls } = org([
-      [/-X PUT repos\/acme\/kodor-config\/contents\//, {}],
+      [/-X PUT repos\/acme\/lunamill-config\/contents\//, {}],
     ]);
-    await o.putFiles("kodor-config", {
+    await o.putFiles("lunamill-config", {
       "README.md": "# Hello\n",
-      ".github/workflows/kodor-poller.yml": "name: Factory poller\n",
+      ".github/workflows/lunamill-poller.yml": "name: Factory poller\n",
     });
     expect(calls.map((c) => c.line.split(" --input")[0])).toEqual([
-      "api -X PUT repos/acme/kodor-config/contents/README.md",
-      "api -X PUT repos/acme/kodor-config/contents/.github/workflows/kodor-poller.yml",
+      "api -X PUT repos/acme/lunamill-config/contents/README.md",
+      "api -X PUT repos/acme/lunamill-config/contents/.github/workflows/lunamill-poller.yml",
     ]);
     expect(calls[0]!.input).toEqual({
       message: "Add README.md",
@@ -1457,12 +1457,12 @@ describe("an organization, on GitHub", () => {
       ],
       [
         /orgs\/acme\/actions\/secrets\?per_page=100&page=2$/,
-        { secrets: [{ name: "KODOR_APP_PRIVATE_KEY" }] },
+        { secrets: [{ name: "LUNAMILL_APP_PRIVATE_KEY" }] },
       ],
     ]);
     const names = await o.secretNames();
     expect(names).toHaveLength(101);
-    expect(names.at(-1)).toBe("KODOR_APP_PRIVATE_KEY");
+    expect(names.at(-1)).toBe("LUNAMILL_APP_PRIVATE_KEY");
   });
 
   it("keeps the day GitHub last stored each of the organization's secrets", async () => {
@@ -1487,10 +1487,10 @@ describe("an organization, on GitHub", () => {
 
   it("stores a secret for every repository, with its value on standard input", async () => {
     const { o, calls } = org([[/^secret set/, ""]]);
-    await o.setSecret("KODOR_APP_PRIVATE_KEY", SECRET);
+    await o.setSecret("LUNAMILL_APP_PRIVATE_KEY", SECRET);
     expect(calls).toEqual([
       {
-        line: "secret set KODOR_APP_PRIVATE_KEY --org acme --visibility all",
+        line: "secret set LUNAMILL_APP_PRIVATE_KEY --org acme --visibility all",
         stdin: SECRET,
       },
     ]);
@@ -1505,23 +1505,25 @@ describe("an organization, on GitHub", () => {
 
   it("reads a variable, and null for one that is not set", async () => {
     const { o, calls } = org([
-      [/variables\/KODOR_APP_CLIENT_ID$/, { value: "Iv23client" }],
+      [/variables\/LUNAMILL_APP_CLIENT_ID$/, { value: "Iv23client" }],
     ]);
-    expect(await o.variable("KODOR_APP_CLIENT_ID")).toBe("Iv23client");
+    expect(await o.variable("LUNAMILL_APP_CLIENT_ID")).toBe("Iv23client");
     expect(calls[0]!.line).toBe(
-      "api orgs/acme/actions/variables/KODOR_APP_CLIENT_ID",
+      "api orgs/acme/actions/variables/LUNAMILL_APP_CLIENT_ID",
     );
     expect(
-      await org([[/variables/, notFound()]]).o.variable("KODOR_APP_CLIENT_ID"),
+      await org([[/variables/, notFound()]]).o.variable(
+        "LUNAMILL_APP_CLIENT_ID",
+      ),
     ).toBeNull();
   });
 
   it("stores a variable for every repository", async () => {
     const { o, calls } = org([[/^variable set/, ""]]);
-    await o.setVariable("KODOR_APP_CLIENT_ID", "Iv23client");
+    await o.setVariable("LUNAMILL_APP_CLIENT_ID", "Iv23client");
     expect(calls).toEqual([
       {
-        line: "variable set KODOR_APP_CLIENT_ID --org acme --visibility all",
+        line: "variable set LUNAMILL_APP_CLIENT_ID --org acme --visibility all",
         stdin: "Iv23client",
       },
     ]);
@@ -1529,9 +1531,9 @@ describe("an organization, on GitHub", () => {
 
   it("defines a property with the values given, which a repository's own actors may set", async () => {
     const { o, calls } = org([[/properties\/schema/, {}]]);
-    await o.defineProperty("kodor", ["on", "off"]);
+    await o.defineProperty("lunamill", ["on", "off"]);
     expect(calls[0]!.line).toMatch(
-      /^api -X PUT orgs\/acme\/properties\/schema\/kodor --input /,
+      /^api -X PUT orgs\/acme\/properties\/schema\/lunamill --input /,
     );
     expect(calls[0]!.input).toEqual({
       value_type: "single_select",
@@ -1543,9 +1545,9 @@ describe("an organization, on GitHub", () => {
 
   it("lists the names of the organization's rules", async () => {
     const { o, calls } = org([
-      [/orgs\/acme\/rulesets/, [[{ name: "kodor" }, { name: "x" }]]],
+      [/orgs\/acme\/rulesets/, [[{ name: "lunamill" }, { name: "x" }]]],
     ]);
-    expect(await o.ruleNames()).toEqual(["kodor", "x"]);
+    expect(await o.ruleNames()).toEqual(["lunamill", "x"]);
     expect(calls[0]!.line).toBe(
       "api --paginate --slurp orgs/acme/rulesets?per_page=100",
     );
@@ -1556,19 +1558,19 @@ describe("an organization, on GitHub", () => {
       [/--slurp orgs\/acme\/rulesets/, [[]]],
       [/-X POST orgs\/acme\/rulesets/, { id: 1 }],
     ]);
-    await o.requireCheckWhere("kodor", "Review verdict", {
-      property: "kodor",
+    await o.requireCheckWhere("lunamill", "Review verdict", {
+      property: "lunamill",
       value: "on",
       source: "runner",
     });
     expect(calls[1]!.input).toEqual({
-      name: "kodor",
+      name: "lunamill",
       target: "branch",
       enforcement: "active",
       conditions: {
         ref_name: { include: ["~DEFAULT_BRANCH"], exclude: [] },
         repository_property: {
-          include: [{ name: "kodor", property_values: ["on"] }],
+          include: [{ name: "lunamill", property_values: ["on"] }],
           exclude: [],
         },
       },
@@ -1589,10 +1591,10 @@ describe("an organization, on GitHub", () => {
 
   it("leaves an organization's rule of that name as it is", async () => {
     const { o, calls } = org([
-      [/--slurp orgs\/acme\/rulesets/, [[{ name: "kodor" }]]],
+      [/--slurp orgs\/acme\/rulesets/, [[{ name: "lunamill" }]]],
     ]);
-    await o.requireCheckWhere("kodor", "Review verdict", {
-      property: "kodor",
+    await o.requireCheckWhere("lunamill", "Review verdict", {
+      property: "lunamill",
       value: "on",
     });
     expect(calls).toHaveLength(1);
@@ -1600,24 +1602,27 @@ describe("an organization, on GitHub", () => {
 
   it("names the organization's app, within the 34 characters GitHub allows", () => {
     expect(org([]).o.appName()).toEqual({
-      name: "kodor-acme",
+      name: "lunamill-acme",
       shortened: false,
     });
     expect(
       org([], { name: "a-very-long-organization-name" }).o.appName(),
-    ).toEqual({ name: "kodor-a-very-long-organization-nam", shortened: true });
+    ).toEqual({
+      name: "lunamill-a-very-long-organization-",
+      shortened: true,
+    });
   });
 
   it("finds the app of a name by the address GitHub gives it", async () => {
     const { o, calls } = org([
-      [/apps\/kodor-acme$/, { owner: { login: "acme" } }],
+      [/apps\/lunamill-acme$/, { owner: { login: "acme" } }],
     ]);
-    expect(await o.appNamed("kodor-acme")).toEqual({
+    expect(await o.appNamed("lunamill-acme")).toEqual({
       owner: "acme",
     });
-    expect(calls[0]!.line).toBe("api apps/kodor-acme");
+    expect(calls[0]!.line).toBe("api apps/lunamill-acme");
     expect(
-      await org([[/apps\//, notFound()]]).o.appNamed("kodor-acme"),
+      await org([[/apps\//, notFound()]]).o.appNamed("lunamill-acme"),
     ).toBeNull();
   });
 
@@ -1627,7 +1632,7 @@ describe("an organization, on GitHub", () => {
       {
         id: 52811,
         client_id: "Iv23client",
-        app_slug: "kodor-acme",
+        app_slug: "lunamill-acme",
         repository_selection: "selected",
         html_url:
           "https://github.com/organizations/acme/settings/installations/52811",
@@ -1638,11 +1643,11 @@ describe("an organization, on GitHub", () => {
   it("finds the installation of an app by its client ID", async () => {
     const { o } = org([
       [/orgs\/acme\/installations\?per_page=100&page=1$/, INSTALLATIONS],
-      [/apps\/kodor-acme$/, { name: "kodor-acme" }],
+      [/apps\/lunamill-acme$/, { name: "lunamill-acme" }],
     ]);
     expect(await o.installation("Iv23client")).toEqual({
       id: 52811,
-      app: "kodor-acme",
+      app: "lunamill-acme",
       all: false,
       page: "https://github.com/organizations/acme/settings/installations/52811",
     });
@@ -1654,7 +1659,7 @@ describe("an organization, on GitHub", () => {
       [/orgs\/acme\/installations/, INSTALLATIONS],
       [/apps\//, notFound()],
     ]);
-    expect((await o.installation("Iv23client"))!.app).toBe("kodor-acme");
+    expect((await o.installation("Iv23client"))!.app).toBe("lunamill-acme");
   });
 
   it("waits for an installation, looking every 3 seconds", async () => {
@@ -1666,7 +1671,7 @@ describe("an organization, on GitHub", () => {
           /orgs\/acme\/installations/,
           () => (++looks < 3 ? { installations: [] } : INSTALLATIONS),
         ],
-        [/apps\//, { name: "kodor-acme" }],
+        [/apps\//, { name: "lunamill-acme" }],
       ],
       {
         clock: {
@@ -1719,7 +1724,7 @@ describe("an organization, on GitHub", () => {
           JSON.stringify(
             String(url).endsWith("access_tokens")
               ? { token: "ghs_1" }
-              : { total_count: 1, repositories: [{ name: "kodor-config" }] },
+              : { total_count: 1, repositories: [{ name: "lunamill-config" }] },
           ),
         );
       }) as typeof fetch,
@@ -1732,7 +1737,7 @@ describe("an organization, on GitHub", () => {
           clientId: "Iv23client",
           key: privateKey.export({ type: "pkcs1", format: "pem" }).toString(),
         },
-        "kodor-config",
+        "lunamill-config",
       ),
     ).toEqual({ count: 1, covered: true });
     expect(asked).toEqual([
@@ -1756,14 +1761,14 @@ describe("an organization, on GitHub", () => {
         new Response(
           JSON.stringify({
             id: 9,
-            slug: "kodor-acme",
+            slug: "lunamill-acme",
             client_id: "Iv23client",
             pem: SECRET,
           }),
         )) as unknown as typeof fetch,
     });
     const result = o.registerApp({
-      name: "kodor-acme",
+      name: "lunamill-acme",
       open: (page) => opened.push(page),
       pasted: (signal) =>
         new Promise((_, reject) =>
@@ -1778,33 +1783,35 @@ describe("an organization, on GitHub", () => {
     const reply = await visit("/registered?code=c1&state=state-1");
     expect(reply.headers).toEqual({
       location:
-        "https://github.com/apps/kodor-acme/installations/new/permissions?suggested_target_id=4242",
+        "https://github.com/apps/lunamill-acme/installations/new/permissions?suggested_target_id=4242",
     });
     expect(await result).toEqual({
       id: 9,
-      slug: "kodor-acme",
+      slug: "lunamill-acme",
       clientId: "Iv23client",
       installPage:
-        "https://github.com/apps/kodor-acme/installations/new/permissions?suggested_target_id=4242",
+        "https://github.com/apps/lunamill-acme/installations/new/permissions?suggested_target_id=4242",
     });
     expect(kept).toEqual([SECRET]);
   });
 
   describe("the organization's app, before it is installed", () => {
     const APP = {
-      name: "kodor-acme",
-      slug: "kodor-acme",
+      name: "lunamill-acme",
+      slug: "lunamill-acme",
       client_id: "Iv23client",
       owner: { login: "Acme", id: 4242 },
     };
     const registered = (answer: unknown) =>
-      org([[/^api apps\/kodor-acme$/, answer]]).o.registeredApp("Iv23client");
+      org([[/^api apps\/lunamill-acme$/, answer]]).o.registeredApp(
+        "Iv23client",
+      );
 
     it("is found by the name it was registered under, with the page that installs it", async () => {
       expect(await registered(APP)).toEqual({
-        name: "kodor-acme",
+        name: "lunamill-acme",
         installPage:
-          "https://github.com/apps/kodor-acme/installations/new/permissions?suggested_target_id=4242",
+          "https://github.com/apps/lunamill-acme/installations/new/permissions?suggested_target_id=4242",
       });
     });
 
@@ -1825,8 +1832,8 @@ describe("an organization, on GitHub", () => {
   });
 
   it("gives the page of a file in one of the organization's repositories", () => {
-    expect(org([]).o.filePage("kodor-config", "kodor-preset.yaml")).toBe(
-      "https://github.com/acme/kodor-config/blob/HEAD/kodor-preset.yaml",
+    expect(org([]).o.filePage("lunamill-config", "lunamill-preset.yaml")).toBe(
+      "https://github.com/acme/lunamill-config/blob/HEAD/lunamill-preset.yaml",
     );
   });
 

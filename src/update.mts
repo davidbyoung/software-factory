@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-// Raises a repository to the newest release of kodor, and each preset
+// Raises a repository to the newest release of lunamill, and each preset
 // it follows to the newest commit that changed that preset's own files.
 //
-//   kodor update                   # in the working tree: commit what it writes
-//   kodor update --pull-requests   # one pull request for each, as the Updates job runs it
+//   lunamill update                   # in the working tree: commit what it writes
+//   lunamill update --pull-requests   # one pull request for each, as the Updates job runs it
 //
 // In the repository that holds an organization's poller, which has that
 // workflow's file and no settings, it raises only the release the file
@@ -39,14 +39,14 @@ export type PresetPin = {
 };
 
 export type UpdateDeps = {
-  /** Whether the repository has kodor's settings file. */
+  /** Whether the repository has lunamill's settings file. */
   hasSettings: () => boolean;
-  /** kodor's own repository, which runs its source and names no
+  /** lunamill's own repository, which runs its source and names no
    * release. */
   own: boolean;
   /** The version the repository's lock names. */
   version: () => string;
-  /** kodor's newest release, as `1.2.3`. */
+  /** lunamill's newest release, as `1.2.3`. */
   newestRelease: () => Promise<string>;
   presets: {
     pins: () => PresetPin[];
@@ -58,10 +58,10 @@ export type UpdateDeps = {
     /** Moves the lock's entries for these presets, or none of them, with
      * a PresetError, when one is not a preset at its commit. */
     move: (moves: PinMove[]) => Promise<void>;
-    /** What `kodor preset changes REF` prints. */
+    /** What `lunamill preset changes REF` prints. */
     changes: (ref: string) => Promise<string[]>;
   };
-  /** Runs `kodor sync` at a version, or at the one the lock names, and
+  /** Runs `lunamill sync` at a version, or at the one the lock names, and
    * gives what it printed. */
   sync: (version: string | null) => Promise<{ code: number; lines: string[] }>;
   git: (args: string[]) => string;
@@ -80,7 +80,7 @@ export type UpdateDeps = {
   out: say.Out;
 };
 
-const BRANCHES = "kodor-update/";
+const BRANCHES = "lunamill-update/";
 const short = (commit: string) => commit.slice(0, 7);
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
@@ -93,7 +93,7 @@ function older(a: string, b: string): boolean {
   return false;
 }
 
-/** One thing to update: kodor, or every preset of one repository
+/** One thing to update: lunamill, or every preset of one repository
  * whose own files changed. */
 type Unit = {
   title: string;
@@ -111,14 +111,14 @@ type Unit = {
 const sourceOf = (branch: string) =>
   branch.replace(/-(\d+\.\d+\.\d+|[0-9a-f]{7})$/, "");
 
-/** kodor from one release to a newer one. */
+/** lunamill from one release to a newer one. */
 const factoryUnit = (version: string, newest: string): Unit => ({
-  title: `Update kodor to ${newest}`,
-  branch: `${BRANCHES}kodor-${newest}`,
-  source: `${BRANCHES}kodor`,
+  title: `Update lunamill to ${newest}`,
+  branch: `${BRANCHES}lunamill-${newest}`,
+  source: `${BRANCHES}lunamill`,
   version: newest,
   moves: [],
-  lines: [`kodor ${version} → ${newest}`],
+  lines: [`lunamill ${version} → ${newest}`],
 });
 
 /** What is behind, what is not, and what could not be read. */
@@ -140,7 +140,7 @@ async function survey(d: UpdateDeps) {
     let head: string;
     const unreadable = (pin: PresetPin, e: unknown) =>
       unread.push(
-        `? ${pin.name} could not be read: ${message(e).replace(/\.+$/, "")}. To stop following it: kodor preset remove ${pin.name}`,
+        `? ${pin.name} could not be read: ${message(e).replace(/\.+$/, "")}. To stop following it: lunamill preset remove ${pin.name}`,
       );
     try {
       head = await d.presets.newest(repo);
@@ -174,8 +174,8 @@ async function survey(d: UpdateDeps) {
 /** The one line for a repository with nothing behind. */
 function nothing(own: boolean, version: string, pins: PresetPin[]): string {
   const factory = own
-    ? "kodor runs from its source here"
-    : `kodor is ${version}, the newest release`;
+    ? "lunamill runs from its source here"
+    : `lunamill is ${version}, the newest release`;
   const presets =
     pins.length === 0
       ? "."
@@ -193,7 +193,7 @@ function changed(status: string): string[] {
     .split("\n")
     .filter((line) => line.trim() !== "")
     .map((line) => ({ mark: line.slice(0, 2), path: line.slice(3) }))
-    .filter(({ path }) => path !== ".claude/kodor.lock")
+    .filter(({ path }) => path !== ".claude/lunamill.lock")
     .map(
       ({ mark, path }) =>
         `- ${path}, ${mark.includes("D") ? "deleted" : mark.includes("?") || mark.includes("A") ? "new" : "rewritten"}`,
@@ -252,7 +252,7 @@ async function openedBefore(d: Opening, unit: Unit): Promise<boolean> {
   return last !== null;
 }
 
-/** The description of kodor's own pull request. */
+/** The description of lunamill's own pull request. */
 const factoryBody = (d: Opening, unit: Unit) =>
   [
     ...unit.lines,
@@ -338,7 +338,7 @@ async function asPullRequests(d: UpdateDeps): Promise<number> {
 
 export async function main(argv: string[], d: UpdateDeps): Promise<number> {
   if (!d.hasSettings()) {
-    d.out(say.text(".claude/kodor.yaml is missing. Run: kodor init"));
+    d.out(say.text(".claude/lunamill.yaml is missing. Run: lunamill init"));
     return 1;
   }
   try {
@@ -359,7 +359,7 @@ export async function main(argv: string[], d: UpdateDeps): Promise<number> {
 }
 
 /** Which update a checkout gets: a repository's, the one of an
- * organization's poller, or none, where kodor is not set up. */
+ * organization's poller, or none, where lunamill is not set up. */
 export function checkoutKind(
   has: (path: string) => boolean,
 ): "repository" | "poller" | null {
@@ -376,9 +376,9 @@ export type PollerDeps = Opening &
 
 const POLLER_VERSION = /(poller\.yml@v)(\d+\.\d+\.\d+)/;
 
-/** `kodor update` where an organization's poller is: the release its
+/** `lunamill update` where an organization's poller is: the release its
  * file names is raised to the newest, in the working tree or, with
- * `--pull-requests`, as the pull request an update of kodor is. */
+ * `--pull-requests`, as the pull request an update of lunamill is. */
 export async function updatePoller(
   argv: string[],
   d: PollerDeps,
@@ -387,7 +387,7 @@ export async function updatePoller(
   if (!version) {
     d.out(
       say.text(
-        `✗ ${POLLER_FILE} names no release of kodor after poller.yml@v. Write one there, such as poller.yml@v1.2.3.`,
+        `✗ ${POLLER_FILE} names no release of lunamill after poller.yml@v. Write one there, such as poller.yml@v1.2.3.`,
       ),
     );
     return 1;
@@ -433,7 +433,7 @@ export function pollerRepository(
   return address ? repositoryOf(address) : null;
 }
 
-/** kodor's newest release could not be read. */
+/** lunamill's newest release could not be read. */
 export class NoRelease extends Error {}
 
 /** The settings as the files have them now, or null once `err` has said
@@ -454,7 +454,7 @@ export async function settingsNow(
   }
 }
 
-/** `kodor update [--pull-requests]`. */
+/** `lunamill update [--pull-requests]`. */
 export async function run(argv: string[]): Promise<number> {
   const { repoRoot } = await import("./config.mts");
   const { LOCK, PACKAGE, launcherPath } = await import("./sync.mts");
@@ -465,7 +465,7 @@ export async function run(argv: string[]): Promise<number> {
   const has = (path: string) => existsSync(join(root, path));
   const kind = checkoutKind(has);
   if (kind === null) {
-    out(say.text(".claude/kodor.yaml is missing. Run: kodor init"));
+    out(say.text(".claude/lunamill.yaml is missing. Run: lunamill init"));
     return 1;
   }
   const manifest = JSON.parse(
@@ -533,7 +533,7 @@ export async function run(argv: string[]): Promise<number> {
   return main(argv, {
     ...reach(host),
     hasSettings: () => has(SETTINGS_FILE),
-    own: launcherPath(PACKAGE, root) === "bin/kodor.js",
+    own: launcherPath(PACKAGE, root) === "bin/lunamill.js",
     version: lockVersion,
     presets: {
       pins: () =>
@@ -566,13 +566,13 @@ export async function run(argv: string[]): Promise<number> {
     sync: async (version) => {
       const r = spawnSync(
         process.execPath,
-        [join(PACKAGE, "bin", "kodor.js"), "sync"],
+        [join(PACKAGE, "bin", "lunamill.js"), "sync"],
         {
           cwd: root,
           encoding: "utf8",
           env: {
             ...process.env,
-            ...(version ? { KODOR_VERSION: version } : {}),
+            ...(version ? { LUNAMILL_VERSION: version } : {}),
           },
         },
       );

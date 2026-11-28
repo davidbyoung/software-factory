@@ -1,19 +1,19 @@
-// What every reader is told the product is called: kodor, never the
+// What every reader is told the product is called: lunamill, never the
 // factory or the software factory.
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
 
-/** The upgrade notes name the old package and the releases before kodor,
+/** The upgrade notes name the old package and the releases before lunamill,
  * which a repository on an old release follows with the old command. */
 const ALLOWED = new Set(["docs/maintain/upgrade-notes.md"]);
 
-const OLD = /\bthe\s+factory\b|\bsoftware\s+factory\b/gi;
+const OLD = /\bthe\s+factory\b|\bsoftware\s+factory\b|\bkodor\b/gi;
 const MENTIONS = new RegExp(OLD.source, "i");
 
 /** Each old name in a text, other than "a software factory", which
- * describes what kodor is. */
+ * describes what lunamill is. */
 const oldNames = (text: string) =>
   [...text.matchAll(OLD)]
     .filter(
@@ -69,22 +69,22 @@ const READ = [
 const SCRIPTS = ["src", "bin"];
 
 describe("the package", () => {
-  it("is @kodor-ai/kodor, from kodor-ai/kodor, with the one command kodor", () => {
+  it("is @lunamill-ai/lunamill, from lunamill-ai/lunamill, with the one command lunamill", () => {
     const pkg = JSON.parse(readFileSync("package.json", "utf8")) as {
       name: string;
       bin: Record<string, string>;
       repository: { url: string };
     };
-    expect(pkg.name).toBe("@kodor-ai/kodor");
-    expect(pkg.bin).toEqual({ kodor: "bin/kodor.js" });
+    expect(pkg.name).toBe("@lunamill-ai/lunamill");
+    expect(pkg.bin).toEqual({ lunamill: "bin/lunamill.js" });
     expect(pkg.repository.url).toBe(
-      "git+https://github.com/kodor-ai/kodor.git",
+      "git+https://github.com/lunamill-ai/lunamill.git",
     );
   });
 });
 
 describe("the product's name", () => {
-  it("is kodor in every page, skill, agent, rule, and setting a reader reads", () => {
+  it("is lunamill in every page, skill, agent, rule, and setting a reader reads", () => {
     const found = READ.flatMap(files)
       .filter((f) => !ALLOWED.has(f))
       .flatMap((f) =>
@@ -94,11 +94,11 @@ describe("the product's name", () => {
   });
 
   it('allows "a software factory", and no other word before it', () => {
-    expect(oldNames("kodor, a software factory")).toEqual([]);
+    expect(oldNames("lunamill, a software factory")).toEqual([]);
     expect(oldNames("an extra software factory")).toEqual(["software factory"]);
   });
 
-  it("is kodor in every line a command prints", { timeout: 30_000 }, () => {
+  it("is lunamill in every line a command prints", { timeout: 30_000 }, () => {
     const found = SCRIPTS.flatMap(files)
       .filter((f) => /\.(m?ts|m?js)$/.test(f) && !/\.test\./.test(f))
       // Parsing every script takes longer than a test may, so only one

@@ -1,4 +1,4 @@
-// The lines `kodor pr uncovered` prints, from an lcov report and a diff.
+// The lines `lunamill pr uncovered` prints, from an lcov report and a diff.
 import { describe, expect, it } from "vitest";
 import {
   changedLines,

@@ -1,6 +1,6 @@
 # An organization's one poller, and the update of the file that calls it.
 # The repository that holds an organization's preset has a
-# .github/workflows/kodor-poller.yml, which `kodor init --org` writes.
+# .github/workflows/lunamill-poller.yml, which `lunamill init --org` writes.
 # It calls this file at the version it names, on its two schedules, so
 # nothing here is copied into that repository.
 #
@@ -22,7 +22,7 @@ permissions:
 jobs:
   # One pass over the organization's board: a build starts in each
   # repository with a ticket in the Ready column. Every schedule of
-  # kodor-poller.yml but the one below is the poller's own.
+  # lunamill-poller.yml but the one below is the poller's own.
   poller:
     name: Start the Ready tickets
     if: github.event_name == 'schedule' && github.event.schedule != '0 1 * * *'
@@ -44,23 +44,23 @@ jobs:
           node-version: 22
 
       - &install
-        name: Install kodor
+        name: Install lunamill
         run: |
-          version="$(sed -n 's|^ *uses: .*/poller\.yml@v\([0-9][0-9.]*\) *$|\1|p' .github/workflows/kodor-poller.yml | head -n 1)"
+          version="$(sed -n 's|^ *uses: .*/poller\.yml@v\([0-9][0-9.]*\) *$|\1|p' .github/workflows/lunamill-poller.yml | head -n 1)"
           if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "::error::.github/workflows/kodor-poller.yml names no release of kodor after poller.yml@v."
+            echo "::error::.github/workflows/lunamill-poller.yml names no release of lunamill after poller.yml@v."
             exit 1
           fi
-          npm install --global --no-audit --no-fund "@kodor-ai/kodor@$version"
+          npm install --global --no-audit --no-fund "@lunamill-ai/lunamill@$version"
 
       - &key
         name: Check the app's key reaches the repository
         env:
           APP_KEY_SET: ${{ secrets.app-key != '' }}
-          CLIENT_ID: ${{ vars.KODOR_APP_CLIENT_ID }}
+          CLIENT_ID: ${{ vars.LUNAMILL_APP_CLIENT_ID }}
         run: |
           if [ "$APP_KEY_SET" != "true" ] || [ -z "$CLIENT_ID" ]; then
-            echo "::error::KODOR_APP_PRIVATE_KEY or KODOR_APP_CLIENT_ID does not reach $GITHUB_REPOSITORY. An owner of $GITHUB_REPOSITORY_OWNER runs: kodor init --org $GITHUB_SERVER_URL/$GITHUB_REPOSITORY_OWNER"
+            echo "::error::LUNAMILL_APP_PRIVATE_KEY or LUNAMILL_APP_CLIENT_ID does not reach $GITHUB_REPOSITORY. An owner of $GITHUB_REPOSITORY_OWNER runs: lunamill init --org $GITHUB_SERVER_URL/$GITHUB_REPOSITORY_OWNER"
             exit 1
           fi
 
@@ -72,7 +72,7 @@ jobs:
         id: app
         uses: actions/create-github-app-token@v3
         with:
-          client-id: ${{ vars.KODOR_APP_CLIENT_ID }}
+          client-id: ${{ vars.LUNAMILL_APP_CLIENT_ID }}
           private-key: ${{ secrets.app-key }}
           owner: ${{ github.repository_owner }}
           permission-organization-projects: read
@@ -83,10 +83,10 @@ jobs:
 
       - name: Start the Ready tickets
         env:
-          KODOR_BOARD_TOKEN: ${{ steps.app.outputs.token }}
-        run: kodor poller --once --preset kodor-preset.yaml
+          LUNAMILL_BOARD_TOKEN: ${{ steps.app.outputs.token }}
+        run: lunamill poller --once --preset lunamill-preset.yaml
 
-  # A pull request that raises the release kodor-poller.yml names, when a
+  # A pull request that raises the release lunamill-poller.yml names, when a
   # newer one is out.
   updates:
     name: Open the update's pull request
@@ -105,7 +105,7 @@ jobs:
         id: app
         uses: actions/create-github-app-token@v3
         with:
-          client-id: ${{ vars.KODOR_APP_CLIENT_ID }}
+          client-id: ${{ vars.LUNAMILL_APP_CLIENT_ID }}
           private-key: ${{ secrets.app-key }}
           owner: ${{ github.repository_owner }}
           permission-contents: write
@@ -132,4 +132,4 @@ jobs:
           id="$(gh api "/users/$APP_SLUG[bot]" --jq .id)"
           git config --global user.name "$APP_SLUG[bot]"
           git config --global user.email "$id+$APP_SLUG[bot]@users.noreply.github.com"
-          kodor update --pull-requests
+          lunamill update --pull-requests

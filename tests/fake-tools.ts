@@ -1,4 +1,4 @@
-// Tools kodor has not built, registered beside today's in a test:
+// Tools lunamill has not built, registered beside today's in a test:
 // a ticket system with a site address and a token of its own, and a coding
 // agent whose configuration is one file. Each proves a new tool is set up,
 // checked, and removed with no edit to init, doctor, or remove.

@@ -3,43 +3,43 @@
 A skill is a set of instructions an agent session follows when you ask for
 it. An agent, in this page's sense, is a separate reviewer a session
 launches, which reads and reports and changes nothing. This page lists
-every skill and agent kodor brings, and links each skill to its
+every skill and agent lunamill brings, and links each skill to its
 entry on the page about the work it does.
 
 You call a skill by typing its name as a slash command in a session, with
-the ticket or pull request number after it: `/kodor-refine 12`. Slash
+the ticket or pull request number after it: `/lunamill-refine 12`. Slash
 commands are how [Claude Code](../integrations/claude-code.md#skills-in-claude-code),
-the one coding agent kodor supports today, calls a skill. Asking in
+the one coding agent lunamill supports today, calls a skill. Asking in
 plain words, such as "refine ticket 12", usually calls the same skill, but
 the session decides which one fits, so the command is the sure way.
 
 ## Which ones a repository gets
 
-kodor's core is what its own steps call, and every repository gets
+lunamill's core is what its own steps call, and every repository gets
 it. Everything else is written only when a setting or a file turns it on,
-and `kodor sync` removes it again when that is undone.
+and `lunamill sync` removes it again when that is undone.
 
-| Skill or agent            | Written                                                                                |
-| ------------------------- | -------------------------------------------------------------------------------------- |
-| `kodor-refine`            | Always                                                                                 |
-| `kodor-build`             | Always                                                                                 |
-| `kodor-address-review`    | Always                                                                                 |
-| `kodor-resolve-conflicts` | Always                                                                                 |
-| `kodor-diagnose`          | Always                                                                                 |
-| `kodor-mutate`            | Always                                                                                 |
-| `kodor-trace`             | Always                                                                                 |
-| `kodor-ticket-readiness`  | Always                                                                                 |
-| `kodor-test-reviewer`     | Always                                                                                 |
-| `kodor-design`            | With [`site`](settings/site.md#site) in your settings                                  |
-| `kodor-ui-reviewer`       | With `site` in your settings                                                           |
-| `kodor-e2e-reviewer`      | With [`commands.end-to-end`](settings/commands.md#commandsend-to-end) in your settings |
-| `kodor-deps`              | With a `.github/dependabot.yml` file                                                   |
+| Skill or agent               | Written                                                                                |
+| ---------------------------- | -------------------------------------------------------------------------------------- |
+| `lunamill-refine`            | Always                                                                                 |
+| `lunamill-build`             | Always                                                                                 |
+| `lunamill-address-review`    | Always                                                                                 |
+| `lunamill-resolve-conflicts` | Always                                                                                 |
+| `lunamill-diagnose`          | Always                                                                                 |
+| `lunamill-mutate`            | Always                                                                                 |
+| `lunamill-trace`             | Always                                                                                 |
+| `lunamill-ticket-readiness`  | Always                                                                                 |
+| `lunamill-test-reviewer`     | Always                                                                                 |
+| `lunamill-design`            | With [`site`](settings/site.md#site) in your settings                                  |
+| `lunamill-ui-reviewer`       | With `site` in your settings                                                           |
+| `lunamill-e2e-reviewer`      | With [`commands.end-to-end`](settings/commands.md#commandsend-to-end) in your settings |
+| `lunamill-deps`              | With a `.github/dependabot.yml` file                                                   |
 
 No skill names a test runner, a linter, or a branch. Each runs what your
 settings list under [`commands`](settings/commands.md#commands), through
-commands such as `kodor gate` and `kodor test-one`
+commands such as `lunamill gate` and `lunamill test-one`
 ([Commands](cli.md#your-repositorys-commands)), and asks
-`kodor default-branch` for your default branch's name.
+`lunamill default-branch` for your default branch's name.
 
 Where a step names a built-in skill or agent, a
 [plugin](../customize/plugins.md#the-roles) of yours can stand in for it: your own
@@ -47,29 +47,29 @@ refiner, builder, prover, test reviewers, and conflict resolvers.
 
 ## At a glance
 
-| Slash command                                                                   | Plain words that also work         | What it does                                                             |
-| ------------------------------------------------------------------------------- | ---------------------------------- | ------------------------------------------------------------------------ |
-| [`/kodor-refine 12`](../workflow/refine.md#kodor-refine)                        | "refine ticket 12"                 | Turns a ticket into a spec a builder can start from                      |
-| [`/kodor-build 12`](../workflow/build.md#kodor-build)                           | "build ticket 12"                  | Builds a ticket to a reviewed pull request                               |
-| [`/kodor-address-review 280`](../workflow/review.md#kodor-address-review)       | "address the review on 280"        | Works a pull request's review until it can merge                         |
-| [`/kodor-resolve-conflicts 280`](../workflow/review.md#kodor-resolve-conflicts) | "resolve the conflicts on 280"     | Merges your default branch into a pull request and settles the conflicts |
-| [`/kodor-diagnose`](#kodor-diagnose)                                            | "diagnose this failing test"       | Finds a bug's cause before any code changes                              |
-| [`/kodor-mutate`](#kodor-mutate)                                                | "mutate this test"                 | Proves a test can fail                                                   |
-| [`/kodor-deps`](../features/dependency-updates.md#kodor-deps)                   | "fix the dependency pull requests" | Moves dependency pull requests toward merged                             |
-| [`/kodor-design`](../features/website-review.md#kodor-design)                   | "mock up a new about page"         | Designs a visible change to a website, with mockups                      |
-| [`/kodor-trace`](../customize/rules.md#kodor-trace)                             | "trace this rule change"           | Traces a change to the rules through every kind of change                |
+| Slash command                                                                         | Plain words that also work         | What it does                                                             |
+| ------------------------------------------------------------------------------------- | ---------------------------------- | ------------------------------------------------------------------------ |
+| [`/lunamill-refine 12`](../workflow/refine.md#lunamill-refine)                        | "refine ticket 12"                 | Turns a ticket into a spec a builder can start from                      |
+| [`/lunamill-build 12`](../workflow/build.md#lunamill-build)                           | "build ticket 12"                  | Builds a ticket to a reviewed pull request                               |
+| [`/lunamill-address-review 280`](../workflow/review.md#lunamill-address-review)       | "address the review on 280"        | Works a pull request's review until it can merge                         |
+| [`/lunamill-resolve-conflicts 280`](../workflow/review.md#lunamill-resolve-conflicts) | "resolve the conflicts on 280"     | Merges your default branch into a pull request and settles the conflicts |
+| [`/lunamill-diagnose`](#lunamill-diagnose)                                            | "diagnose this failing test"       | Finds a bug's cause before any code changes                              |
+| [`/lunamill-mutate`](#lunamill-mutate)                                                | "mutate this test"                 | Proves a test can fail                                                   |
+| [`/lunamill-deps`](../features/dependency-updates.md#lunamill-deps)                   | "fix the dependency pull requests" | Moves dependency pull requests toward merged                             |
+| [`/lunamill-design`](../features/website-review.md#lunamill-design)                   | "mock up a new about page"         | Designs a visible change to a website, with mockups                      |
+| [`/lunamill-trace`](../customize/rules.md#lunamill-trace)                             | "trace this rule change"           | Traces a change to the rules through every kind of change                |
 
 Each skill's link goes to its entry, on the page about the work it does.
-Typing `/kodor` in a session lists them, which is also how to check that
-a session picked kodor up.
+Typing `/lunamill` in a session lists them, which is also how to check that
+a session picked lunamill up.
 
-## `kodor-diagnose`
+## `lunamill-diagnose`
 
 **What it does.** Finds the cause of a bug, a failing or flaky test, or a
 slowdown, before changing any code. It starts by building one command that
 fails on the exact symptom, shrinks it, ranks the possible causes, and
 tests them one change at a time. It runs one test or one end-to-end spec
-alone with `kodor test-one` and `kodor end-to-end`.
+alone with `lunamill test-one` and `lunamill end-to-end`.
 
 **When to use it.** When something is broken, failing, flaky, or slow, and
 the cause is not already known.
@@ -77,7 +77,7 @@ the cause is not already known.
 **What it never does.** Change code before it can make the failure happen
 on demand. Fix two things at once.
 
-## `kodor-mutate`
+## `lunamill-mutate`
 
 **What it does.** Proves a test can fail. It breaks the code under test one
 way at a time and watches the test go red, then puts the code back and
@@ -94,17 +94,17 @@ name one of your own.
 
 ## The built-in agents
 
-### `kodor-ticket-readiness`
+### `lunamill-ticket-readiness`
 
 Reads a refined ticket cold, as the session that will build it, and lists
-every question it would still have to ask. `kodor-refine` runs it, and
+every question it would still have to ask. `lunamill-refine` runs it, and
 a refiner of your own can: it reads any refiner's ticket against the same
 list. Read-only.
 
-### `kodor-ui-reviewer`
+### `lunamill-ui-reviewer`
 
 Reads a change to how a website looks or responds. It runs
-`kodor site compare`, reads the before and after pictures of the pages
+`lunamill site compare`, reads the before and after pictures of the pages
 that changed, drives the states the change is about, and judges them
 against built-in rules, your `design-guide` when you wrote one, and what
 your `checks` printed. It is listed under
@@ -112,11 +112,11 @@ your `checks` printed. It is listed under
 of your own, with the `files` that should trigger it, and is written only
 to a repository with `site` in its settings. Read-only, and slow.
 
-### `kodor-test-reviewer`
+### `lunamill-test-reviewer`
 
 Reads new or changed tests, whatever their kind, the way a test engineer
 reviews a pull request: one behavior per test, each able to fail and
-earning its place, with no waits on a timer. `kodor-build` runs it,
+earning its place, with no waits on a timer. `lunamill-build` runs it,
 unless your settings list other
 [test reviewers](../customize/plugins.md#test-reviewer). Read-only, and it does not run
 the suite.
@@ -124,7 +124,7 @@ the suite.
 It takes its specifics from your project's instructions beside your tests. Without one,
 it applies only those general rules.
 
-### `kodor-e2e-reviewer`
+### `lunamill-e2e-reviewer`
 
 Reads new or changed browser end-to-end and smoke tests for what only such
 a test can get wrong: specs that go around their page objects, elements
@@ -132,5 +132,5 @@ not found the way a user finds them, waits on a timer, and a check that
 needs no real browser. It is written only to a repository with
 `commands.end-to-end` in its settings, and runs where it is listed under
 [`plugins.test.reviewers`](settings/plugins.md#pluginstest), beside
-`kodor-test-reviewer`, since that list, once written, is the whole list.
+`lunamill-test-reviewer`, since that list, once written, is the whole list.
 Read-only, and it does not run the suite.

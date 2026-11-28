@@ -29,8 +29,8 @@ import {
   partsOn,
   plan,
 } from "../src/sync.mts";
-import { KODOR_FILE, REVIEW_FILE } from "../src/workflow-files.mts";
-import { KODOR_COLUMNS } from "./kodor-columns";
+import { LUNAMILL_FILE, REVIEW_FILE } from "../src/workflow-files.mts";
+import { LUNAMILL_COLUMNS } from "./lunamill-columns";
 import { CODE_HOST, withoutCredentials } from "./settings-fixture";
 import { TOOLS } from "../src/tools.mts";
 import { fakeCredential } from "./fake-tools";
@@ -58,7 +58,7 @@ const settings = (raw: Record<string, unknown> = {}) => ({
   ),
 });
 
-/** The settings `raw` writes, resolved as `kodor sync` resolves them. */
+/** The settings `raw` writes, resolved as `lunamill sync` resolves them. */
 const resolved = (raw: Record<string, unknown>): Promise<Resolved> =>
   resolveFiles({
     readFile: () => JSON.stringify(raw),
@@ -71,12 +71,12 @@ const resolved = (raw: Record<string, unknown>): Promise<Resolved> =>
     root,
   });
 const FULL = {
-  tickets: { board: 3, columns: KODOR_COLUMNS },
+  tickets: { board: 3, columns: LUNAMILL_COLUMNS },
   "auto-merge": { allow: ["docs/**"] },
 };
 
 const NO_REMOTE =
-  "✗ repository: .claude/kodor.yaml says o/r, and no remote here is o/r. Add the remote, or change the line and run kodor sync.";
+  "✗ repository: .claude/lunamill.yaml says o/r, and no remote here is o/r. Add the remote, or change the line and run lunamill sync.";
 
 /** A sync of the made-up package into the repository, whose default branch
  * is `branch`, or cannot be told when that is null, for the reason the
@@ -111,16 +111,16 @@ beforeEach(() => {
   root = join(dir, "repo");
   mkdirSync(root);
   put(pkg, "package.json", '{"name": "@o/factory", "version": "1.2.3"}');
-  put(pkg, "bin/kodor.js", "");
-  put(pkg, "skills/kodor-build/SKILL.md", "work\n");
-  put(pkg, "agents/kodor-reader.md", "reader\n");
+  put(pkg, "bin/lunamill.js", "");
+  put(pkg, "skills/lunamill-build/SKILL.md", "work\n");
+  put(pkg, "agents/lunamill-reader.md", "reader\n");
   put(pkg, "rules.md", "rules\n");
   put(pkg, "review.md", "review\n");
-  put(pkg, "skills/kodor-design/SKILL.md", "design\n");
-  put(pkg, "agents/kodor-ui-reviewer.md", "ui\n");
-  put(pkg, "agents/kodor-e2e-reviewer.md", "e2e\n");
-  put(pkg, "skills/kodor-deps/SKILL.md", "deps\n");
-  put(pkg, "agents/kodor-credentials-reader.md", "credentials\n");
+  put(pkg, "skills/lunamill-design/SKILL.md", "design\n");
+  put(pkg, "agents/lunamill-ui-reviewer.md", "ui\n");
+  put(pkg, "agents/lunamill-e2e-reviewer.md", "e2e\n");
+  put(pkg, "skills/lunamill-deps/SKILL.md", "deps\n");
+  put(pkg, "agents/lunamill-credentials-reader.md", "credentials\n");
   put(pkg, "approval-policies/credentials/find.mts", "find\n");
 });
 
@@ -133,7 +133,7 @@ type FactoryFile = {
   "run-name": string;
   on: { push: { branches: string[] }; schedule: { cron: string }[] };
   permissions: Record<string, string>;
-  jobs: { kodor: Called };
+  jobs: { lunamill: Called };
 };
 type ReviewFile = {
   permissions: Record<string, string>;
@@ -141,41 +141,41 @@ type ReviewFile = {
 };
 
 /** The two workflow files a sync wrote, read as YAML. */
-const factoryFile = (text = read(KODOR_FILE)) => parse(text!) as FactoryFile;
+const factoryFile = (text = read(LUNAMILL_FILE)) => parse(text!) as FactoryFile;
 const reviewFile = (text = read(REVIEW_FILE)) => parse(text!) as ReviewFile;
-/** The parts that are on, as kodor.yml passes them. */
+/** The parts that are on, as lunamill.yml passes them. */
 const partsIn = () =>
-  String(factoryFile().jobs.kodor.with.parts).split(" ").filter(Boolean);
-/** What kodor.yml passes that sets a session's minutes or its job's
+  String(factoryFile().jobs.lunamill.with.parts).split(" ").filter(Boolean);
+/** What lunamill.yml passes that sets a session's minutes or its job's
  * limit. */
 const minutesIn = () =>
   Object.fromEntries(
-    Object.entries(factoryFile().jobs.kodor.with).filter(([key]) =>
+    Object.entries(factoryFile().jobs.lunamill.with).filter(([key]) =>
       /-(minutes|limit)$/.test(key),
     ),
   );
-const HOME = "kodor-ai/kodor/.github/workflows";
+const HOME = "lunamill-ai/lunamill/.github/workflows";
 
 const SITE = { site: { start: "npm start", url: "http://localhost:$PORT" } };
-const DESIGN = ".claude/skills/kodor-design/SKILL.md";
-const UI = ".claude/agents/kodor-ui-reviewer.md";
-const E2E = ".claude/agents/kodor-e2e-reviewer.md";
+const DESIGN = ".claude/skills/lunamill-design/SKILL.md";
+const UI = ".claude/agents/lunamill-ui-reviewer.md";
+const E2E = ".claude/agents/lunamill-e2e-reviewer.md";
 const END_TO_END = { commands: { "end-to-end": "npx e2e $FILE" } };
 const DEPENDABOT = ".github/dependabot.yml";
-const DEPS = ".claude/skills/kodor-deps/SKILL.md";
-const BOARD = { tickets: { board: 3, columns: KODOR_COLUMNS } };
+const DEPS = ".claude/skills/lunamill-deps/SKILL.md";
+const BOARD = { tickets: { board: 3, columns: LUNAMILL_COLUMNS } };
 
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
-describe("kodor sync", () => {
+describe("lunamill sync", () => {
   it("writes the copies, the hook entries, the import line, and the lock", async () => {
     expect((await sync()).code).toBe(0);
 
-    expect(read(".claude/skills/kodor-build/SKILL.md")).toBe("work\n");
-    expect(read(".claude/agents/kodor-reader.md")).toBe("reader\n");
-    expect(read(".claude/kodor/rules.md")).toBe("rules\n");
-    expect(read(".github/kodor-review.md")).toBe("review\n");
-    expect(read("CLAUDE.md")).toBe("@.claude/kodor/rules.md\n");
+    expect(read(".claude/skills/lunamill-build/SKILL.md")).toBe("work\n");
+    expect(read(".claude/agents/lunamill-reader.md")).toBe("reader\n");
+    expect(read(".claude/lunamill/rules.md")).toBe("rules\n");
+    expect(read(".github/lunamill-review.md")).toBe("review\n");
+    expect(read("CLAUDE.md")).toBe("@.claude/lunamill/rules.md\n");
 
     const hooks = JSON.parse(read(".claude/settings.json")!).hooks;
     expect(Object.keys(hooks)).toEqual([
@@ -190,7 +190,7 @@ describe("kodor sync", () => {
         matcher: "Bash",
         hooks: [
           expect.objectContaining({
-            command: `command -v kodor >/dev/null 2>&1 || { echo "kodor is not installed on this machine. Install it once: npm install -g @o/factory" >&2; exit 2; }; kodor guard`,
+            command: `command -v lunamill >/dev/null 2>&1 || { echo "lunamill is not installed on this machine. Install it once: npm install -g @o/factory" >&2; exit 2; }; lunamill guard`,
           }),
         ],
       }),
@@ -202,15 +202,15 @@ describe("kodor sync", () => {
         matcher: "Write|Edit|MultiEdit",
         hooks: [
           expect.objectContaining({
-            command: `command -v kodor >/dev/null 2>&1 || exit 0; kodor guard permission`,
+            command: `command -v lunamill >/dev/null 2>&1 || exit 0; lunamill guard permission`,
           }),
         ],
       }),
     ]);
 
-    const lock = read(".claude/kodor.lock")!;
+    const lock = read(".claude/lunamill.lock")!;
     expect(lock).toContain("version: 1.2.3");
-    expect(lock).toContain("  - .claude/skills/kodor-build/SKILL.md");
+    expect(lock).toContain("  - .claude/skills/lunamill-build/SKILL.md");
   });
 
   it.each([
@@ -223,33 +223,33 @@ describe("kodor sync", () => {
     const r = await sync([], settings(raw));
 
     expect(r.code).toBe(0);
-    expect(r.out).toContain(`wrote ${KODOR_FILE}`);
+    expect(r.out).toContain(`wrote ${LUNAMILL_FILE}`);
     expect(r.out).toContain(`wrote ${REVIEW_FILE}`);
-    expect(Object.keys(factoryFile().jobs)).toEqual(["kodor"]);
+    expect(Object.keys(factoryFile().jobs)).toEqual(["lunamill"]);
     expect(Object.keys(reviewFile().jobs)).toEqual(["review"]);
-    const lock = read(".claude/kodor.lock")!;
-    expect(lock).toContain(`  - ${KODOR_FILE}`);
+    const lock = read(".claude/lunamill.lock")!;
+    expect(lock).toContain(`  - ${LUNAMILL_FILE}`);
     expect(lock).toContain(`  - ${REVIEW_FILE}`);
   });
 
   it("writes nothing else under .github/ but the review's instructions", async () => {
     await sync([], settings());
 
-    const { files } = parse(read(".claude/kodor.lock")!) as {
+    const { files } = parse(read(".claude/lunamill.lock")!) as {
       files: string[];
     };
     expect(files.filter((path) => path.startsWith(".github/"))).toEqual([
-      ".github/kodor-review.md",
-      KODOR_FILE,
+      ".github/lunamill-review.md",
+      LUNAMILL_FILE,
       REVIEW_FILE,
     ]);
     expect(existsSync(join(root, ".github/actions"))).toBe(false);
   });
 
-  it("calls kodor's workflows at the package's version", async () => {
+  it("calls lunamill's workflows at the package's version", async () => {
     await sync();
 
-    expect(factoryFile().jobs.kodor.uses).toBe(`${HOME}/run.yml@v1.2.3`);
+    expect(factoryFile().jobs.lunamill.uses).toBe(`${HOME}/run.yml@v1.2.3`);
     expect(reviewFile().jobs.review.uses).toBe(`${HOME}/review.yml@v1.2.3`);
   });
 
@@ -257,7 +257,9 @@ describe("kodor sync", () => {
     root = pkg;
     await sync();
 
-    expect(factoryFile().jobs.kodor.uses).toBe("./.github/workflows/run.yml");
+    expect(factoryFile().jobs.lunamill.uses).toBe(
+      "./.github/workflows/run.yml",
+    );
     expect(reviewFile().jobs.review.uses).toBe(
       "./.github/workflows/review.yml",
     );
@@ -266,30 +268,30 @@ describe("kodor sync", () => {
   it("writes the design skill, and locks it, only where there is a site", async () => {
     expect((await sync([], settings())).code).toBe(0);
     expect(read(DESIGN)).toBeNull();
-    expect(read(".claude/kodor.lock")).not.toContain(DESIGN);
+    expect(read(".claude/lunamill.lock")).not.toContain(DESIGN);
 
     expect((await sync([], settings(SITE))).code).toBe(0);
     expect(read(DESIGN)).toBe("design\n");
-    expect(read(".claude/kodor.lock")).toContain(`  - ${DESIGN}`);
+    expect(read(".claude/lunamill.lock")).toContain(`  - ${DESIGN}`);
   });
 
   it("writes the UI reviewer, and locks it, only where there is a site", async () => {
     expect((await sync([], settings())).code).toBe(0);
     expect(read(UI)).toBeNull();
-    expect(read(".claude/kodor.lock")).not.toContain(UI);
+    expect(read(".claude/lunamill.lock")).not.toContain(UI);
 
     expect((await sync([], settings(SITE))).code).toBe(0);
     expect(read(UI)).toBe("ui\n");
-    expect(read(".claude/kodor.lock")).toContain(`  - ${UI}`);
+    expect(read(".claude/lunamill.lock")).toContain(`  - ${UI}`);
   });
 
   it("writes the credentials policy's rule and reader only while the policy is on", async () => {
     const RULE = ".claude/approval-policies/credentials/find.mts";
-    const READER = ".claude/agents/kodor-credentials-reader.md";
+    const READER = ".claude/agents/lunamill-credentials-reader.md";
     const { "approval-policies": _, ...on } = settings();
     expect((await sync([], on)).code).toBe(0);
     expect([read(RULE), read(READER)]).toEqual(["find\n", "credentials\n"]);
-    expect(read(".claude/kodor.lock")).toContain(`  - ${RULE}`);
+    expect(read(".claude/lunamill.lock")).toContain(`  - ${RULE}`);
 
     expect((await sync([], settings())).code).toBe(0);
     expect([read(RULE), read(READER)]).toEqual([null, null]);
@@ -298,11 +300,11 @@ describe("kodor sync", () => {
   it("writes the end-to-end reviewer, and locks it, only where commands.end-to-end is set", async () => {
     expect((await sync([], settings())).code).toBe(0);
     expect(read(E2E)).toBeNull();
-    expect(read(".claude/kodor.lock")).not.toContain(E2E);
+    expect(read(".claude/lunamill.lock")).not.toContain(E2E);
 
     expect((await sync([], settings(END_TO_END))).code).toBe(0);
     expect(read(E2E)).toBe("e2e\n");
-    expect(read(".claude/kodor.lock")).toContain(`  - ${E2E}`);
+    expect(read(".claude/lunamill.lock")).toContain(`  - ${E2E}`);
   });
 
   it("removes the end-to-end reviewer when commands.end-to-end is taken out, and the check then passes", async () => {
@@ -344,7 +346,7 @@ describe("kodor sync", () => {
     put(root, DEPENDABOT, "version: 1\n");
     expect((await sync([], settings())).code).toBe(0);
     expect(read(DEPS)).toBe("deps\n");
-    expect(read(".claude/kodor.lock")).toContain(`  - ${DEPS}`);
+    expect(read(".claude/lunamill.lock")).toContain(`  - ${DEPS}`);
     expect(partsIn()).toEqual(["dependabot"]);
   });
 
@@ -372,24 +374,24 @@ describe("kodor sync", () => {
   describe("in a repository a release that copied the workflows synced", () => {
     const COPIED = [
       ".github/workflows/factory-board-sync.yml",
-      ".github/workflows/kodor-build.yml",
-      ".github/workflows/kodor-check.yml",
+      ".github/workflows/lunamill-build.yml",
+      ".github/workflows/lunamill-check.yml",
       ".github/workflows/factory-claude-review.yml",
       ".github/workflows/factory-conflicts.yml",
-      ".github/workflows/kodor-deps-auto-merge.yml",
-      ".github/workflows/kodor-deps.yml",
+      ".github/workflows/lunamill-deps-auto-merge.yml",
+      ".github/workflows/lunamill-deps.yml",
       ".github/workflows/factory-merge-policy.yml",
-      ".github/workflows/kodor-poller.yml",
+      ".github/workflows/lunamill-poller.yml",
       ".github/workflows/factory-review-verdict.yml",
       ".github/actions/factory-agent/action.yml",
     ];
-    // That release wrote a file at kodor-review.yml's path too.
+    // That release wrote a file at lunamill-review.yml's path too.
     beforeEach(() => {
       const locked = [...COPIED, REVIEW_FILE];
       for (const path of locked) put(root, path, "copied\n");
       put(
         root,
-        ".claude/kodor.lock",
+        ".claude/lunamill.lock",
         ["version: 1.0.0", "files:", ...locked.map((p) => `  - ${p}`), ""].join(
           "\n",
         ),
@@ -406,7 +408,7 @@ describe("kodor sync", () => {
       expect((await sync(["--check"])).code).toBe(0);
     });
 
-    it("overwrites kodor-review.yml, which that lock also lists", async () => {
+    it("overwrites lunamill-review.yml, which that lock also lists", async () => {
       const r = await sync();
 
       expect(r.out).toContain(`wrote ${REVIEW_FILE}`);
@@ -443,7 +445,7 @@ describe("kodor sync", () => {
     expect(JSON.parse(read(".claude/settings.json")!).attribution).toEqual(own);
   });
 
-  it("keeps an entry in .claude/settings.json that is not kodor's, in place", async () => {
+  it("keeps an entry in .claude/settings.json that is not lunamill's, in place", async () => {
     const own = { type: "command", command: "echo own", timeout: 5 };
     put(
       root,
@@ -458,7 +460,7 @@ describe("kodor sync", () => {
               hooks: [
                 {
                   type: "command",
-                  command: "node old/bin/kodor.js guard",
+                  command: "node old/bin/lunamill.js guard",
                 },
               ],
             },
@@ -477,7 +479,7 @@ describe("kodor sync", () => {
       hooks: [own],
     });
     expect(written.hooks.PreToolUse[1].hooks[0].command).toMatch(
-      /; kodor guard$/,
+      /; lunamill guard$/,
     );
   });
 
@@ -487,21 +489,21 @@ describe("kodor sync", () => {
     await sync();
 
     expect(read("CLAUDE.md")).toBe(
-      "# Ours\n\nSome rules.\n\n@.claude/kodor/rules.md\n",
+      "# Ours\n\nSome rules.\n\n@.claude/lunamill/rules.md\n",
     );
   });
 
   it("deletes a file the lock lists that the package no longer has", async () => {
-    put(pkg, "agents/kodor-gone.md", "gone\n");
+    put(pkg, "agents/lunamill-gone.md", "gone\n");
     await sync();
-    expect(read(".claude/agents/kodor-gone.md")).toBe("gone\n");
+    expect(read(".claude/agents/lunamill-gone.md")).toBe("gone\n");
     put(root, "keep.md", "mine\n");
 
-    rmSync(join(pkg, "agents/kodor-gone.md"));
+    rmSync(join(pkg, "agents/lunamill-gone.md"));
     const r = await sync();
 
-    expect(r.out).toContain("deleted .claude/agents/kodor-gone.md");
-    expect(read(".claude/agents/kodor-gone.md")).toBeNull();
+    expect(r.out).toContain("deleted .claude/agents/lunamill-gone.md");
+    expect(read(".claude/agents/lunamill-gone.md")).toBeNull();
     expect(read("keep.md")).toBe("mine\n");
   });
 
@@ -519,7 +521,7 @@ describe("kodor sync", () => {
       { ...BOARD, builds: { trigger: "github-action" } },
     ],
   ])(
-    "turns the %s part on only while %s, and changes nothing in kodor-review.yml",
+    "turns the %s part on only while %s, and changes nothing in lunamill-review.yml",
     async (part, _, raw) => {
       await sync([], settings());
       expect(partsIn()).not.toContain(part);
@@ -534,7 +536,7 @@ describe("kodor sync", () => {
     },
   );
 
-  it("passes every part that is on, in the order kodor's workflows list them", async () => {
+  it("passes every part that is on, in the order lunamill's workflows list them", async () => {
     put(root, DEPENDABOT, "version: 1\n");
     await sync(
       [],
@@ -591,7 +593,7 @@ describe("kodor sync", () => {
     },
   );
 
-  describe("the override's name in kodor.yml", () => {
+  describe("the override's name in lunamill.yml", () => {
     const named = (name: string) =>
       settings({
         "code-host": { ...CODE_HOST, labels: { "verdict-override": name } },
@@ -600,15 +602,15 @@ describe("kodor sync", () => {
     it("passes the name code-host.labels gives it", async () => {
       await sync([], named("owner's pass"));
 
-      expect(factoryFile().jobs.kodor.with["override-label"]).toBe(
+      expect(factoryFile().jobs.lunamill.with["override-label"]).toBe(
         "owner's pass",
       );
     });
 
-    it("passes none with the default, which kodor's workflow has", async () => {
+    it("passes none with the default, which lunamill's workflow has", async () => {
       await sync([], settings());
 
-      expect(factoryFile().jobs.kodor.with).not.toHaveProperty(
+      expect(factoryFile().jobs.lunamill.with).not.toHaveProperty(
         "override-label",
       );
     });
@@ -619,26 +621,26 @@ describe("kodor sync", () => {
       const r = await sync(["--check"], named("owner-pass"));
 
       expect(r.code).toBe(1);
-      expect(r.err).toContain(`  ${KODOR_FILE}`);
+      expect(r.err).toContain(`  ${LUNAMILL_FILE}`);
       expect(r.err).not.toContain(`  ${REVIEW_FILE}`);
     });
   });
 });
 
-describe("kodor's core", () => {
-  // What kodor's own steps call is written to every repository,
+describe("lunamill's core", () => {
+  // What lunamill's own steps call is written to every repository,
   // whatever its settings and files. Anything else is written only when a
   // setting or a file turns it on.
   const CORE = [
-    ".claude/skills/kodor-refine/SKILL.md",
-    ".claude/skills/kodor-build/SKILL.md",
-    ".claude/skills/kodor-address-review/SKILL.md",
-    ".claude/skills/kodor-resolve-conflicts/SKILL.md",
-    ".claude/skills/kodor-diagnose/SKILL.md",
-    ".claude/skills/kodor-mutate/SKILL.md",
-    ".claude/skills/kodor-trace/SKILL.md",
-    ".claude/agents/kodor-ticket-readiness.md",
-    ".claude/agents/kodor-test-reviewer.md",
+    ".claude/skills/lunamill-refine/SKILL.md",
+    ".claude/skills/lunamill-build/SKILL.md",
+    ".claude/skills/lunamill-address-review/SKILL.md",
+    ".claude/skills/lunamill-resolve-conflicts/SKILL.md",
+    ".claude/skills/lunamill-diagnose/SKILL.md",
+    ".claude/skills/lunamill-mutate/SKILL.md",
+    ".claude/skills/lunamill-trace/SKILL.md",
+    ".claude/agents/lunamill-ticket-readiness.md",
+    ".claude/agents/lunamill-test-reviewer.md",
   ];
 
   it("is written from the real package to a repository with no settings and no files", async () => {
@@ -652,19 +654,19 @@ describe("kodor's core", () => {
   it("gives the trace skill the change types to read and the pull request to post on", async () => {
     const trace = (
       await plan(PACKAGE, root, await resolved(settings()), "main")
-    ).write.get(".claude/skills/kodor-trace/SKILL.md");
+    ).write.get(".claude/skills/lunamill-trace/SKILL.md");
     expect(trace).toContain(".claude/change-types.md");
-    expect(trace).toContain("kodor pr comment");
+    expect(trace).toContain("lunamill pr comment");
     expect(
       (await plan(PACKAGE, root, await resolved(settings()), "main")).write.get(
-        ".claude/kodor/rules.md",
+        ".claude/lunamill/rules.md",
       ),
-    ).toContain("`kodor-trace` skill");
+    ).toContain("`lunamill-trace` skill");
   });
 });
 
-describe("kodor sync: how long each session may run", () => {
-  it("passes no minutes with the defaults, which kodor's workflow has", async () => {
+describe("lunamill sync: how long each session may run", () => {
+  it("passes no minutes with the defaults, which lunamill's workflow has", async () => {
     await sync([], settings());
 
     expect(minutesIn()).toEqual({});
@@ -691,12 +693,12 @@ describe("kodor sync: how long each session may run", () => {
     );
 
     expect(r.code).toBe(1);
-    expect(r.err).toContain(`  ${KODOR_FILE}`);
+    expect(r.err).toContain(`  ${LUNAMILL_FILE}`);
     expect(r.err).not.toContain(`  ${REVIEW_FILE}`);
   });
 });
 
-describe("kodor sync: the numbers the rules use", () => {
+describe("lunamill sync: the numbers the rules use", () => {
   const RULES = [
     "A change is small when it changes under about 30 lines outside tests.",
     "After two rounds, whatever is still in dispute goes to the user.",
@@ -709,11 +711,11 @@ describe("kodor sync: the numbers the rules use", () => {
     "rounds**. When the third review arrives:",
     "",
   ].join("\n");
-  const RULES_COPY = ".claude/kodor/rules.md";
-  const REVIEW_COPY = ".claude/skills/kodor-address-review/SKILL.md";
+  const RULES_COPY = ".claude/lunamill/rules.md";
+  const REVIEW_COPY = ".claude/skills/lunamill-address-review/SKILL.md";
   beforeEach(() => {
     put(pkg, "rules.md", RULES);
-    put(pkg, "skills/kodor-address-review/SKILL.md", REVIEW);
+    put(pkg, "skills/lunamill-address-review/SKILL.md", REVIEW);
   });
 
   it("writes the copies word for word with the defaults", async () => {
@@ -754,11 +756,11 @@ describe("kodor sync: the numbers the rules use", () => {
   });
 
   it("stops, naming the review skill, when the rounds are set and its heading is gone", async () => {
-    put(pkg, "skills/kodor-address-review/SKILL.md", "review\n");
+    put(pkg, "skills/lunamill-address-review/SKILL.md", "review\n");
     await expect(
       sync([], settings({ rules: { "review-rounds": 3 } })),
     ).rejects.toThrow(
-      "skills/kodor-address-review/SKILL.md: expected one match",
+      "skills/lunamill-address-review/SKILL.md: expected one match",
     );
   });
 
@@ -800,10 +802,10 @@ describe("kodor sync: the numbers the rules use", () => {
   });
 });
 
-describe("kodor sync: the default branch in the push trigger", () => {
+describe("lunamill sync: the default branch in the push trigger", () => {
   const pushBranches = () => factoryFile().on.push.branches;
 
-  it("writes the default branch's name into kodor.yml's push trigger", async () => {
+  it("writes the default branch's name into lunamill.yml's push trigger", async () => {
     expect((await sync([], settings(), "develop")).code).toBe(0);
 
     expect(pushBranches()).toEqual(["develop"]);
@@ -816,9 +818,9 @@ describe("kodor sync: the default branch in the push trigger", () => {
 
     expect(r.code).toBe(1);
     expect(r.err).toEqual([
-      "✗ 1 of kodor's files doesn't match the settings:",
-      `  ${KODOR_FILE}`,
-      "Run kodor sync and commit what it writes.",
+      "✗ 1 of lunamill's files doesn't match the settings:",
+      `  ${LUNAMILL_FILE}`,
+      "Run lunamill sync and commit what it writes.",
     ]);
   });
 
@@ -828,7 +830,7 @@ describe("kodor sync: the default branch in the push trigger", () => {
     expect(r.code).toBe(1);
     expect(r.err).toEqual([NO_REMOTE]);
     expect(r.out).toEqual([]);
-    expect(read(KODOR_FILE)).toBeNull();
+    expect(read(LUNAMILL_FILE)).toBeNull();
     expect(read("CLAUDE.md")).toBeNull();
   });
 
@@ -850,24 +852,24 @@ describe("kodor sync: the default branch in the push trigger", () => {
   it("writes a name with a slash in it as it is", async () => {
     await sync([], settings(), "release/2.x");
 
-    expect(read(KODOR_FILE)).toContain("    branches: [release/2.x]\n");
+    expect(read(LUNAMILL_FILE)).toContain("    branches: [release/2.x]\n");
   });
 });
 
-describe("kodor sync --check", () => {
+describe("lunamill sync --check", () => {
   it("exits 1 naming the copy that differs by one character, and writes nothing", async () => {
     await sync();
-    put(root, ".claude/kodor/rules.md", "rulez\n");
+    put(root, ".claude/lunamill/rules.md", "rulez\n");
 
     const r = await sync(["--check"]);
 
     expect(r.code).toBe(1);
     expect(r.err).toEqual([
-      "✗ 1 of kodor's files doesn't match the settings:",
-      "  .claude/kodor/rules.md",
-      "Run kodor sync and commit what it writes.",
+      "✗ 1 of lunamill's files doesn't match the settings:",
+      "  .claude/lunamill/rules.md",
+      "Run lunamill sync and commit what it writes.",
     ]);
-    expect(read(".claude/kodor/rules.md")).toBe("rulez\n");
+    expect(read(".claude/lunamill/rules.md")).toBe("rulez\n");
   });
 
   it("says the files match when the check passes", async () => {
@@ -876,7 +878,7 @@ describe("kodor sync --check", () => {
     const r = await sync(["--check"]);
 
     expect(r.code).toBe(0);
-    expect(r.out).toEqual(["✓ kodor's files match the settings."]);
+    expect(r.out).toEqual(["✓ lunamill's files match the settings."]);
   });
 
   it("says nothing changed when a person's sync writes nothing", async () => {
@@ -885,7 +887,7 @@ describe("kodor sync --check", () => {
     const again = await sync([], settings(FULL), "main", { announce: true });
 
     expect(again.out.at(-1)).toBe(
-      "kodor's files already match the settings. Nothing changed.",
+      "lunamill's files already match the settings. Nothing changed.",
     );
   });
 
@@ -893,38 +895,38 @@ describe("kodor sync --check", () => {
     await sync();
 
     expect((await sync()).out).not.toContain(
-      "kodor's files already match the settings. Nothing changed.",
+      "lunamill's files already match the settings. Nothing changed.",
     );
   });
 
   it("exits 1 naming each workflow file that differs from what the settings write", async () => {
     await sync();
-    put(root, KODOR_FILE, "changed\n");
+    put(root, LUNAMILL_FILE, "changed\n");
     put(root, REVIEW_FILE, "changed\n");
 
     const r = await sync(["--check"]);
 
     expect(r.code).toBe(1);
     expect(r.err).toEqual([
-      "✗ 2 of kodor's files don't match the settings:",
-      `  ${KODOR_FILE}`,
+      "✗ 2 of lunamill's files don't match the settings:",
+      `  ${LUNAMILL_FILE}`,
       `  ${REVIEW_FILE}`,
-      "Run kodor sync and commit what it writes.",
+      "Run lunamill sync and commit what it writes.",
     ]);
   });
 
-  it("exits 1 naming kodor.yml, and not kodor-review.yml, when a part was turned on and sync did not run", async () => {
+  it("exits 1 naming lunamill.yml, and not lunamill-review.yml, when a part was turned on and sync did not run", async () => {
     await sync();
     put(root, DEPENDABOT, "version: 1\n");
 
     const r = await sync(["--check"]);
 
     expect(r.code).toBe(1);
-    expect(r.err).toContain(`  ${KODOR_FILE}`);
+    expect(r.err).toContain(`  ${LUNAMILL_FILE}`);
     expect(r.err).not.toContain(`  ${REVIEW_FILE}`);
   });
 
-  it("exits 1 naming both workflow files when kodor's version changed and sync did not run", async () => {
+  it("exits 1 naming both workflow files when lunamill's version changed and sync did not run", async () => {
     await sync();
     put(pkg, "package.json", '{"name": "@o/factory", "version": "1.3.0"}');
 
@@ -932,11 +934,11 @@ describe("kodor sync --check", () => {
 
     expect(r.code).toBe(1);
     expect(r.err).toEqual([
-      "✗ 3 of kodor's files don't match the settings:",
-      `  ${KODOR_FILE}`,
+      "✗ 3 of lunamill's files don't match the settings:",
+      `  ${LUNAMILL_FILE}`,
       `  ${REVIEW_FILE}`,
-      "  .claude/kodor.lock",
-      "Run kodor sync and commit what it writes.",
+      "  .claude/lunamill.lock",
+      "Run lunamill sync and commit what it writes.",
     ]);
   });
 
@@ -957,12 +959,12 @@ describe("launcherPath", () => {
   it("points at the package's own folder when it sits inside the repository", () => {
     mkdirSync(join(dir, "packages/factory"), { recursive: true });
     expect(launcherPath(join(dir, "packages/factory"), dir)).toBe(
-      "packages/factory/bin/kodor.js",
+      "packages/factory/bin/lunamill.js",
     );
   });
 
   it("points at the root's own launcher when the repository is the package itself", () => {
-    expect(launcherPath(dir, dir)).toBe("bin/kodor.js");
+    expect(launcherPath(dir, dir)).toBe("bin/lunamill.js");
   });
 
   it("follows a workspace link to the package's folder inside the repository", () => {
@@ -973,7 +975,7 @@ describe("launcherPath", () => {
       join(dir, "node_modules/@o/factory"),
     );
     expect(launcherPath(join(dir, "node_modules/@o/factory"), dir)).toBe(
-      "packages/factory/bin/kodor.js",
+      "packages/factory/bin/lunamill.js",
     );
   });
 
@@ -989,7 +991,7 @@ describe("launcherPath", () => {
 
 describe("factoryHooks", () => {
   const MISSING =
-    "kodor is not installed on this machine. Install it once: npm install -g @o/factory";
+    "lunamill is not installed on this machine. Install it once: npm install -g @o/factory";
   const commands = (launcher: string | null) =>
     factoryHooks(launcher, "@o/factory").map(
       ([event, group]) => `${event}: ${group.hooks[0].command}`,
@@ -997,28 +999,28 @@ describe("factoryHooks", () => {
   /** What the hook on the credentials file runs before the guard: nothing
    * more is started for a call whose input does not name the file. */
   const NAMED =
-    'input=$(cat); case "$input" in *kodor/credentials*) ;; *) exit 0 ;; esac; printf \'%s\' "$input" |';
+    'input=$(cat); case "$input" in *lunamill/credentials*) ;; *) exit 0 ;; esac; printf \'%s\' "$input" |';
 
   it("runs the machine's factory, and stops a command or a file read where there is none", () => {
-    const installed = `command -v kodor >/dev/null 2>&1 || { echo "${MISSING}" >&2; exit 2; };`;
+    const installed = `command -v lunamill >/dev/null 2>&1 || { echo "${MISSING}" >&2; exit 2; };`;
     expect(commands(null)).toEqual([
-      `SessionStart: command -v kodor >/dev/null 2>&1 || { echo "${MISSING}"; exit 0; }; kodor session-start`,
-      `PreToolUse: ${installed} kodor guard`,
-      `PreToolUse: ${installed} ${NAMED} kodor guard credentials`,
-      "PermissionRequest: command -v kodor >/dev/null 2>&1 || exit 0; kodor guard permission",
-      "SubagentStart: kodor reviewers start 2>/dev/null || true",
-      "SubagentStop: kodor reviewers stop 2>/dev/null || true",
+      `SessionStart: command -v lunamill >/dev/null 2>&1 || { echo "${MISSING}"; exit 0; }; lunamill session-start`,
+      `PreToolUse: ${installed} lunamill guard`,
+      `PreToolUse: ${installed} ${NAMED} lunamill guard credentials`,
+      "PermissionRequest: command -v lunamill >/dev/null 2>&1 || exit 0; lunamill guard permission",
+      "SubagentStart: lunamill reviewers start 2>/dev/null || true",
+      "SubagentStop: lunamill reviewers stop 2>/dev/null || true",
     ]);
   });
 
   it("runs the launcher by its path where the package is in the repository", () => {
-    expect(commands("bin/kodor.js")).toEqual([
-      'SessionStart: node "$CLAUDE_PROJECT_DIR"/bin/kodor.js session-start',
-      'PreToolUse: node "$CLAUDE_PROJECT_DIR"/bin/kodor.js guard',
-      `PreToolUse: ${NAMED} node "$CLAUDE_PROJECT_DIR"/bin/kodor.js guard credentials`,
-      'PermissionRequest: node "$CLAUDE_PROJECT_DIR"/bin/kodor.js guard permission',
-      'SubagentStart: node "$CLAUDE_PROJECT_DIR"/bin/kodor.js reviewers start 2>/dev/null || true',
-      'SubagentStop: node "$CLAUDE_PROJECT_DIR"/bin/kodor.js reviewers stop 2>/dev/null || true',
+    expect(commands("bin/lunamill.js")).toEqual([
+      'SessionStart: node "$CLAUDE_PROJECT_DIR"/bin/lunamill.js session-start',
+      'PreToolUse: node "$CLAUDE_PROJECT_DIR"/bin/lunamill.js guard',
+      `PreToolUse: ${NAMED} node "$CLAUDE_PROJECT_DIR"/bin/lunamill.js guard credentials`,
+      'PermissionRequest: node "$CLAUDE_PROJECT_DIR"/bin/lunamill.js guard permission',
+      'SubagentStart: node "$CLAUDE_PROJECT_DIR"/bin/lunamill.js reviewers start 2>/dev/null || true',
+      'SubagentStop: node "$CLAUDE_PROJECT_DIR"/bin/lunamill.js reviewers stop 2>/dev/null || true',
     ]);
   });
 
@@ -1026,11 +1028,11 @@ describe("factoryHooks", () => {
     const [, group] = factoryHooks(null, "@o/factory").find(
       ([, g]) => g.matcher === "Read|Grep|Glob",
     ) ?? [null, { hooks: [{ command: "exit 99" }] }];
-    const FILE = "/home/dana/.config/kodor/credentials.yaml";
+    const FILE = "/home/dana/.config/lunamill/credentials.yaml";
     let box = "";
     afterEach(() => rmSync(box, { recursive: true, force: true }));
 
-    /** The command run on a hook's input. With `installed`, the `kodor`
+    /** The command run on a hook's input. With `installed`, the `lunamill`
      * on the PATH notes that it was started, then runs the real one. */
     const run = (
       tool_name: string,
@@ -1041,8 +1043,8 @@ describe("factoryHooks", () => {
       const started = join(box, "started");
       if (installed)
         writeFileSync(
-          join(box, "kodor"),
-          `#!/bin/sh\necho "$*" >> "${started}"\nexec "${process.execPath}" "${join(import.meta.dirname, "..", "bin", "kodor.js")}" "$@"\n`,
+          join(box, "lunamill"),
+          `#!/bin/sh\necho "$*" >> "${started}"\nexec "${process.execPath}" "${join(import.meta.dirname, "..", "bin", "lunamill.js")}" "$@"\n`,
           { mode: 0o755 },
         );
       const r = spawnSync("/bin/sh", ["-c", group.hooks[0]!.command], {
@@ -1063,7 +1065,7 @@ describe("factoryHooks", () => {
       expect(run("Read", { file_path: FILE })).toEqual({
         status: 2,
         stderr:
-          "kodor's credentials file is not for sessions to read. Its commands read it themselves: run the kodor command you need, such as kodor ticket view.",
+          "lunamill's credentials file is not for sessions to read. Its commands read it themselves: run the lunamill command you need, such as lunamill ticket view.",
         started: ["guard credentials"],
       });
     });
@@ -1084,7 +1086,7 @@ describe("factoryHooks", () => {
       });
     });
 
-    it("stops every call, saying how to install kodor, on a machine without it", () => {
+    it("stops every call, saying how to install lunamill, on a machine without it", () => {
       expect(
         run("Read", { file_path: "/home/dana/site/README.md" }, false),
       ).toEqual({ status: 2, stderr: MISSING, started: [] });
@@ -1092,10 +1094,12 @@ describe("factoryHooks", () => {
   });
 
   it("replaces an entry an earlier release wrote, which ran a copy in node_modules", () => {
-    const old = withHooks(null, "node_modules/@o/factory/bin/kodor.js");
+    const old = withHooks(null, "node_modules/@o/factory/bin/lunamill.js");
     const now = JSON.parse(withHooks(old, null, "@o/factory"));
     expect(now.hooks.PreToolUse).toHaveLength(2);
-    expect(now.hooks.PreToolUse[0].hooks[0].command).toMatch(/; kodor guard$/);
+    expect(now.hooks.PreToolUse[0].hooks[0].command).toMatch(
+      /; lunamill guard$/,
+    );
     expect(hasFactoryHooks(JSON.stringify(now))).toBe(true);
     expect(withoutHooks(JSON.stringify(now))).toBe(
       `${JSON.stringify({ attribution: now.attribution }, null, 2)}\n`,
@@ -1108,7 +1112,7 @@ describe("factoryHooks", () => {
       hooks: [
         {
           type: "command",
-          command: `command -v kodor >/dev/null 2>&1 || { echo "${MISSING}" >&2; exit 2; }; kodor guard credentials`,
+          command: `command -v lunamill >/dev/null 2>&1 || { echo "${MISSING}" >&2; exit 2; }; lunamill guard credentials`,
         },
       ],
     };
@@ -1122,13 +1126,13 @@ describe("factoryHooks", () => {
         .filter((g) => g.matcher === "Read|Grep|Glob")
         .map((g) => g.hooks[0]!.command);
     expect(guards(once)).toEqual([
-      expect.stringMatching(/\| kodor guard credentials$/),
+      expect.stringMatching(/\| lunamill guard credentials$/),
     ]);
     expect(withHooks(once, null, "@o/factory")).toBe(once);
   });
 
   describe("the folder other repositories are cloned into", () => {
-    const WORK = "~/.local/share/kodor/work";
+    const WORK = "~/.local/share/lunamill/work";
     const permissions = (text: string) => JSON.parse(text).permissions;
 
     it("may be edited by a session, beside any other folder, listed once", () => {
@@ -1170,13 +1174,13 @@ describe("factoryHooks", () => {
   });
 
   it("leaves a hook of the repository's own that only mentions a factory", () => {
-    const own = { type: "command", command: "my-kodor guard --all" };
+    const own = { type: "command", command: "my-lunamill guard --all" };
     const text = JSON.stringify({ hooks: { PreToolUse: [{ hooks: [own] }] } });
     expect(hasAnyFactoryHook(text)).toBe(false);
   });
 });
 
-describe("kodor sync: the ticket system in the workflow files", () => {
+describe("lunamill sync: the ticket system in the workflow files", () => {
   const NAMES = ["FAKE_TICKETS_EMAIL", "FAKE_TICKETS_TOKEN"];
   /** The registry with a ticket system that reads a credential, under
    * GitHub's name so the settings take it as they stand. */
@@ -1195,7 +1199,7 @@ describe("kodor sync: the ticket system in the workflow files", () => {
   const workflows = async (systems?: typeof withCredential) => {
     const p = await plan(PACKAGE, root, await resolved(EVERY), "main", systems);
     return new Map(
-      [KODOR_FILE, REVIEW_FILE].map((path) => [path, p.write.get(path)!]),
+      [LUNAMILL_FILE, REVIEW_FILE].map((path) => [path, p.write.get(path)!]),
     );
   };
   /** The one secret that carries the repository's own, by name. */
@@ -1210,12 +1214,12 @@ describe("kodor sync: the ticket system in the workflow files", () => {
     );
   });
 
-  it("passes each of the ticket system's secrets, by name, from kodor.yml alone", async () => {
+  it("passes each of the ticket system's secrets, by name, from lunamill.yml alone", async () => {
     const written = await workflows(withCredential);
 
-    expect(factoryFile(written.get(KODOR_FILE)).jobs.kodor.secrets.extra).toBe(
-      extra(NAMES),
-    );
+    expect(
+      factoryFile(written.get(LUNAMILL_FILE)).jobs.lunamill.secrets.extra,
+    ).toBe(extra(NAMES));
     for (const name of NAMES)
       expect(written.get(REVIEW_FILE)).not.toContain(name);
   });
@@ -1224,17 +1228,17 @@ describe("kodor sync: the ticket system in the workflow files", () => {
     const written = await workflows();
 
     expect(
-      factoryFile(written.get(KODOR_FILE)).jobs.kodor.secrets,
+      factoryFile(written.get(LUNAMILL_FILE)).jobs.lunamill.secrets,
     ).not.toHaveProperty("extra");
   });
 
-  it("adds one line to kodor.yml, and changes no other", async () => {
+  it("adds one line to lunamill.yml, and changes no other", async () => {
     const before = await workflows();
     for (const [path, text] of await workflows(withCredential)) {
       const was = before.get(path)!.split("\n");
       const added = text.split("\n").filter((line) => !was.includes(line));
       expect(added, path).toEqual(
-        path === KODOR_FILE ? [`      extra: ${extra(NAMES)}`] : [],
+        path === LUNAMILL_FILE ? [`      extra: ${extra(NAMES)}`] : [],
       );
       expect(text.split("\n").filter((line) => !added.includes(line))).toEqual(
         was,
@@ -1246,9 +1250,9 @@ describe("kodor sync: the ticket system in the workflow files", () => {
     put(root, ".npmrc", "//npm.example/:_authToken=${FAKE_TICKETS_TOKEN}\n");
     const written = await workflows(withCredential);
 
-    expect(factoryFile(written.get(KODOR_FILE)).jobs.kodor.secrets.extra).toBe(
-      extra(["FAKE_TICKETS_TOKEN", "FAKE_TICKETS_EMAIL"]),
-    );
+    expect(
+      factoryFile(written.get(LUNAMILL_FILE)).jobs.lunamill.secrets.extra,
+    ).toBe(extra(["FAKE_TICKETS_TOKEN", "FAKE_TICKETS_EMAIL"]));
   });
 
   const settingsJson = async (systems?: typeof withCredential) =>
@@ -1310,9 +1314,9 @@ describe("the approval policies part", () => {
   });
 });
 
-describe("kodor sync --check: the repository line", () => {
+describe("lunamill sync --check: the repository line", () => {
   const STALE =
-    "✗ repository: .claude/kodor.yaml says o/r, and this pull request is in o/renamed. Change the line and run kodor sync.";
+    "✗ repository: .claude/lunamill.yaml says o/r, and this pull request is in o/renamed. Change the line and run lunamill sync.";
 
   it("fails on a pull request in a repository of another name, before anything else is asked", async () => {
     const r = await sync(["--check"], settings(FULL), null, {

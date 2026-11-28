@@ -1,5 +1,5 @@
-// Which of kodor's optional parts a repository has on, and what each
-// needs: the rules `kodor init` and `kodor doctor` share.
+// Which of lunamill's optional parts a repository has on, and what each
+// needs: the rules `lunamill init` and `lunamill doctor` share.
 import { describe, expect, it } from "vitest";
 import { parseSettings } from "../src/config.mts";
 import {
@@ -13,7 +13,7 @@ import { secretSteps, TOOLS } from "../src/tools.mts";
 import { memoryContext } from "./memory-tools";
 import { memoryTickets } from "./memory-tickets";
 import { withFakeTickets } from "./fake-tools";
-import { KODOR_COLUMNS } from "./kodor-columns";
+import { LUNAMILL_COLUMNS } from "./lunamill-columns";
 import { CODE_HOST } from "./settings-fixture";
 
 const settings = (raw: Record<string, unknown> = {}) =>
@@ -34,7 +34,7 @@ describe("partsOn", () => {
 
   it("reads a board, builds from the board, and auto-merge from the settings", () => {
     const s = settings({
-      tickets: { board: 3, columns: KODOR_COLUMNS },
+      tickets: { board: 3, columns: LUNAMILL_COLUMNS },
       builds: { trigger: "own-server" },
       "auto-merge": { allow: ["docs/**"] },
     });
@@ -47,7 +47,11 @@ describe("partsOn", () => {
     expect(
       partsOn(
         settings({ "pr-review": true }),
-        ["CLAUDE_CODE_OAUTH_TOKEN", "KODOR_BUILD_TOKEN", "KODOR_SIGNING_KEY"],
+        [
+          "CLAUDE_CODE_OAUTH_TOKEN",
+          "LUNAMILL_BUILD_TOKEN",
+          "LUNAMILL_SIGNING_KEY",
+        ],
         cloud,
       ),
     ).toEqual(set("review", "cloud", "signing"));
@@ -65,8 +69,8 @@ describe("partsOn", () => {
         settings(),
         [
           "CLAUDE_CODE_OAUTH_TOKEN",
-          "KODOR_APP_PRIVATE_KEY",
-          "KODOR_SIGNING_KEY",
+          "LUNAMILL_APP_PRIVATE_KEY",
+          "LUNAMILL_SIGNING_KEY",
         ],
         cloud,
       ),
@@ -110,7 +114,7 @@ describe("what the parts need", () => {
   const needed = (...parts: Part[]) =>
     neededSecrets(set(...parts), secretSteps(TOOLS, memoryContext(parts)));
 
-  const APP_KEY = "KODOR_APP_PRIVATE_KEY";
+  const APP_KEY = "LUNAMILL_APP_PRIVATE_KEY";
 
   it("names the secrets each part reads, any one of a pair doing", () => {
     const own = needed("review", "cloud", "auto-merge").map((n) => ({
@@ -130,12 +134,12 @@ describe("what the parts need", () => {
       },
       {
         part: "cloud",
-        anyOf: ["KODOR_BUILD_TOKEN", "KODOR_BOARD_TOKEN"],
+        anyOf: ["LUNAMILL_BUILD_TOKEN", "LUNAMILL_BOARD_TOKEN"],
         tool: "GitHub",
       },
       {
         part: "auto-merge",
-        anyOf: ["KODOR_AUTOMERGE_TOKEN"],
+        anyOf: ["LUNAMILL_AUTOMERGE_TOKEN"],
         tool: "GitHub",
       },
     ]);
@@ -153,9 +157,9 @@ describe("what the parts need", () => {
     ]);
   });
 
-  it("adds the signing key, which is kodor's own", () => {
+  it("adds the signing key, which is lunamill's own", () => {
     expect(needed("signing")).toEqual([
-      { part: "signing", anyOf: ["KODOR_SIGNING_KEY"], tool: "kodor" },
+      { part: "signing", anyOf: ["LUNAMILL_SIGNING_KEY"], tool: "lunamill" },
     ]);
   });
 });
@@ -178,10 +182,10 @@ describe("GitHub's one access token", () => {
 
   it("stores the token under each name the parts read", () => {
     expect(token(["board", "cloud", "auto-merge"])?.storeAs).toEqual([
-      "KODOR_BOARD_TOKEN",
-      "KODOR_AUTOMERGE_TOKEN",
+      "LUNAMILL_BOARD_TOKEN",
+      "LUNAMILL_AUTOMERGE_TOKEN",
     ]);
-    expect(token(["cloud"])?.storeAs).toEqual(["KODOR_BUILD_TOKEN"]);
+    expect(token(["cloud"])?.storeAs).toEqual(["LUNAMILL_BUILD_TOKEN"]);
     expect(token(["review"])).toBeUndefined();
   });
 

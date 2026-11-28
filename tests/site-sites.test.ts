@@ -58,7 +58,7 @@ function pick(
   return { folders: runs.map((r) => r.folder), out };
 }
 
-describe("which sites kodor site compare pictures", () => {
+describe("which sites lunamill site compare pictures", () => {
   it("pictures each site a change touches, after a line that says why", () => {
     const { folders, out } = pick(["packages/ui/src/button.tsx"]);
     expect(folders).toEqual(["apps/admin", "apps/web"]);

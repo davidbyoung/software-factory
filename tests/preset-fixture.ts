@@ -97,7 +97,7 @@ export function publish(
   }
   for (const [folder, p] of Object.entries(presets)) {
     const at = folder ? `${folder}/` : "";
-    put(dir, `${at}kodor-preset.yaml`, p.settings);
+    put(dir, `${at}lunamill-preset.yaml`, p.settings);
     for (const [name, text] of Object.entries(p.agents ?? {}))
       put(dir, `${at}agents/${name}.md`, text);
     for (const [name, text] of Object.entries(p.skills ?? {}))
@@ -139,7 +139,7 @@ export function lockPin(root: string, pinned: Pinned): Pinned {
 }
 
 /** The lock at `root` with the preset NAME pinned at `commit`, as
- * `kodor preset add` leaves it before it syncs. */
+ * `lunamill preset add` leaves it before it syncs. */
 export const pin = (root: string, name: string, commit: string) =>
   lockPin(root, pinAt(fetching(), name, commit, load));
 
@@ -157,8 +157,8 @@ export function install(
   return commit;
 }
 
-export const ACME = "acme/kodor-config";
-export const NODE = "acme/kodor-config//node";
+export const ACME = "acme/lunamill-config";
+export const NODE = "acme/lunamill-config//node";
 
 export const ACME_SETTINGS = [
   "version: 1",
@@ -207,7 +207,7 @@ export const installAcme = (
     },
   });
 
-/** `.claude/kodor.yaml` naming `presets`, with the rest of `body`. */
+/** `.claude/lunamill.yaml` naming `presets`, with the rest of `body`. */
 export const own = (presets: string[], body: string[] = []) =>
   [
     "version: 1",
@@ -218,13 +218,13 @@ export const own = (presets: string[], body: string[] = []) =>
     "",
   ].join("\n");
 
-/** An empty repository: a `.git` folder and `.claude/kodor.yaml`. No
+/** An empty repository: a `.git` folder and `.claude/lunamill.yaml`. No
  * preset's repository an earlier test committed to is left. */
 export function repo(settings: string): string {
   rmSync(REMOTES, { recursive: true, force: true });
   const root = mkdtempSync(join(tmpdir(), "factory-preset-"));
   mkdirSync(join(root, ".git"));
-  put(root, ".claude/kodor.yaml", settings);
+  put(root, ".claude/lunamill.yaml", settings);
   return root;
 }
 

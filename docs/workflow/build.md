@@ -1,6 +1,6 @@
 # Build a ticket
 
-For someone building an approved ticket with `/kodor-build 12`, on
+For someone building an approved ticket with `/lunamill-build 12`, on
 their machine. At the end a draft pull request holds the change, its
 tests, and what each reviewer found. [Builds in the cloud](../features/cloud-builds.md)
 does the same with nobody at the keyboard.
@@ -18,7 +18,7 @@ starts.
 Two kinds of small change keep the test reviewers: a change to tests
 alone, and code that builds what is sent to an outside service.
 
-## `kodor-build`
+## `lunamill-build`
 
 **What it does.** Takes an approved ticket to a reviewed pull request.
 
@@ -30,23 +30,23 @@ alone, and code that builds what is sent to an outside service.
    [`builder` plugins](../customize/plugins.md#builder) is built by that skill
    instead.
 4. Proves each new test can fail, by its failing run before the change or
-   with the [prover](../customize/plugins.md#prover), which is `kodor-mutate` unless
+   with the [prover](../customize/plugins.md#prover), which is `lunamill-mutate` unless
    you name your own, and has the
    [test reviewers](../customize/plugins.md#test-reviewer) read the tests:
-   `kodor-test-reviewer`, unless your settings list others.
+   `lunamill-test-reviewer`, unless your settings list others.
 5. Has each [`reviewer` plugin](../customize/plugins.md#reviewer) that applies read the
    change, and fixes what they find.
-6. Runs the gate with `kodor gate`: the commands under
+6. Runs the gate with `lunamill gate`: the commands under
    [`commands.gate`](../reference/settings/commands.md#commandsgate) in your settings.
 7. Opens a draft pull request that closes the ticket, saying what changed,
    how it was checked, and what each reviewer found.
 8. Marks it ready once CI passes on the pushed commit, then works the
-   review with `kodor-address-review`. A build in the cloud ends at step
+   review with `lunamill-address-review`. A build in the cloud ends at step
    7: its run waits for CI and marks it ready, and the review's answers are
    runs of their own ([What a cloud run is](../security/cloud-runs.md#what-a-cloud-run-is)).
 
 **When to use it.** On a ticket that has acceptance criteria and your
-approval. Running `/kodor-build 12` in a session is approval. So is moving the ticket
+approval. Running `/lunamill-build 12` in a session is approval. So is moving the ticket
 to Ready.
 
 **What it reads.** The ticket, its Decisions, and your project's

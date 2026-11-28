@@ -2,150 +2,150 @@
 
 ## Purpose
 
-How a repository says what a build names its branch, `code-host.branch-name`, what `kodor config check` refuses in it, and the commands a build names its branch and its spec change with, and reads an earlier branch's pull request with.
+How a repository says what a build names its branch, `code-host.branch-name`, what `lunamill config check` refuses in it, and the commands a build names its branch and its spec change with, and reads an earlier branch's pull request with.
 
 ## Requirements
 
 ### Requirement: A missing branch name
 
-kodor SHALL behave as this line says: When the settings in effect have no `code-host.branch-name`, from the file or a preset, `kodor config check` exits 1 and prints `.claude/kodor.yaml: code-host.branch-name: is required. Run kodor init to set it, or add it, such as branch-name: "{ticket}"`.
+lunamill SHALL behave as this line says: When the settings in effect have no `code-host.branch-name`, from the file or a preset, `lunamill config check` exits 1 and prints `.claude/lunamill.yaml: code-host.branch-name: is required. Run lunamill init to set it, or add it, such as branch-name: "{ticket}"`.
 
 #### Scenario: A missing branch name
 
 - **WHEN** the settings in effect have no `code-host.branch-name`, from the file or a preset
-- **THEN** `kodor config check` exits 1 and prints `.claude/kodor.yaml: code-host.branch-name: is required. Run kodor init to set it, or add it, such as branch-name: "{ticket}"`.
+- **THEN** `lunamill config check` exits 1 and prints `.claude/lunamill.yaml: code-host.branch-name: is required. Run lunamill init to set it, or add it, such as branch-name: "{ticket}"`.
 
 ### Requirement: Code host on one line
 
-kodor SHALL behave as this line says: When `.claude/kodor.yaml` writes `code-host: github` on one line and no preset in effect supplies `branch-name`, `kodor config check` fails with line 1's message.
+lunamill SHALL behave as this line says: When `.claude/lunamill.yaml` writes `code-host: github` on one line and no preset in effect supplies `branch-name`, `lunamill config check` fails with line 1's message.
 
 #### Scenario: Code host on one line
 
-- **WHEN** `.claude/kodor.yaml` writes `code-host: github` on one line and no preset in effect supplies `branch-name`
-- **THEN** `kodor config check` fails with line 1's message.
+- **WHEN** `.claude/lunamill.yaml` writes `code-host: github` on one line and no preset in effect supplies `branch-name`
+- **THEN** `lunamill config check` fails with line 1's message.
 
 ### Requirement: A preset's branch name
 
-kodor SHALL behave as this line says: When a preset in effect supplies `code-host.branch-name` and the repository's file does not, `kodor config check` passes and `kodor ticket branch N` uses the preset's pattern.
+lunamill SHALL behave as this line says: When a preset in effect supplies `code-host.branch-name` and the repository's file does not, `lunamill config check` passes and `lunamill ticket branch N` uses the preset's pattern.
 
 #### Scenario: A preset's branch name
 
 - **WHEN** a preset in effect supplies `code-host.branch-name` and the repository's file does not
-- **THEN** `kodor config check` passes and `kodor ticket branch N` uses the preset's pattern.
+- **THEN** `lunamill config check` passes and `lunamill ticket branch N` uses the preset's pattern.
 
 ### Requirement: A branch name that is a map
 
-kodor SHALL behave as this line says: When `code-host.branch-name` is a YAML map, as an unquoted `branch-name: {ticket}` is, `kodor config check` exits 1 and prints `.claude/kodor.yaml: code-host.branch-name: is a map, not a pattern. Quote it: branch-name: "{ticket}"`.
+lunamill SHALL behave as this line says: When `code-host.branch-name` is a YAML map, as an unquoted `branch-name: {ticket}` is, `lunamill config check` exits 1 and prints `.claude/lunamill.yaml: code-host.branch-name: is a map, not a pattern. Quote it: branch-name: "{ticket}"`.
 
 #### Scenario: A branch name that is a map
 
 - **WHEN** `code-host.branch-name` is a YAML map, as an unquoted `branch-name: {ticket}` is
-- **THEN** `kodor config check` exits 1 and prints `.claude/kodor.yaml: code-host.branch-name: is a map, not a pattern. Quote it: branch-name: "{ticket}"`.
+- **THEN** `lunamill config check` exits 1 and prints `.claude/lunamill.yaml: code-host.branch-name: is a map, not a pattern. Quote it: branch-name: "{ticket}"`.
 
 ### Requirement: A branch name that is not text
 
-kodor SHALL behave as this line says: When `code-host.branch-name` is any other value that is not text, such as a number or a list, `kodor config check` exits 1 and prints `.claude/kodor.yaml: code-host.branch-name: must be a pattern, such as branch-name: "{ticket}"`.
+lunamill SHALL behave as this line says: When `code-host.branch-name` is any other value that is not text, such as a number or a list, `lunamill config check` exits 1 and prints `.claude/lunamill.yaml: code-host.branch-name: must be a pattern, such as branch-name: "{ticket}"`.
 
 #### Scenario: A branch name that is not text
 
 - **WHEN** `code-host.branch-name` is any other value that is not text, such as a number or a list
-- **THEN** `kodor config check` exits 1 and prints `.claude/kodor.yaml: code-host.branch-name: must be a pattern, such as branch-name: "{ticket}"`.
+- **THEN** `lunamill config check` exits 1 and prints `.claude/lunamill.yaml: code-host.branch-name: must be a pattern, such as branch-name: "{ticket}"`.
 
 ### Requirement: An unknown placeholder
 
-kodor SHALL behave as this line says: When the pattern holds `{NAME}` for any NAME other than `ticket` and `user`, `kodor config check` exits 1 and prints `.claude/kodor.yaml: code-host.branch-name: {NAME} is not a placeholder. The placeholders are {ticket} and {user}`, naming the first such placeholder.
+lunamill SHALL behave as this line says: When the pattern holds `{NAME}` for any NAME other than `ticket` and `user`, `lunamill config check` exits 1 and prints `.claude/lunamill.yaml: code-host.branch-name: {NAME} is not a placeholder. The placeholders are {ticket} and {user}`, naming the first such placeholder.
 
 #### Scenario: An unknown placeholder
 
 - **WHEN** the pattern holds `{NAME}` for any NAME other than `ticket` and `user`
-- **THEN** `kodor config check` exits 1 and prints `.claude/kodor.yaml: code-host.branch-name: {NAME} is not a placeholder. The placeholders are {ticket} and {user}`, naming the first such placeholder.
+- **THEN** `lunamill config check` exits 1 and prints `.claude/lunamill.yaml: code-host.branch-name: {NAME} is not a placeholder. The placeholders are {ticket} and {user}`, naming the first such placeholder.
 
 ### Requirement: A pattern without the ticket
 
-kodor SHALL behave as this line says: When the pattern has no `{ticket}`, `kodor config check` exits 1 and prints `.claude/kodor.yaml: code-host.branch-name: needs {ticket}, or every build gets the same branch`.
+lunamill SHALL behave as this line says: When the pattern has no `{ticket}`, `lunamill config check` exits 1 and prints `.claude/lunamill.yaml: code-host.branch-name: needs {ticket}, or every build gets the same branch`.
 
 #### Scenario: A pattern without the ticket
 
 - **WHEN** the pattern has no `{ticket}`
-- **THEN** `kodor config check` exits 1 and prints `.claude/kodor.yaml: code-host.branch-name: needs {ticket}, or every build gets the same branch`.
+- **THEN** `lunamill config check` exits 1 and prints `.claude/lunamill.yaml: code-host.branch-name: needs {ticket}, or every build gets the same branch`.
 
 ### Requirement: A pattern git refuses
 
-kodor SHALL behave as this line says: When the pattern, with its placeholders filled, breaks any of git's rules for a branch name (`git check-ref-format --branch`), `kodor config check` exits 1, names the pattern as written, and gives the first rule it breaks, in the order the scenario lists.
+lunamill SHALL behave as this line says: When the pattern, with its placeholders filled, breaks any of git's rules for a branch name (`git check-ref-format --branch`), `lunamill config check` exits 1, names the pattern as written, and gives the first rule it breaks, in the order the scenario lists.
 
 #### Scenario: A pattern git refuses
 
 - **WHEN** the pattern, with its placeholders filled, breaks any of git's rules for a branch name (`git check-ref-format --branch`)
-- **THEN** `kodor config check` exits 1 and prints `.claude/kodor.yaml: code-host.branch-name: PATTERN can't be a git branch name: REASON`, with PATTERN as written and REASON the first that applies, in this order: `it has a space`, `it has a control character`, `it has X` for X the first of `..`, `//`, `@{`, `~`, `^`, `:`, `?`, `*`, `[`, or `\`; `it starts with -` or `it starts with /`; `it ends with /`, `it ends with .lock`, or `it ends with .`; or `a part starts with .` or `a part ends with .lock`, for a part between slashes.
+- **THEN** `lunamill config check` exits 1 and prints `.claude/lunamill.yaml: code-host.branch-name: PATTERN can't be a git branch name: REASON`, with PATTERN as written and REASON the first that applies, in this order: `it has a space`, `it has a control character`, `it has X` for X the first of `..`, `//`, `@{`, `~`, `^`, `:`, `?`, `*`, `[`, or `\`; `it starts with -` or `it starts with /`; `it ends with /`, `it ends with .lock`, or `it ends with .`; or `a part starts with .` or `a part ends with .lock`, for a part between slashes.
 
 ### Requirement: A valid pattern
 
-kodor SHALL behave as this line says: When the pattern has `{ticket}`, only known placeholders, and passes line 8, `kodor config check` passes as it does today, printing `✓ The settings are valid.`.
+lunamill SHALL behave as this line says: When the pattern has `{ticket}`, only known placeholders, and passes line 8, `lunamill config check` passes as it does today, printing `✓ The settings are valid.`.
 
 #### Scenario: A valid pattern
 
 - **WHEN** the pattern has `{ticket}`, only known placeholders, and passes line 8
-- **THEN** `kodor config check` passes as it does today, printing `✓ The settings are valid.`.
+- **THEN** `lunamill config check` passes as it does today, printing `✓ The settings are valid.`.
 
 ### Requirement: The branch for a ticket
 
-kodor SHALL behave as this line says: When `kodor ticket branch N` runs for a ticket that exists, it prints one line, the pattern with each `{ticket}` replaced by the ticket's key, such as `12` or `PROJ-12`, and each `{user}` by the account the code host's CLI is signed in as, and exits 0.
+lunamill SHALL behave as this line says: When `lunamill ticket branch N` runs for a ticket that exists, it prints one line, the pattern with each `{ticket}` replaced by the ticket's key, such as `12` or `PROJ-12`, and each `{user}` by the account the code host's CLI is signed in as, and exits 0.
 
 #### Scenario: The branch for a ticket
 
-- **WHEN** `kodor ticket branch N` runs for a ticket that exists
+- **WHEN** `lunamill ticket branch N` runs for a ticket that exists
 - **THEN** it prints one line, the pattern with each `{ticket}` replaced by the ticket's key, such as `12` or `PROJ-12`, and each `{user}` by the account the code host's CLI is signed in as, and exits 0.
 
 ### Requirement: The branch for a missing ticket
 
-kodor SHALL behave as this line says: When `kodor ticket branch N` runs for a ticket that does not exist, it prints `#N was not found` and exits 1.
+lunamill SHALL behave as this line says: When `lunamill ticket branch N` runs for a ticket that does not exist, it prints `#N was not found` and exits 1.
 
 #### Scenario: The branch for a missing ticket
 
-- **WHEN** `kodor ticket branch N` runs for a ticket that does not exist
+- **WHEN** `lunamill ticket branch N` runs for a ticket that does not exist
 - **THEN** it prints `#N was not found` and exits 1.
 
 ### Requirement: The branch without a sign-in
 
-kodor SHALL behave as this line says: When the pattern has `{user}` and the code host has no sign-in or refuses it (`gh` exits 4, its "authentication required" status, or GitHub answers 401), `kodor ticket branch N` prints `code-host.branch-name uses {user}, and gh is not signed in: run gh auth login` and exits 1. Any other failure to read the account prints the code host's own error and exits 1.
+lunamill SHALL behave as this line says: When the pattern has `{user}` and the code host has no sign-in or refuses it (`gh` exits 4, its "authentication required" status, or GitHub answers 401), `lunamill ticket branch N` prints `code-host.branch-name uses {user}, and gh is not signed in: run gh auth login` and exits 1. Any other failure to read the account prints the code host's own error and exits 1.
 
 #### Scenario: The branch without a sign-in
 
 - **WHEN** the pattern has `{user}` and the code host has no sign-in or refuses it (`gh` exits 4, its "authentication required" status, or GitHub answers 401)
-- **THEN** `kodor ticket branch N` prints `code-host.branch-name uses {user}, and gh is not signed in: run gh auth login` and exits 1. Any other failure to read the account prints the code host's own error and exits 1.
+- **THEN** `lunamill ticket branch N` prints `code-host.branch-name uses {user}, and gh is not signed in: run gh auth login` and exits 1. Any other failure to read the account prints the code host's own error and exits 1.
 
 ### Requirement: The newest pull request from a branch
 
-kodor SHALL behave as this line says: When `kodor pr for-branch BRANCH` runs and pull requests have been opened from BRANCH, it prints the newest one as `#N open`, `#N merged`, or `#N closed`, closed meaning closed without merging, and exits 0.
+lunamill SHALL behave as this line says: When `lunamill pr for-branch BRANCH` runs and pull requests have been opened from BRANCH, it prints the newest one as `#N open`, `#N merged`, or `#N closed`, closed meaning closed without merging, and exits 0.
 
 #### Scenario: The newest pull request from a branch
 
-- **WHEN** `kodor pr for-branch BRANCH` runs and pull requests have been opened from BRANCH
+- **WHEN** `lunamill pr for-branch BRANCH` runs and pull requests have been opened from BRANCH
 - **THEN** it prints the newest one as `#N open`, `#N merged`, or `#N closed`, closed meaning closed without merging, and exits 0.
 
 ### Requirement: No pull request from a branch
 
-kodor SHALL behave as this line says: When no pull request has been opened from BRANCH, `kodor pr for-branch BRANCH` prints `none` and exits 0.
+lunamill SHALL behave as this line says: When no pull request has been opened from BRANCH, `lunamill pr for-branch BRANCH` prints `none` and exits 0.
 
 #### Scenario: No pull request from a branch
 
 - **WHEN** no pull request has been opened from BRANCH
-- **THEN** `kodor pr for-branch BRANCH` prints `none` and exits 0.
+- **THEN** `lunamill pr for-branch BRANCH` prints `none` and exits 0.
 
 ### Requirement: The first of several faults
 
-kodor SHALL behave as this line says: When `kodor config check` meets a pattern with several faults, it reports the first by the order of lines 4 to 8: the value's type, then an unknown placeholder, then a missing `{ticket}`, then git's rules. Braces that do not hold a name of letters, digits, or hyphens, such as `{}` or an unclosed `{ticket`, are plain text to line 6, and git's rules judge them.
+lunamill SHALL behave as this line says: When `lunamill config check` meets a pattern with several faults, it reports the first by the order of lines 4 to 8: the value's type, then an unknown placeholder, then a missing `{ticket}`, then git's rules. Braces that do not hold a name of letters, digits, or hyphens, such as `{}` or an unclosed `{ticket`, are plain text to line 6, and git's rules judge them.
 
 #### Scenario: The first of several faults
 
-- **WHEN** `kodor config check` meets a pattern with several faults
+- **WHEN** `lunamill config check` meets a pattern with several faults
 - **THEN** it reports the first by the order of lines 4 to 8: the value's type, then an unknown placeholder, then a missing `{ticket}`, then git's rules. Braces that do not hold a name of letters, digits, or hyphens, such as `{}` or an unclosed `{ticket`, are plain text to line 6, and git's rules judge them.
 
 ### Requirement: The spec change's folder
 
-kodor SHALL behave as this line says: When `specs` is `openspec`, the change `kodor specs new N` creates is `openspec/changes/issue-N/`, with N's key in lowercase, such as `issue-12` or `issue-proj-12`, whatever `code-host.branch-name` says.
+lunamill SHALL behave as this line says: When `specs` is `openspec`, the change `lunamill specs new N` creates is `openspec/changes/issue-N/`, with N's key in lowercase, such as `issue-12` or `issue-proj-12`, whatever `code-host.branch-name` says.
 
 #### Scenario: The spec change's folder
 
 - **WHEN** `specs` is `openspec`
-- **THEN** the change `kodor specs new N` creates is `openspec/changes/issue-N/`, with N's key in lowercase, such as `issue-12` or `issue-proj-12`, whatever `code-host.branch-name` says.
+- **THEN** the change `lunamill specs new N` creates is `openspec/changes/issue-N/`, with N's key in lowercase, such as `issue-12` or `issue-proj-12`, whatever `code-host.branch-name` says.

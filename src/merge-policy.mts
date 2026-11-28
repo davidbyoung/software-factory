@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 // Decide whether a pull request can merge without the owner.
 //
-//   kodor merge-policy PR_NUMBER    # prints the labels to set
+//   lunamill merge-policy PR_NUMBER    # prints the labels to set
 //
-// "merge-automatic" only when no changed file is one of kodor's own,
-// none matches auto-merge.deny in .claude/kodor.yaml, every one matches
+// "merge-automatic" only when no changed file is one of lunamill's own,
+// none matches auto-merge.deny in .claude/lunamill.yaml, every one matches
 // auto-merge.allow, and every command under auto-merge.commands exits 0;
 // "merge-manual" otherwise. The merge-policy workflow runs this from main's copy,
 // with main's settings, so a pull request cannot change how it is judged.
@@ -73,23 +73,23 @@ export type Risk = {
   reasons: string[];
 };
 
-/** kodor's own files, held whatever the settings allow: a pull request
+/** lunamill's own files, held whatever the settings allow: a pull request
  * must not be able to change how pull requests are judged. Every spec tool's
  * process files are among them, whichever the settings name, since a pull
  * request could change that setting too. */
-const KODOR_FILES = /^(\.github|\.claude)\/|(^|\/)(CLAUDE|AGENTS)\.md$/;
+const LUNAMILL_FILES = /^(\.github|\.claude)\/|(^|\/)(CLAUDE|AGENTS)\.md$/;
 const SPEC_TOOL_FILES = new Set(processFiles());
 
 export type Policy = { allow: readonly string[]; deny: readonly string[] };
 
 function classifyPath(path: string, policy: Policy): string | null {
-  if (KODOR_FILES.test(path) || SPEC_TOOL_FILES.has(path))
-    return "kodor's own files";
+  if (LUNAMILL_FILES.test(path) || SPEC_TOOL_FILES.has(path))
+    return "lunamill's own files";
   if (matchesAny(path, policy.deny)) return "held by auto-merge.deny";
   return matchesAny(path, policy.allow) ? null : "not in auto-merge.allow";
 }
 
-/** The decision from the changed paths alone: a kodor file, then deny,
+/** The decision from the changed paths alone: a lunamill file, then deny,
  * then anything outside allow, holds the pull request. A renamed file is
  * checked under both names. */
 export function classify(files: ChangedFile[], policy: Policy): Risk {
@@ -280,7 +280,7 @@ export function workflowOutput(
 async function main(argv: string[]) {
   const pr = argv[0];
   if (!pr) {
-    say.plainError("Usage: kodor merge-policy PR");
+    say.plainError("Usage: lunamill merge-policy PR");
     process.exit(2);
   }
   const settings = await loadSettings();
@@ -338,7 +338,7 @@ async function main(argv: string[]) {
 }
 
 // Only run as a CLI. Importing this module for tests must not call GitHub.
-/** `kodor merge-policy N`. */
+/** `lunamill merge-policy N`. */
 export async function run(argv: string[]): Promise<number> {
   await main(argv);
   return 0;

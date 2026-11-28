@@ -1,4 +1,4 @@
-// Where kodor keeps what it downloads, on the machine and outside
+// Where lunamill keeps what it downloads, on the machine and outside
 // any repository: each version of itself, and each commit of a preset's
 // repository.
 import { join } from "node:path";
@@ -9,7 +9,7 @@ export function cacheRoot(
   env: Record<string, string | undefined>,
   home: string,
 ): string {
-  return join(env.XDG_CACHE_HOME || join(home, ".cache"), "kodor");
+  return join(env.XDG_CACHE_HOME || join(home, ".cache"), "lunamill");
 }
 
 /** The folder one commit of a preset's repository is checked out in:

@@ -1,5 +1,5 @@
-// Claude Code as kodor's coding agent: the token it needs, the
-// configuration `kodor sync` writes for it, how `remove` takes that
+// Claude Code as lunamill's coding agent: the token it needs, the
+// configuration `lunamill sync` writes for it, how `remove` takes that
 // configuration out, and how it answers one question for `init`.
 import { spawn } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
@@ -21,7 +21,7 @@ import {
 
 export const LABEL = "Claude Code";
 const COMMAND = "claude";
-const SYNC = "Run kodor sync";
+const SYNC = "Run lunamill sync";
 const READS: Part[] = ["review", "cloud"];
 
 /** How the token `claude setup-token` prints and an API key each start. */
@@ -155,21 +155,21 @@ export function claudeCodeSetupWith(
       hasImport(read(c.root, CLAUDE_MD))
         ? {
             state: "pass",
-            text: `${CLAUDE_MD} imports kodor's rules`,
+            text: `${CLAUDE_MD} imports lunamill's rules`,
           }
         : {
             state: "fail",
-            text: `${CLAUDE_MD} imports kodor's rules`,
+            text: `${CLAUDE_MD} imports lunamill's rules`,
             fix: SYNC,
           },
       hasFactoryHooks(read(c.root, SETTINGS_JSON))
         ? {
             state: "pass",
-            text: `${SETTINGS_JSON} has kodor's hooks`,
+            text: `${SETTINGS_JSON} has lunamill's hooks`,
           }
         : {
             state: "fail",
-            text: `${SETTINGS_JSON} has kodor's hooks`,
+            text: `${SETTINGS_JSON} has lunamill's hooks`,
             fix: SYNC,
           },
       c.hasCommand(COMMAND)
@@ -257,7 +257,7 @@ function run(
   },
 ): Promise<Ran> {
   return new Promise<Ran>((resolve) => {
-    const cwd = mkdtempSync(join(tmpdir(), "kodor-ask-"));
+    const cwd = mkdtempSync(join(tmpdir(), "lunamill-ask-"));
     const child = spawn(
       COMMAND,
       [

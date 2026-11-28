@@ -1,13 +1,13 @@
 // The other repositories a ticket names, beside the one a session is in.
 //
-//   kodor workspace N
-//   kodor workspace N --remove
+//   lunamill workspace N
+//   lunamill workspace N --remove
 //
 // On a machine it clones each of the others from its default branch to
-// ~/.local/share/kodor/work/OWNER/NAME-NUMBER/REPOSITORY, on the
+// ~/.local/share/lunamill/work/OWNER/NAME-NUMBER/REPOSITORY, on the
 // ticket's branch, and says where each is. They are outside the checkout,
 // since a tool there, such as a test runner, would take a clone's files for
-// its own. `kodor sync` lets a session edit that folder. In the cloud it
+// its own. `lunamill sync` lets a session edit that folder. In the cloud it
 // clones nothing, and says what was handed over.
 import { spawnSync } from "node:child_process";
 import {
@@ -60,7 +60,7 @@ export type Deps = {
   err: say.Out;
 };
 
-const USAGE = "Usage: kodor workspace N [--remove]";
+const USAGE = "Usage: lunamill workspace N [--remove]";
 
 function git(cwd: string, ...args: string[]) {
   const r = spawnSync("git", args, {
@@ -323,7 +323,7 @@ export function clonesIn(
   );
 }
 
-/** `kodor workspace`. */
+/** `lunamill workspace`. */
 export async function run(argv: string[]): Promise<number> {
   const { repoRoot } = await import("./config.mts");
   const { openTickets } = await import("./tickets/index.mts");

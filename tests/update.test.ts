@@ -1,4 +1,4 @@
-// `kodor update`: kodor to its newest release and each preset to
+// `lunamill update`: lunamill to its newest release and each preset to
 // its newest commit, by hand in the working tree, or as one pull request
 // for each in the Updates job.
 import { spawnSync } from "node:child_process";
@@ -101,7 +101,7 @@ function update(o: Setup = {}) {
       changes: async (ref) => {
         compared.push(ref);
         return [
-          "acme/kodor-config 3f2a91c → 8d04e7b",
+          "acme/lunamill-config 3f2a91c → 8d04e7b",
           "",
           "Changes here:",
           "- x",
@@ -112,7 +112,11 @@ function update(o: Setup = {}) {
       calls.push(`sync ${version ?? "as locked"}`);
       return {
         code: o.syncCode ?? 0,
-        lines: o.synced ?? ["wrote .claude/kodor.lock", "wrote a", "deleted b"],
+        lines: o.synced ?? [
+          "wrote .claude/lunamill.lock",
+          "wrote a",
+          "deleted b",
+        ],
       };
     },
     git: (args) => {
@@ -160,36 +164,39 @@ function update(o: Setup = {}) {
 }
 
 const TWO = [
-  pin("acme/kodor-config", OLD),
-  pin("acme/kodor-config//node", OLD),
+  pin("acme/lunamill-config", OLD),
+  pin("acme/lunamill-config//node", OLD),
 ];
 
-describe("kodor update, by hand", () => {
-  it("raises kodor and each changed preset, syncs once at the new version, and says what it wrote", async () => {
-    const u = update({ pins: TWO, changed: ["acme/kodor-config"] });
+describe("lunamill update, by hand", () => {
+  it("raises lunamill and each changed preset, syncs once at the new version, and says what it wrote", async () => {
+    const u = update({ pins: TWO, changed: ["acme/lunamill-config"] });
     expect(await u.run()).toBe(0);
     expect(u.out).toEqual([
-      "kodor 0.2.0 → 0.3.0",
-      "acme/kodor-config 3f2a91c → 8d04e7b",
-      "acme/kodor-config//node is at its newest commit, 3f2a91c.",
+      "lunamill 0.2.0 → 0.3.0",
+      "acme/lunamill-config 3f2a91c → 8d04e7b",
+      "acme/lunamill-config//node is at its newest commit, 3f2a91c.",
       "✓ Wrote 2 files and deleted 1. Commit them on a branch and open a pull request.",
     ]);
-    expect(u.calls).toEqual(["move acme/kodor-config 8d04e7b", "sync 0.3.0"]);
+    expect(u.calls).toEqual([
+      "move acme/lunamill-config 8d04e7b",
+      "sync 0.3.0",
+    ]);
   });
 
   it("dims each old value and has each new one in bold", async () => {
-    const u = update({ pins: TWO, changed: ["acme/kodor-config"] });
+    const u = update({ pins: TWO, changed: ["acme/lunamill-config"] });
     await u.run();
     expect(u.looks.slice(0, 2)).toEqual([
-      "kodor {skip:0.2.0} → {name:0.3.0}",
-      "acme/kodor-config {skip:3f2a91c} → {name:8d04e7b}",
+      "lunamill {skip:0.2.0} → {name:0.3.0}",
+      "acme/lunamill-config {skip:3f2a91c} → {name:8d04e7b}",
     ]);
   });
 
   it("says why a preset's newest commit is refused, and moves and syncs nothing", async () => {
     const u = update({
-      pins: [pin("acme/kodor-config", OLD), pin("foo/presets//bar", OLD)],
-      changed: ["acme/kodor-config", "foo/presets//bar"],
+      pins: [pin("acme/lunamill-config", OLD), pin("foo/presets//bar", OLD)],
+      changed: ["acme/lunamill-config", "foo/presets//bar"],
       refused: {
         name: "foo/presets//bar",
         said: "foo/presets//bar: rules.review-rounds: must be a whole number above zero",
@@ -197,8 +204,8 @@ describe("kodor update, by hand", () => {
     });
     expect(await u.run()).toBe(1);
     expect(u.out).toEqual([
-      "kodor 0.2.0 → 0.3.0",
-      "acme/kodor-config 3f2a91c → 8d04e7b",
+      "lunamill 0.2.0 → 0.3.0",
+      "acme/lunamill-config 3f2a91c → 8d04e7b",
       "foo/presets//bar 3f2a91c → 8d04e7b",
       "foo/presets//bar: rules.review-rounds: must be a whole number above zero",
     ]);
@@ -206,7 +213,7 @@ describe("kodor update, by hand", () => {
   });
 
   it("counts one file as one, and names no deletion when there was none", async () => {
-    const u = update({ synced: ["wrote .claude/kodor.lock"] });
+    const u = update({ synced: ["wrote .claude/lunamill.lock"] });
     await u.run();
     expect(u.out.at(-1)).toBe(
       "✓ Wrote 1 file. Commit them on a branch and open a pull request.",
@@ -221,7 +228,7 @@ describe("kodor update, by hand", () => {
 
   it.each<[PresetPin[], string]>([
     [[], "."],
-    [[TWO[0]!], ", and acme/kodor-config is at its newest commit."],
+    [[TWO[0]!], ", and acme/lunamill-config is at its newest commit."],
     [TWO, ", and both presets are at their newest commits."],
     [
       [...TWO, pin("acme/go", OLD)],
@@ -231,12 +238,12 @@ describe("kodor update, by hand", () => {
     const u = update({ version: "0.3.0", pins });
     expect(await u.run()).toBe(0);
     expect(u.out).toEqual([
-      `✓ Nothing to update: kodor is 0.3.0, the newest release${end}`,
+      `✓ Nothing to update: lunamill is 0.3.0, the newest release${end}`,
     ]);
     expect(u.calls).toEqual([]);
   });
 
-  it("does not take kodor back from a version newer than the newest release", async () => {
+  it("does not take lunamill back from a version newer than the newest release", async () => {
     const u = update({ version: "0.4.0" });
     await u.run();
     expect(u.calls).toEqual([]);
@@ -247,17 +254,17 @@ describe("kodor update, by hand", () => {
       version: "0.3.0",
       pins: [pin("foo/old-presets", OLD), TWO[0]!],
       heads: { "foo/old-presets": new Error("not found, or private") },
-      changed: ["acme/kodor-config"],
+      changed: ["acme/lunamill-config"],
     });
     expect(await u.run()).toBe(0);
     expect(u.out).toEqual([
-      "? foo/old-presets could not be read: not found, or private. To stop following it: kodor preset remove foo/old-presets",
-      "acme/kodor-config 3f2a91c → 8d04e7b",
+      "? foo/old-presets could not be read: not found, or private. To stop following it: lunamill preset remove foo/old-presets",
+      "acme/lunamill-config 3f2a91c → 8d04e7b",
       "✓ Wrote 2 files and deleted 1. Commit them on a branch and open a pull request.",
     ]);
   });
 
-  it("says which preset it could not compare, and still updates kodor and the rest", async () => {
+  it("says which preset it could not compare, and still updates lunamill and the rest", async () => {
     const u = update({
       pins: [pin("acme/gone", OLD), TWO[0]!],
       uncompared: {
@@ -265,35 +272,37 @@ describe("kodor update, by hand", () => {
           "fatal: remote error: upload-pack: not our ref 3f2a91c.",
         ),
       },
-      changed: ["acme/kodor-config"],
+      changed: ["acme/lunamill-config"],
     });
     expect(await u.run()).toBe(0);
     expect(u.out).toEqual([
-      "? acme/gone could not be read: fatal: remote error: upload-pack: not our ref 3f2a91c. To stop following it: kodor preset remove acme/gone",
-      "kodor 0.2.0 → 0.3.0",
-      "acme/kodor-config 3f2a91c → 8d04e7b",
+      "? acme/gone could not be read: fatal: remote error: upload-pack: not our ref 3f2a91c. To stop following it: lunamill preset remove acme/gone",
+      "lunamill 0.2.0 → 0.3.0",
+      "acme/lunamill-config 3f2a91c → 8d04e7b",
       "✓ Wrote 2 files and deleted 1. Commit them on a branch and open a pull request.",
     ]);
   });
 
-  it("moves presets only in kodor's own repository, which runs its source", async () => {
+  it("moves presets only in lunamill's own repository, which runs its source", async () => {
     const u = update({
       own: true,
       pins: [TWO[0]!],
-      changed: ["acme/kodor-config"],
+      changed: ["acme/lunamill-config"],
     });
     await u.run();
-    expect(u.out[0]).toBe("acme/kodor-config 3f2a91c → 8d04e7b");
+    expect(u.out[0]).toBe("acme/lunamill-config 3f2a91c → 8d04e7b");
     expect(u.calls).toEqual([
-      "move acme/kodor-config 8d04e7b",
+      "move acme/lunamill-config 8d04e7b",
       "sync as locked",
     ]);
   });
 
-  it("stops where kodor is not set up", async () => {
+  it("stops where lunamill is not set up", async () => {
     const u = update({ settings: false });
     expect(await u.run()).toBe(1);
-    expect(u.out).toEqual([".claude/kodor.yaml is missing. Run: kodor init"]);
+    expect(u.out).toEqual([
+      ".claude/lunamill.yaml is missing. Run: lunamill init",
+    ]);
   });
 
   it("stops, changing nothing, when the newest release cannot be read", async () => {
@@ -306,108 +315,108 @@ describe("kodor update, by hand", () => {
   it("exits with the sync's code when the sync fails, and claims nothing was written", async () => {
     const u = update({ syncCode: 1 });
     expect(await u.run()).toBe(1);
-    expect(u.out).toEqual(["kodor 0.2.0 → 0.3.0"]);
+    expect(u.out).toEqual(["lunamill 0.2.0 → 0.3.0"]);
   });
 });
 
-describe("kodor update --pull-requests", () => {
+describe("lunamill update --pull-requests", () => {
   const PR = ["--pull-requests"];
 
-  it("still opens kodor's pull request when a preset's commits cannot be compared", async () => {
+  it("still opens lunamill's pull request when a preset's commits cannot be compared", async () => {
     const u = update({
       pins: [pin("acme/gone", OLD)],
       uncompared: { "acme/gone": new Error("fatal: not our ref 3f2a91c") },
     });
     expect(await u.run(PR)).toBe(0);
     expect(u.out).toEqual([
-      "✓ Opened #41, Update kodor to 0.3.0",
-      "? acme/gone could not be read: fatal: not our ref 3f2a91c. To stop following it: kodor preset remove acme/gone",
+      "✓ Opened #41, Update lunamill to 0.3.0",
+      "? acme/gone could not be read: fatal: not our ref 3f2a91c. To stop following it: lunamill preset remove acme/gone",
     ]);
   });
 
-  it("opens one pull request for kodor and one for each preset repository, each from the default branch", async () => {
+  it("opens one pull request for lunamill and one for each preset repository, each from the default branch", async () => {
     const u = update({
       pins: [...TWO, pin("foo/presets//bar", OLD)],
       changed: [
-        "acme/kodor-config",
-        "acme/kodor-config//node",
+        "acme/lunamill-config",
+        "acme/lunamill-config//node",
         "foo/presets//bar",
       ],
       status:
-        " M .claude/kodor.lock\n M .claude/skills/kodor-build/SKILL.md\n?? .github/workflows/kodor.yml\n D .github/workflows/kodor-check.yml\n",
+        " M .claude/lunamill.lock\n M .claude/skills/lunamill-build/SKILL.md\n?? .github/workflows/lunamill.yml\n D .github/workflows/lunamill-check.yml\n",
     });
     expect(await u.run(PR)).toBe(0);
     expect(u.out).toEqual([
-      "✓ Opened #41, Update kodor to 0.3.0",
-      "✓ Opened #42, Update acme/kodor-config to 8d04e7b",
+      "✓ Opened #41, Update lunamill to 0.3.0",
+      "✓ Opened #42, Update acme/lunamill-config to 8d04e7b",
       "✓ Opened #43, Update foo/presets to 8d04e7b",
     ]);
     expect(u.calls).toEqual([
       "git fetch origin main",
-      "git switch -C kodor-update/kodor-0.3.0 origin/main",
+      "git switch -C lunamill-update/lunamill-0.3.0 origin/main",
       "sync 0.3.0",
       "git status --porcelain",
       "git add -A",
-      "git commit -m Update kodor to 0.3.0",
-      "git push -u origin kodor-update/kodor-0.3.0",
-      "open kodor-update/kodor-0.3.0: Update kodor to 0.3.0",
+      "git commit -m Update lunamill to 0.3.0",
+      "git push -u origin lunamill-update/lunamill-0.3.0",
+      "open lunamill-update/lunamill-0.3.0: Update lunamill to 0.3.0",
       "git switch --detach origin/main",
-      "git switch -C kodor-update/acme-kodor-config-8d04e7b origin/main",
-      "move acme/kodor-config,acme/kodor-config//node 8d04e7b",
+      "git switch -C lunamill-update/acme-lunamill-config-8d04e7b origin/main",
+      "move acme/lunamill-config,acme/lunamill-config//node 8d04e7b",
       "sync as locked",
       "git add -A",
-      "git commit -m Update acme/kodor-config to 8d04e7b",
-      "git push -u origin kodor-update/acme-kodor-config-8d04e7b",
-      "open kodor-update/acme-kodor-config-8d04e7b: Update acme/kodor-config to 8d04e7b",
+      "git commit -m Update acme/lunamill-config to 8d04e7b",
+      "git push -u origin lunamill-update/acme-lunamill-config-8d04e7b",
+      "open lunamill-update/acme-lunamill-config-8d04e7b: Update acme/lunamill-config to 8d04e7b",
       "git switch --detach origin/main",
-      "git switch -C kodor-update/foo-presets-8d04e7b origin/main",
+      "git switch -C lunamill-update/foo-presets-8d04e7b origin/main",
       "move foo/presets//bar 8d04e7b",
       "sync as locked",
       "git add -A",
       "git commit -m Update foo/presets to 8d04e7b",
-      "git push -u origin kodor-update/foo-presets-8d04e7b",
-      "open kodor-update/foo-presets-8d04e7b: Update foo/presets to 8d04e7b",
+      "git push -u origin lunamill-update/foo-presets-8d04e7b",
+      "open lunamill-update/foo-presets-8d04e7b: Update foo/presets to 8d04e7b",
       "git switch --detach origin/main",
     ]);
   });
 
   it("opens no pull request for a preset whose newest commit is refused, opens the others, and exits 1", async () => {
     const said =
-      "acme/kodor-config: rules.review-rounds: must be a whole number above zero";
+      "acme/lunamill-config: rules.review-rounds: must be a whole number above zero";
     const u = update({
       pins: [TWO[0]!, pin("foo/presets//bar", OLD), pin("acme/gone", OLD)],
-      changed: ["acme/kodor-config", "foo/presets//bar"],
-      refused: { name: "acme/kodor-config", said },
+      changed: ["acme/lunamill-config", "foo/presets//bar"],
+      refused: { name: "acme/lunamill-config", said },
       heads: { "acme/gone": new Error("not found") },
     });
     expect(await u.run(PR)).toBe(1);
     expect(u.out).toEqual([
-      "✓ Opened #41, Update kodor to 0.3.0",
+      "✓ Opened #41, Update lunamill to 0.3.0",
       said,
       "✓ Opened #42, Update foo/presets to 8d04e7b",
-      "? acme/gone could not be read: not found. To stop following it: kodor preset remove acme/gone",
+      "? acme/gone could not be read: not found. To stop following it: lunamill preset remove acme/gone",
     ]);
     expect(u.calls.filter((c) => /^(open|close|move)/.test(c))).toEqual([
-      "open kodor-update/kodor-0.3.0: Update kodor to 0.3.0",
+      "open lunamill-update/lunamill-0.3.0: Update lunamill to 0.3.0",
       "move foo/presets//bar 8d04e7b",
-      "open kodor-update/foo-presets-8d04e7b: Update foo/presets to 8d04e7b",
+      "open lunamill-update/foo-presets-8d04e7b: Update foo/presets to 8d04e7b",
     ]);
   });
 
   it("fetches from, branches from, compares with, and pushes to the repository's remote, whatever it is called", async () => {
     const u = update({
       pins: [TWO[0]!],
-      changed: ["acme/kodor-config"],
+      changed: ["acme/lunamill-config"],
       remote: "upstream",
     });
     expect(await u.run(PR)).toBe(0);
     expect(u.calls.filter((c) => /upstream|origin/.test(c))).toEqual([
       "git fetch upstream main",
-      "git switch -C kodor-update/kodor-0.3.0 upstream/main",
-      "git push -u upstream kodor-update/kodor-0.3.0",
+      "git switch -C lunamill-update/lunamill-0.3.0 upstream/main",
+      "git push -u upstream lunamill-update/lunamill-0.3.0",
       "git switch --detach upstream/main",
-      "git switch -C kodor-update/acme-kodor-config-8d04e7b upstream/main",
-      "git push -u upstream kodor-update/acme-kodor-config-8d04e7b",
+      "git switch -C lunamill-update/acme-lunamill-config-8d04e7b upstream/main",
+      "git push -u upstream lunamill-update/acme-lunamill-config-8d04e7b",
       "git switch --detach upstream/main",
     ]);
     expect(u.compared).toEqual(["upstream/main"]);
@@ -415,7 +424,7 @@ describe("kodor update --pull-requests", () => {
 
   it("prints the line that names the repository, and opens nothing, when no remote is the settings' repository", async () => {
     const line =
-      "✗ repository: .claude/kodor.yaml says o/r, and no remote here is o/r. Add the remote, or change the line and run kodor sync.";
+      "✗ repository: .claude/lunamill.yaml says o/r, and no remote here is o/r. Add the remote, or change the line and run lunamill sync.";
     const u = update({ remote: new NoRemote(line) });
 
     expect(await u.run(PR)).toBe(1);
@@ -423,35 +432,35 @@ describe("kodor update --pull-requests", () => {
     expect(u.calls).toEqual([]);
   });
 
-  it("describes kodor's by its versions, each file the sync changed but the lock, and the release's notes", async () => {
+  it("describes lunamill's by its versions, each file the sync changed but the lock, and the release's notes", async () => {
     const u = update({
       status:
-        " M .claude/kodor.lock\n M .claude/skills/kodor-build/SKILL.md\n?? .github/workflows/kodor.yml\n D .github/workflows/kodor-check.yml\n",
+        " M .claude/lunamill.lock\n M .claude/skills/lunamill-build/SKILL.md\n?? .github/workflows/lunamill.yml\n D .github/workflows/lunamill-check.yml\n",
     });
     await u.run(PR);
     expect(u.bodies).toEqual([
       [
-        "kodor 0.2.0 → 0.3.0",
+        "lunamill 0.2.0 → 0.3.0",
         "",
         "Changes here:",
-        "- .claude/skills/kodor-build/SKILL.md, rewritten",
-        "- .github/workflows/kodor.yml, new",
-        "- .github/workflows/kodor-check.yml, deleted",
+        "- .claude/skills/lunamill-build/SKILL.md, rewritten",
+        "- .github/workflows/lunamill.yml, new",
+        "- .github/workflows/lunamill-check.yml, deleted",
         "",
         "Release notes: https://example.com/releases/v0.3.0",
       ].join("\n"),
     ]);
   });
 
-  it("describes a preset's by what kodor preset changes prints", async () => {
+  it("describes a preset's by what lunamill preset changes prints", async () => {
     const u = update({
       version: "0.3.0",
       pins: [TWO[0]!],
-      changed: ["acme/kodor-config"],
+      changed: ["acme/lunamill-config"],
     });
     await u.run(PR);
     expect(u.bodies).toEqual([
-      "acme/kodor-config 3f2a91c → 8d04e7b\n\nChanges here:\n- x",
+      "acme/lunamill-config 3f2a91c → 8d04e7b\n\nChanges here:\n- x",
     ]);
   });
 
@@ -460,14 +469,14 @@ describe("kodor update --pull-requests", () => {
       pins: [pin("foo/presets", OLD), pin("foo/tools", OLD)],
       changed: ["foo/presets", "foo/tools"],
       branches: {
-        "kodor-update/kodor-0.3.0": { number: 30, state: "merged" },
-        "kodor-update/foo-presets-8d04e7b": { number: 38, state: "open" },
-        "kodor-update/foo-tools-8d04e7b": { number: 39, state: "closed" },
+        "lunamill-update/lunamill-0.3.0": { number: 30, state: "merged" },
+        "lunamill-update/foo-presets-8d04e7b": { number: 38, state: "open" },
+        "lunamill-update/foo-tools-8d04e7b": { number: 39, state: "closed" },
       },
     });
     expect(await u.run(PR)).toBe(0);
     expect(u.out).toEqual([
-      "- Update kodor to 0.3.0 was closed, so it is not opened again",
+      "- Update lunamill to 0.3.0 was closed, so it is not opened again",
       "- #38, Update foo/presets to 8d04e7b, is still open",
       "- Update foo/tools to 8d04e7b was closed, so it is not opened again",
     ]);
@@ -477,9 +486,9 @@ describe("kodor update --pull-requests", () => {
   it("closes an older open pull request for the same thing, naming the one that replaced it, and no other", async () => {
     const u = update({
       open: [
-        { number: 35, branch: "kodor-update/kodor-0.2.5" },
-        { number: 36, branch: "kodor-update/kodor-config-1234567" },
-        { number: 37, branch: "feature/kodor-update" },
+        { number: 35, branch: "lunamill-update/lunamill-0.2.5" },
+        { number: 36, branch: "lunamill-update/lunamill-config-1234567" },
+        { number: 37, branch: "feature/lunamill-update" },
       ],
     });
     await u.run(PR);
@@ -499,13 +508,13 @@ describe("kodor update --pull-requests", () => {
     const u = update({ version: "0.3.0", pins: TWO });
     expect(await u.run(PR)).toBe(0);
     expect(u.out).toEqual([
-      "✓ Nothing to update: kodor is 0.3.0, the newest release, and both presets are at their newest commits.",
+      "✓ Nothing to update: lunamill is 0.3.0, the newest release, and both presets are at their newest commits.",
     ]);
     expect(u.calls).toEqual([]);
   });
 });
 
-describe("kodor update, where an organization's poller is", () => {
+describe("lunamill update, where an organization's poller is", () => {
   const PR = ["--pull-requests"];
   const fileAt = (version: string) =>
     pollerWorkflow({ owner: "acme", version, pollMinutes: 30 });
@@ -536,14 +545,14 @@ describe("kodor update, where an organization's poller is", () => {
       git: (args) => {
         calls.push(`git ${args.join(" ")}`);
         return args[0] === "status"
-          ? " M .github/workflows/kodor-poller.yml\n"
+          ? " M .github/workflows/lunamill-poller.yml\n"
           : "";
       },
       defaultBranch: async () => "main",
       remote: async () => o.remote ?? "origin",
       pulls: {
         lastForBranch: async (branch) =>
-          branch === "kodor-update/kodor-0.5.0" ? (o.last ?? null) : null,
+          branch === "lunamill-update/lunamill-0.5.0" ? (o.last ?? null) : null,
         create: async (pull) => {
           calls.push(
             `open ${pull.head} into ${pull.base}: ${pull.title}${pull.draft ? " (draft)" : ""}`,
@@ -578,10 +587,10 @@ describe("kodor update, where an organization's poller is", () => {
 
   it.each<[string[], "repository" | "poller" | null]>([
     [
-      [".claude/kodor.yaml", ".github/workflows/kodor-poller.yml"],
+      [".claude/lunamill.yaml", ".github/workflows/lunamill-poller.yml"],
       "repository",
     ],
-    [[".github/workflows/kodor-poller.yml"], "poller"],
+    [[".github/workflows/lunamill-poller.yml"], "poller"],
     [[], null],
   ])(
     "is the checkout with that file and no settings: %j is %s",
@@ -596,35 +605,35 @@ describe("kodor update, where an organization's poller is", () => {
     expect(await u.run(PR)).toBe(0);
     expect(u.calls.filter((c) => /upstream|origin/.test(c))).toEqual([
       "git fetch upstream main",
-      "git switch -C kodor-update/kodor-0.5.0 upstream/main",
-      "git push -u upstream kodor-update/kodor-0.5.0",
+      "git switch -C lunamill-update/lunamill-0.5.0 upstream/main",
+      "git push -u upstream lunamill-update/lunamill-0.5.0",
       "git switch --detach upstream/main",
     ]);
   });
 
-  it("opens one pull request that rewrites the version after poller.yml@v, as an update of kodor does", async () => {
+  it("opens one pull request that rewrites the version after poller.yml@v, as an update of lunamill does", async () => {
     const u = poller();
 
     expect(await u.run(PR)).toBe(0);
-    expect(u.out).toEqual(["✓ Opened #9, Update kodor to 0.5.0"]);
+    expect(u.out).toEqual(["✓ Opened #9, Update lunamill to 0.5.0"]);
     expect(u.calls).toEqual([
       "git fetch origin main",
-      "git switch -C kodor-update/kodor-0.5.0 origin/main",
+      "git switch -C lunamill-update/lunamill-0.5.0 origin/main",
       "write",
       "git status --porcelain",
       "git add -A",
-      "git commit -m Update kodor to 0.5.0",
-      "git push -u origin kodor-update/kodor-0.5.0",
-      "open kodor-update/kodor-0.5.0 into main: Update kodor to 0.5.0",
+      "git commit -m Update lunamill to 0.5.0",
+      "git push -u origin lunamill-update/lunamill-0.5.0",
+      "open lunamill-update/lunamill-0.5.0 into main: Update lunamill to 0.5.0",
       "git switch --detach origin/main",
     ]);
     expect(u.text()).toBe(fileAt("0.5.0"));
     expect(u.bodies).toEqual([
       [
-        "kodor 0.4.0 → 0.5.0",
+        "lunamill 0.4.0 → 0.5.0",
         "",
         "Changes here:",
-        "- .github/workflows/kodor-poller.yml, rewritten",
+        "- .github/workflows/lunamill-poller.yml, rewritten",
         "",
         "Release notes: https://example.com/releases/v0.5.0",
       ].join("\n"),
@@ -645,11 +654,11 @@ describe("kodor update, where an organization's poller is", () => {
   it.each<[{ number: number; state: "open" | "closed" | "merged" }, string]>([
     [
       { number: 7, state: "open" },
-      "- #7, Update kodor to 0.5.0, is still open",
+      "- #7, Update lunamill to 0.5.0, is still open",
     ],
     [
       { number: 7, state: "closed" },
-      "- Update kodor to 0.5.0 was closed, so it is not opened again",
+      "- Update lunamill to 0.5.0 was closed, so it is not opened again",
     ],
   ])(
     "opens none where that release's pull request is %j",
@@ -662,10 +671,10 @@ describe("kodor update, where an organization's poller is", () => {
     },
   );
 
-  it("closes an older open pull request for kodor, naming the one that replaced it", async () => {
+  it("closes an older open pull request for lunamill, naming the one that replaced it", async () => {
     const u = poller({
       open: [
-        { number: 5, branch: "kodor-update/kodor-0.4.5" },
+        { number: 5, branch: "lunamill-update/lunamill-0.4.5" },
         { number: 6, branch: "tidy-readme" },
       ],
     });
@@ -682,7 +691,7 @@ describe("kodor update, where an organization's poller is", () => {
     const u = poller();
 
     expect(await u.run()).toBe(0);
-    expect(u.out).toEqual(["kodor 0.4.0 → 0.5.0"]);
+    expect(u.out).toEqual(["lunamill 0.4.0 → 0.5.0"]);
     expect(u.calls).toEqual(["write"]);
     expect(u.text()).toBe(fileAt("0.5.0"));
   });
@@ -695,7 +704,7 @@ describe("kodor update, where an organization's poller is", () => {
 
         expect(await u.run(argv)).toBe(0);
         expect(u.out).toEqual([
-          "✓ Nothing to update: kodor is 0.4.0, the newest release.",
+          "✓ Nothing to update: lunamill is 0.4.0, the newest release.",
         ]);
         expect(u.calls).toEqual([]);
       }
@@ -717,7 +726,7 @@ describe("kodor update, where an organization's poller is", () => {
 
     expect(await u.run(PR)).toBe(1);
     expect(u.out).toEqual([
-      "✗ .github/workflows/kodor-poller.yml names no release of kodor after poller.yml@v. Write one there, such as poller.yml@v1.2.3.",
+      "✗ .github/workflows/lunamill-poller.yml names no release of lunamill after poller.yml@v. Write one there, such as poller.yml@v1.2.3.",
     ]);
     expect(u.calls).toEqual([]);
   });
@@ -726,26 +735,26 @@ describe("kodor update, where an organization's poller is", () => {
     const { repositoryOf } = TOOLS.codeHost.github!;
     const of = (env: Record<string, string>, remote: string | null) =>
       pollerRepository(env, () => remote, repositoryOf);
-    const remote = "git@github.com:acme/kodor-config.git";
+    const remote = "git@github.com:acme/lunamill-config.git";
 
     expect(of({ GITHUB_REPOSITORY: "acme/other" }, remote)).toBe("acme/other");
-    expect(of({}, remote)).toBe("acme/kodor-config");
+    expect(of({}, remote)).toBe("acme/lunamill-config");
     expect(of({}, null)).toBeNull();
     expect(of({}, "https://example.com/a/b.git")).toBeNull();
   });
 });
 
-describe("the settings kodor update reads", () => {
+describe("the settings lunamill update reads", () => {
   let repo: string;
   afterEach(() => rmSync(repo, { recursive: true, force: true }));
   const withSettings = (settings: string) => {
-    repo = mkdtempSync(join(tmpdir(), "kodor-update-"));
+    repo = mkdtempSync(join(tmpdir(), "lunamill-update-"));
     writeSettings(repo, settings);
   };
 
   it("reads the settings file as it is now, edited since the last sync", async () => {
     withSettings(`version: 1\nrepository: o/r\n${CODE_HOST_YAML}\n`);
-    appendFileSync(join(repo, ".claude/kodor.yaml"), "pr-review: true\n");
+    appendFileSync(join(repo, ".claude/lunamill.yaml"), "pr-review: true\n");
     const said: string[] = [];
     const settings = await settingsNow(repo, into(said));
     expect(said).toEqual([]);
@@ -762,16 +771,16 @@ describe("the settings kodor update reads", () => {
   });
 });
 
-describe("kodor update, the command, in kodor's own repository", () => {
+describe("lunamill update, the command, in lunamill's own repository", () => {
   it("reads the settings, the lock, and its pins, and finds nothing to move", () => {
     const r = spawnSync(
       "node",
-      [join(import.meta.dirname, "..", "bin", "kodor.js"), "update"],
+      [join(import.meta.dirname, "..", "bin", "lunamill.js"), "update"],
       { encoding: "utf8" },
     );
     expect({ code: r.status, out: r.stdout, err: r.stderr }).toEqual({
       code: 0,
-      out: "✓ Nothing to update: kodor runs from its source here.\n",
+      out: "✓ Nothing to update: lunamill runs from its source here.\n",
       err: "",
     });
   });

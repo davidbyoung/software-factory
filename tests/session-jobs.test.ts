@@ -232,9 +232,9 @@ describe("the error a session ends with", () => {
   const REFUSED =
     "Failed to authenticate. API Error: 401 OAuth token has expired";
 
-  it("names the token, and that a person replaces it with kodor init", () => {
+  it("names the token, and that a person replaces it with lunamill init", () => {
     expect(sessionError(failed(REFUSED), at("CLAUDE_CODE_OAUTH_TOKEN"))).toBe(
-      `::error::Claude Code refused CLAUDE_CODE_OAUTH_TOKEN: ${REFUSED}. A Claude token lasts a year: run kodor init to store a new one.`,
+      `::error::Claude Code refused CLAUDE_CODE_OAUTH_TOKEN: ${REFUSED}. A Claude token lasts a year: run lunamill init to store a new one.`,
     );
   });
 
@@ -245,7 +245,7 @@ describe("the error a session ends with", () => {
         at("CLAUDE_CODE_OAUTH_TOKEN", "Organization", "acme"),
       ),
     ).toBe(
-      `::error::Claude Code refused CLAUDE_CODE_OAUTH_TOKEN: ${REFUSED}. A Claude token lasts a year: an owner of acme runs kodor init --org to store a new one.`,
+      `::error::Claude Code refused CLAUDE_CODE_OAUTH_TOKEN: ${REFUSED}. A Claude token lasts a year: an owner of acme runs lunamill init --org to store a new one.`,
     );
   });
 

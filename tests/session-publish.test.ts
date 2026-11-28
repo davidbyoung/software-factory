@@ -363,7 +363,7 @@ describe("what a session asks for", () => {
     await publish(w.d);
 
     expect(w.asked).toEqual([]);
-    expect(w.out.join("\n")).toContain("Refused: kodor ticket comment 13");
+    expect(w.out.join("\n")).toContain("Refused: lunamill ticket comment 13");
   });
 
   it("is refused whole when its file is not one this version reads", async () => {
@@ -834,7 +834,7 @@ describe("what is not pushed", () => {
     expect(await publish(w.d)).toBe(1);
     expect(w.pushed).toEqual([]);
     expect(await told(w, "ticket")).toContain(
-      "Not pushed: kodor pr open --title: it can't take --base.",
+      "Not pushed: lunamill pr open --title: it can't take --base.",
     );
   });
 
@@ -890,7 +890,7 @@ describe("what is not pushed", () => {
 
     expect(await told(w, "ticket")).toContain("nothing to push");
     expect(w.out).toContain(
-      "Refused: kodor follow-up A title.: no pull request",
+      "Refused: lunamill follow-up A title.: no pull request",
     );
   });
 

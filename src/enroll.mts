@@ -2,11 +2,11 @@
 // Makes the review's verdict required on the default branch, from the first
 // run after a repository's setup merges.
 //
-//   kodor enroll
+//   lunamill enroll
 //
 // With `pr-review` set, it acts as whoever's token the step gives it as
-// GH_TOKEN, which the step names: KODOR_APP_TOKEN_SET is `true` for a
-// token of the organization's app, and KODOR_BUILD_TOKEN_SET for a
+// GH_TOKEN, which the step names: LUNAMILL_APP_TOKEN_SET is `true` for a
+// token of the organization's app, and LUNAMILL_BUILD_TOKEN_SET for a
 // person's build token. As the app it sets the repository's property to
 // `on`, which the organization's rule reads. As a person it makes the
 // repository's own rule. With neither, or where the code host refuses, it
@@ -50,8 +50,8 @@ function noSuchProperty(error: unknown): boolean {
 
 /** Whose token the workflow's step says the run holds. */
 export function holds(env: Record<string, string | undefined>): Enroll["as"] {
-  if (env.KODOR_APP_TOKEN_SET === "true") return "app";
-  return env.KODOR_BUILD_TOKEN_SET === "true" ? "person" : null;
+  if (env.LUNAMILL_APP_TOKEN_SET === "true") return "app";
+  return env.LUNAMILL_BUILD_TOKEN_SET === "true" ? "person" : null;
 }
 
 /** The lines to print, having done what the run's token can: the
@@ -74,7 +74,7 @@ async function enrollPolicies(o: Enroll): Promise<string[]> {
       throw error;
     });
   if (settled) return [];
-  const notRequired = `? "${APPROVAL}" is not required before a merge to ${o.branch}, and this run's token cannot require it. An admin of ${o.repository} runs: kodor init`;
+  const notRequired = `? "${APPROVAL}" is not required before a merge to ${o.branch}, and this run's token cannot require it. An admin of ${o.repository} runs: lunamill init`;
   if (o.as !== "person") return [notRequired];
   try {
     await o.codeHost.requireCheck(RULE, APPROVAL, "runner");
@@ -88,7 +88,7 @@ async function enrollPolicies(o: Enroll): Promise<string[]> {
 
 async function enrollVerdict(o: Enroll): Promise<string[]> {
   const owner = o.repository.slice(0, o.repository.lastIndexOf("/"));
-  const notRequired = `? "${CONTEXT}" is not required before a merge to ${o.branch}, and this run's token cannot require it. An admin of ${o.repository} runs: kodor init`;
+  const notRequired = `? "${CONTEXT}" is not required before a merge to ${o.branch}, and this run's token cannot require it. An admin of ${o.repository} runs: lunamill init`;
 
   if (o.as === "app") {
     const properties: Record<string, unknown> = await o.codeHost
@@ -128,7 +128,7 @@ async function enrollVerdict(o: Enroll): Promise<string[]> {
   ];
 }
 
-/** `kodor enroll`. */
+/** `lunamill enroll`. */
 export async function run(): Promise<number> {
   try {
     const { loadSettings, reachOf, repoRoot } = await import("./config.mts");

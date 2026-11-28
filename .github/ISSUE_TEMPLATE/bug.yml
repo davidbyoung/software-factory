@@ -1,5 +1,5 @@
 name: Bug
-description: Something kodor does not do as it should.
+description: Something lunamill does not do as it should.
 labels: [bug]
 body:
   - type: input
@@ -7,14 +7,14 @@ body:
     attributes:
       label: Where
       description: The command, skill, agent, or workflow it happens in.
-      placeholder: kodor sync, kodor-build, or factory-claude-review.yml
+      placeholder: lunamill sync, lunamill-build, or factory-claude-review.yml
     validations:
       required: true
   - type: input
     id: version
     attributes:
       label: Version
-      description: The kodor version, from `.claude/kodor.lock` or `npm ls @kodor-ai/kodor` in the repository it ran in.
+      description: The lunamill version, from `.claude/lunamill.lock` or `npm ls @lunamill-ai/lunamill` in the repository it ran in.
       placeholder: 0.1.2
     validations:
       required: true
@@ -35,8 +35,8 @@ body:
       label: What you did
       description: Steps to make it happen again, and the kind of repository it ran in.
       placeholder: |
-        1. Run kodor sync in a repository with no board
-        2. Run kodor sync --check
+        1. Run lunamill sync in a repository with no board
+        2. Run lunamill sync --check
     validations:
       required: true
   - type: textarea

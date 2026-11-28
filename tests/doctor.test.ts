@@ -1,4 +1,4 @@
-// `kodor doctor`: one line per check, and a failing exit when any fails.
+// `lunamill doctor`: one line per check, and a failing exit when any fails.
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -20,7 +20,7 @@ import {
   withFakeAgent,
   withFakeTickets,
 } from "./fake-tools";
-import { KODOR_COLUMNS } from "./kodor-columns";
+import { LUNAMILL_COLUMNS } from "./lunamill-columns";
 import { CODE_HOST, withoutCredentials } from "./settings-fixture";
 import { chmodSync } from "node:fs";
 import { credentialsPath, writeCredential } from "../src/lib/credentials.mts";
@@ -34,7 +34,7 @@ afterEach(() => {
     rmSync(root, { recursive: true, force: true });
 });
 
-/** A checkout with Claude Code's configuration as `kodor sync` writes it,
+/** A checkout with Claude Code's configuration as `lunamill sync` writes it,
  * with any file given in `files` in place of the synced one. */
 function checkout(files: Record<string, string> = {}): string {
   const root = mkdtempSync(join(tmpdir(), "doctor-"));
@@ -44,7 +44,7 @@ function checkout(files: Record<string, string> = {}): string {
     "CLAUDE.md": `# Ours\n\n${IMPORT_LINE}\n`,
     ".claude/settings.json": withHooks(
       null,
-      "node_modules/@kodor-ai/kodor/bin/kodor.js",
+      "node_modules/@lunamill-ai/lunamill/bin/lunamill.js",
     ),
     ...files,
   };
@@ -79,10 +79,10 @@ function doctor(o: {
   noDefaultBranch?: string;
   /** The version the lock names; 0.2.0 unless given, and null for none. */
   locked?: string | null;
-  /** kodor's newest release, or why it cannot be read; the version
+  /** lunamill's newest release, or why it cannot be read; the version
    * the lock names unless given. */
   newest?: string | Error;
-  /** The repository is kodor's own, which runs its source. */
+  /** The repository is lunamill's own, which runs its source. */
   own?: boolean;
   secrets?: Record<string, string>;
   /** When each secret was last stored, by name; 2026-11-16 unless given. */
@@ -162,18 +162,18 @@ function doctor(o: {
             : [
                 {
                   check: "Review verdict",
-                  property: "kodor",
+                  property: "lunamill",
                   value: "on",
                 },
                 ...(o.required ?? []).map((check) => ({
                   check,
-                  property: "kodor",
+                  property: "lunamill",
                   value: "on",
                 })),
               ],
-        definedProperties: o.ownerRule === false ? [] : ["kodor"],
+        definedProperties: o.ownerRule === false ? [] : ["lunamill"],
         properties: {
-          kodor: o.enrolled === undefined ? "on" : o.enrolled,
+          lunamill: o.enrolled === undefined ? "on" : o.enrolled,
         },
         fail: o.codeHostFails,
       }).codeHost,
@@ -246,7 +246,7 @@ const SIX = [
   "Done",
 ];
 
-describe("kodor doctor, with approval policies", () => {
+describe("lunamill doctor, with approval policies", () => {
   const POLICY = {
     "approval-policies": [
       { name: "migrations", agent: "rollback-checker", files: ["db/**"] },
@@ -272,7 +272,7 @@ describe("kodor doctor, with approval policies", () => {
     const { run, printed } = doctor({ raw: POLICY, secrets: {} });
     expect(await run()).toBe(1);
     expect(section(printed, "GitHub")).toContain(
-      '? "Approval policies" is not required before a merge to main. An admin of acme/site runs: kodor init',
+      '? "Approval policies" is not required before a merge to main. An admin of acme/site runs: lunamill init',
     );
     expect(printed.join("\n")).toContain(
       "CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY is not set, for the approval policies' agents",
@@ -280,12 +280,12 @@ describe("kodor doctor, with approval policies", () => {
   });
 });
 
-describe("kodor doctor, the day the GitHub access token expires", () => {
+describe("lunamill doctor, the day the GitHub access token expires", () => {
   const PARTS = { "auto-merge": { allow: ["docs/**"] } };
   const SET = {
     CLAUDE_CODE_OAUTH_TOKEN: "x",
-    KODOR_BUILD_TOKEN: "x",
-    KODOR_AUTOMERGE_TOKEN: "x",
+    LUNAMILL_BUILD_TOKEN: "x",
+    LUNAMILL_AUTOMERGE_TOKEN: "x",
   };
   /** The machine's file, holding the access token with these days. */
   const machine = (values: Record<string, string>) => {
@@ -304,7 +304,7 @@ describe("kodor doctor, the day the GitHub access token expires", () => {
    * secrets is set. */
   const afterSet = (out: string[]) => {
     const last = out.findLastIndex((l) =>
-      /^✓ KODOR_(BUILD|AUTOMERGE|BOARD)_TOKEN is set/.test(l),
+      /^✓ LUNAMILL_(BUILD|AUTOMERGE|BOARD)_TOKEN is set/.test(l),
     );
     return out.slice(last + 1, last + 3);
   };
@@ -317,7 +317,7 @@ describe("kodor doctor, the day the GitHub access token expires", () => {
     });
     expect(await run()).toBe(0);
     expect(afterSet(out)[0]).toBe(
-      "✓ The GitHub access token in KODOR_BUILD_TOKEN and KODOR_AUTOMERGE_TOKEN expires on 2027-01-01",
+      "✓ The GitHub access token in LUNAMILL_BUILD_TOKEN and LUNAMILL_AUTOMERGE_TOKEN expires on 2027-01-01",
     );
   });
 
@@ -329,7 +329,7 @@ describe("kodor doctor, the day the GitHub access token expires", () => {
     });
     expect(await soon.run()).toBe(0);
     expect(afterSet(soon.out)[0]).toBe(
-      "? The GitHub access token in KODOR_BUILD_TOKEN and KODOR_AUTOMERGE_TOKEN expires on 2026-12-10, in 13 days. Run kodor init to replace it",
+      "? The GitHub access token in LUNAMILL_BUILD_TOKEN and LUNAMILL_AUTOMERGE_TOKEN expires on 2026-12-10, in 13 days. Run lunamill init to replace it",
     );
     const over = doctor({
       raw: PARTS,
@@ -338,7 +338,7 @@ describe("kodor doctor, the day the GitHub access token expires", () => {
     });
     expect(await over.run()).toBe(1);
     expect(afterSet(over.out)[0]).toBe(
-      "✗ The GitHub access token in KODOR_BUILD_TOKEN and KODOR_AUTOMERGE_TOKEN expired on 2026-11-20. Run kodor init",
+      "✗ The GitHub access token in LUNAMILL_BUILD_TOKEN and LUNAMILL_AUTOMERGE_TOKEN expired on 2026-11-20. Run lunamill init",
     );
   });
 
@@ -346,13 +346,13 @@ describe("kodor doctor, the day the GitHub access token expires", () => {
     const { run, out } = doctor({
       raw: PARTS,
       secrets: SET,
-      stored: { KODOR_AUTOMERGE_TOKEN: "2026-10-01T00:00:00Z" },
+      stored: { LUNAMILL_AUTOMERGE_TOKEN: "2026-10-01T00:00:00Z" },
       env: machine({ pasted: "2026-11-01", expires: "2027-01-30" }),
     });
     expect(await run()).toBe(0);
     expect(afterSet(out)).toEqual([
-      "✓ The GitHub access token in KODOR_BUILD_TOKEN expires on 2027-01-30",
-      "? KODOR_AUTOMERGE_TOKEN here is older than the GitHub access token on this machine. Run kodor init to store that one in its place",
+      "✓ The GitHub access token in LUNAMILL_BUILD_TOKEN expires on 2027-01-30",
+      "? LUNAMILL_AUTOMERGE_TOKEN here is older than the GitHub access token on this machine. Run lunamill init to store that one in its place",
     ]);
   });
 
@@ -371,13 +371,13 @@ describe("kodor doctor, the day the GitHub access token expires", () => {
     const { run, out } = doctor(o);
     await run();
     expect(out).toContain(
-      "✓ KODOR_AUTOMERGE_TOKEN is set, for pull requests that merge themselves",
+      "✓ LUNAMILL_AUTOMERGE_TOKEN is set, for pull requests that merge themselves",
     );
     expect(out.join("\n")).not.toContain("GitHub access token");
   });
 });
 
-describe("kodor doctor, the day the Claude token stops working", () => {
+describe("lunamill doctor, the day the Claude token stops working", () => {
   const SET =
     "✓ CLAUDE_CODE_OAUTH_TOKEN is set, for an automated review of every pull request";
   const after = (out: string[], line: string) => out[out.indexOf(line) + 1];
@@ -402,7 +402,7 @@ describe("kodor doctor, the day the Claude token stops working", () => {
     });
     expect(await run()).toBe(0);
     expect(after(out, SET)).toBe(
-      "? CLAUDE_CODE_OAUTH_TOKEN stops working by 2026-12-10, in 13 days, a year after it was stored. Run kodor init to replace it",
+      "? CLAUDE_CODE_OAUTH_TOKEN stops working by 2026-12-10, in 13 days, a year after it was stored. Run lunamill init to replace it",
     );
   });
 
@@ -414,7 +414,7 @@ describe("kodor doctor, the day the Claude token stops working", () => {
     });
     expect(await run()).toBe(1);
     expect(after(out, SET)).toBe(
-      "✗ CLAUDE_CODE_OAUTH_TOKEN stopped working by 2026-11-10, a year after it was stored. Run kodor init",
+      "✗ CLAUDE_CODE_OAUTH_TOKEN stopped working by 2026-11-10, a year after it was stored. Run lunamill init",
     );
   });
 
@@ -439,7 +439,7 @@ describe("kodor doctor, the day the Claude token stops working", () => {
     });
     await run();
     expect(after(out, SET)).toBe(
-      "? CLAUDE_CODE_OAUTH_TOKEN stops working by 2026-12-10, in 13 days, a year after you pasted it. Run kodor init to replace it",
+      "? CLAUDE_CODE_OAUTH_TOKEN stops working by 2026-12-10, in 13 days, a year after you pasted it. Run lunamill init to replace it",
     );
   });
 
@@ -457,7 +457,7 @@ describe("kodor doctor, the day the Claude token stops working", () => {
         "✓ CLAUDE_CODE_OAUTH_TOKEN is set by the organization, for an automated review of every pull request",
       ),
     ).toBe(
-      "✗ CLAUDE_CODE_OAUTH_TOKEN stopped working by 2026-11-10, a year after acme stored it: an owner of acme runs kodor init --org",
+      "✗ CLAUDE_CODE_OAUTH_TOKEN stopped working by 2026-11-10, a year after acme stored it: an owner of acme runs lunamill init --org",
     );
   });
 
@@ -507,7 +507,7 @@ describe("kodor doctor, the day the Claude token stops working", () => {
   });
 });
 
-describe("kodor doctor, the rule that requires the review's verdict", () => {
+describe("lunamill doctor, the rule that requires the review's verdict", () => {
   const REVIEW = { "pr-review": true };
 
   it("passes when a rule the code host applies to the default branch requires it, the owner's among them", async () => {
@@ -518,10 +518,10 @@ describe("kodor doctor, the rule that requires the review's verdict", () => {
     );
   });
 
-  const ON_MAIN = { "kodor.yml": "active" } as const;
+  const ON_MAIN = { "lunamill.yml": "active" } as const;
   const SET = { CLAUDE_CODE_OAUTH_TOKEN: "x" };
 
-  it("says it is not required yet, as off on purpose, while the default branch has no kodor workflow to post it", async () => {
+  it("says it is not required yet, as off on purpose, while the default branch has no lunamill workflow to post it", async () => {
     const { run, printed } = doctor({
       raw: REVIEW,
       enrolled: null,
@@ -544,7 +544,7 @@ describe("kodor doctor, the rule that requires the review's verdict", () => {
     });
     expect(await run()).toBe(1);
     expect(section(printed, "GitHub")).toContain(
-      '✗ "Review verdict" is not required before a merge to main. Run kodor init',
+      '✗ "Review verdict" is not required before a merge to main. Run lunamill init',
     );
   });
 
@@ -559,9 +559,9 @@ describe("kodor doctor, the rule that requires the review's verdict", () => {
       });
       expect(await run()).toBe(1);
       expect(section(printed, "GitHub")).toContain(
-        '✗ "Review verdict" is not required before a merge to main. The next push to main sets it, or an owner of acme sets kodor to "on" for this repository',
+        '✗ "Review verdict" is not required before a merge to main. The next push to main sets it, or an owner of acme sets lunamill to "on" for this repository',
       );
-      expect(printed.join("\n")).not.toContain("Run kodor init");
+      expect(printed.join("\n")).not.toContain("Run lunamill init");
     },
   );
 
@@ -575,7 +575,7 @@ describe("kodor doctor, the rule that requires the review's verdict", () => {
     });
     expect(await run()).toBe(1);
     expect(section(printed, "GitHub")).toContain(
-      '✗ "Review verdict" is not required before a merge to main. Run kodor init',
+      '✗ "Review verdict" is not required before a merge to main. Run lunamill init',
     );
   });
 
@@ -627,7 +627,7 @@ describe("kodor doctor, the rule that requires the review's verdict", () => {
   });
 });
 
-describe("kodor doctor, what CI's own token may do", () => {
+describe("lunamill doctor, what CI's own token may do", () => {
   const on = {
     raw: { "pr-review": true },
     secrets: { CLAUDE_CODE_OAUTH_TOKEN: "x" },
@@ -659,14 +659,16 @@ describe("kodor doctor, what CI's own token may do", () => {
   });
 });
 
-describe("kodor doctor, the events kodor's workflow starts on", () => {
+describe("lunamill doctor, the events lunamill's workflow starts on", () => {
   const LINE =
-    "pull_request_target is not allowed for .github/workflows/kodor.yml, so GitHub runs no verdict, merge policy, or board sync on a pull request";
+    "pull_request_target is not allowed for .github/workflows/lunamill.yml, so GitHub runs no verdict, merge policy, or board sync on a pull request";
 
   it("fails, naming the fix, where the code host holds the event back and no policy allows it", async () => {
     const { run, printed } = doctor({ eventsHeld: true });
     expect(await run()).toBe(1);
-    expect(section(printed, "GitHub")).toContain(`✗ ${LINE}. Run kodor init`);
+    expect(section(printed, "GitHub")).toContain(
+      `✗ ${LINE}. Run lunamill init`,
+    );
   });
 
   it("prints no line where the code host holds nothing back, as in a private repository", async () => {
@@ -686,26 +688,26 @@ describe("kodor doctor, the events kodor's workflow starts on", () => {
   });
 });
 
-describe("kodor doctor", () => {
+describe("lunamill doctor", () => {
   it("passes a repository with only the basics, listing every part as off, under headings", async () => {
     const { run, printed } = doctor({});
     expect(await run()).toBe(0);
     expect(printed).toEqual([
       "Settings and files",
       "  ✓ The settings are valid",
-      "  ✓ kodor's files match the settings",
-      "  ✓ kodor 0.2.0, the newest release",
+      "  ✓ lunamill's files match the settings",
+      "  ✓ lunamill 0.2.0, the newest release",
       "  - commands.gate is not set: a build cannot finish until it is",
       "",
       "GitHub",
       "  ✓ Signed in as dave",
       "",
       "GitHub Actions",
-      "  - kodor.yml is not on the default branch yet",
+      "  - lunamill.yml is not on the default branch yet",
       "",
       "Claude Code",
-      "  ✓ CLAUDE.md imports kodor's rules",
-      "  ✓ .claude/settings.json has kodor's hooks",
+      "  ✓ CLAUDE.md imports lunamill's rules",
+      "  ✓ .claude/settings.json has lunamill's hooks",
       "  ✓ The claude command is installed",
       "",
       "Parts that are off",
@@ -714,7 +716,7 @@ describe("kodor doctor", () => {
       "  - Builds in the cloud",
       "  - Builds that start when you move a card to Ready",
       "  - Pull requests that merge themselves",
-      "  - Signed commits on kodor's updates",
+      "  - Signed commits on lunamill's updates",
     ]);
   });
 
@@ -722,16 +724,16 @@ describe("kodor doctor", () => {
     const { run, printed } = doctor({
       raw: {
         "pr-review": true,
-        tickets: { board: 3, columns: KODOR_COLUMNS },
+        tickets: { board: 3, columns: LUNAMILL_COLUMNS },
         builds: { trigger: "own-server" },
         "auto-merge": { allow: ["docs/**"] },
         commands: { gate: ["npm run check"] },
       },
       secrets: {
         CLAUDE_CODE_OAUTH_TOKEN: "x",
-        KODOR_BOARD_TOKEN: "x",
-        KODOR_AUTOMERGE_TOKEN: "x",
-        KODOR_SIGNING_KEY: "x",
+        LUNAMILL_BOARD_TOKEN: "x",
+        LUNAMILL_AUTOMERGE_TOKEN: "x",
+        LUNAMILL_SIGNING_KEY: "x",
       },
       columns: SIX,
     });
@@ -739,8 +741,8 @@ describe("kodor doctor", () => {
     expect(printed).toEqual([
       "Settings and files",
       "  ✓ The settings are valid",
-      "  ✓ kodor's files match the settings",
-      "  ✓ kodor 0.2.0, the newest release",
+      "  ✓ lunamill's files match the settings",
+      "  ✓ lunamill 0.2.0, the newest release",
       "",
       "GitHub",
       "  ✓ Signed in as dave",
@@ -750,32 +752,32 @@ describe("kodor doctor", () => {
       "GitHub Actions",
       "  ✓ CLAUDE_CODE_OAUTH_TOKEN is set, for an automated review of every pull request and builds in the cloud",
       "  ✓ CLAUDE_CODE_OAUTH_TOKEN stops working by 2027-11-16, a year after it was stored",
-      "  ✓ KODOR_BOARD_TOKEN is set, for a board, builds in the cloud, and builds that start when you move a card to Ready",
-      "  ✓ KODOR_AUTOMERGE_TOKEN is set, for pull requests that merge themselves",
-      "  ✓ KODOR_SIGNING_KEY is set, for signed commits on kodor's updates",
-      "  - kodor.yml is not on the default branch yet",
+      "  ✓ LUNAMILL_BOARD_TOKEN is set, for a board, builds in the cloud, and builds that start when you move a card to Ready",
+      "  ✓ LUNAMILL_AUTOMERGE_TOKEN is set, for pull requests that merge themselves",
+      "  ✓ LUNAMILL_SIGNING_KEY is set, for signed commits on lunamill's updates",
+      "  - lunamill.yml is not on the default branch yet",
       "",
       "GitHub Issues",
       "  ✓ Board 3 has every column the settings name",
       "",
       "Claude Code",
-      "  ✓ CLAUDE.md imports kodor's rules",
-      "  ✓ .claude/settings.json has kodor's hooks",
+      "  ✓ CLAUDE.md imports lunamill's rules",
+      "  ✓ .claude/settings.json has lunamill's hooks",
       "  ✓ The claude command is installed",
     ]);
   });
 
-  it("cannot tell whether kodor.yml is enabled when GitHub does not answer, failing nothing and printing the checks after it", async () => {
+  it("cannot tell whether lunamill.yml is enabled when GitHub does not answer, failing nothing and printing the checks after it", async () => {
     const { run, printed } = doctor({
       runnerFails: {
         workflowState: new Error(
-          "gh api repos/acme/site/actions/workflows/kodor.yml: gh: Bad Gateway (HTTP 502)",
+          "gh api repos/acme/site/actions/workflows/lunamill.yml: gh: Bad Gateway (HTTP 502)",
         ),
       },
     });
     expect(await run()).toBe(0);
     expect(section(printed, "GitHub Actions")).toEqual([
-      "? Could not tell whether kodor.yml is enabled: Bad Gateway (HTTP 502)",
+      "? Could not tell whether lunamill.yml is enabled: Bad Gateway (HTTP 502)",
     ]);
     expect(section(printed, "Claude Code")).toHaveLength(3);
     expect(section(printed, "Parts that are off")).toHaveLength(6);
@@ -826,7 +828,7 @@ describe("kodor doctor", () => {
     const { run, out } = doctor({ outOfStep: ["a", "b"] });
     expect(await run()).toBe(1);
     expect(out[1]).toBe(
-      "✗ kodor's files match the settings: 2 differ. Run kodor sync",
+      "✗ lunamill's files match the settings: 2 differ. Run lunamill sync",
     );
   });
 
@@ -837,18 +839,18 @@ describe("kodor doctor", () => {
     });
     expect(await run()).toBe(1);
     expect(out[1]).toBe(
-      "✗ kodor's files match the settings: Could not tell the default branch. Run: git remote set-head upstream --auto",
+      "✗ lunamill's files match the settings: Could not tell the default branch. Run: git remote set-head upstream --auto",
     );
   });
 
   it("fails with the line that names the repository, under one mark, when no remote is the settings' repository", async () => {
     const { run, out } = doctor({
       noDefaultBranch:
-        "✗ repository: .claude/kodor.yaml says o/r, and no remote here is o/r. Add the remote, or change the line and run kodor sync.",
+        "✗ repository: .claude/lunamill.yaml says o/r, and no remote here is o/r. Add the remote, or change the line and run lunamill sync.",
     });
     expect(await run()).toBe(1);
     expect(out[1]).toBe(
-      "✗ kodor's files match the settings: repository: .claude/kodor.yaml says o/r, and no remote here is o/r. Add the remote, or change the line and run kodor sync.",
+      "✗ lunamill's files match the settings: repository: .claude/lunamill.yaml says o/r, and no remote here is o/r. Add the remote, or change the line and run lunamill sync.",
     );
   });
 
@@ -856,7 +858,7 @@ describe("kodor doctor", () => {
     const { run, out } = doctor({ locked: "0.2.0", newest: "0.3.0" });
     expect(await run()).toBe(0);
     expect(out[2]).toBe(
-      "? kodor 0.2.0. 0.3.0 is released: merge its pull request, or run kodor update",
+      "? lunamill 0.2.0. 0.3.0 is released: merge its pull request, or run lunamill update",
     );
   });
 
@@ -864,7 +866,7 @@ describe("kodor doctor", () => {
     const { run, out } = doctor({ newest: new Error("HTTP 503") });
     expect(await run()).toBe(0);
     expect(out[2]).toBe(
-      "? kodor 0.2.0. The newest release could not be read: HTTP 503",
+      "? lunamill 0.2.0. The newest release could not be read: HTTP 503",
     );
   });
 
@@ -872,18 +874,18 @@ describe("kodor doctor", () => {
     const { run, out } = doctor({ locked: null });
     expect(await run()).toBe(1);
     expect(out[2]).toBe(
-      "✗ The repository names a version of kodor. Run kodor sync",
+      "✗ The repository names a version of lunamill. Run lunamill sync",
     );
   });
 
-  it("asks for no release in kodor's own repository, which runs its source", async () => {
+  it("asks for no release in lunamill's own repository, which runs its source", async () => {
     const { run, out } = doctor({
       own: true,
       locked: "0.0.0-development",
       newest: new Error("never asked"),
     });
     await run();
-    expect(out[2]).toBe("✓ kodor runs from its source here");
+    expect(out[2]).toBe("✓ lunamill runs from its source here");
   });
 
   it("checks each secret a part that is on reads", async () => {
@@ -896,14 +898,14 @@ describe("kodor doctor", () => {
       "✓ CLAUDE_CODE_OAUTH_TOKEN is set, for an automated review of every pull request",
     );
     expect(out).toContain(
-      "✗ KODOR_AUTOMERGE_TOKEN is not set, for pull requests that merge themselves. Run kodor init",
+      "✗ LUNAMILL_AUTOMERGE_TOKEN is not set, for pull requests that merge themselves. Run lunamill init",
     );
   });
 
   it("passes a board that has every column the settings name", async () => {
     const r = doctor({
-      raw: { tickets: { board: 3, columns: KODOR_COLUMNS } },
-      secrets: { KODOR_BOARD_TOKEN: "x" },
+      raw: { tickets: { board: 3, columns: LUNAMILL_COLUMNS } },
+      secrets: { LUNAMILL_BOARD_TOKEN: "x" },
       columns: SIX,
     });
     expect(await r.run()).toBe(0);
@@ -912,13 +914,13 @@ describe("kodor doctor", () => {
 
   it("fails a board that lacks a column, naming it", async () => {
     const r = doctor({
-      raw: { tickets: { board: 3, columns: KODOR_COLUMNS } },
-      secrets: { KODOR_BOARD_TOKEN: "x" },
+      raw: { tickets: { board: 3, columns: LUNAMILL_COLUMNS } },
+      secrets: { LUNAMILL_BOARD_TOKEN: "x" },
       columns: ["Backlog", "Done"],
     });
     expect(await r.run()).toBe(1);
     expect(r.out.find((l) => l.startsWith("✗ Board"))).toMatch(
-      /^✗ Board 3: the Status field lacks In refinement .*\. Run kodor init$/,
+      /^✗ Board 3: the Status field lacks In refinement .*\. Run lunamill init$/,
     );
   });
 
@@ -928,10 +930,10 @@ describe("kodor doctor", () => {
         raw: {
           tickets: {
             board: 3,
-            columns: { ...KODOR_COLUMNS, review: ["In review", "QA"] },
+            columns: { ...LUNAMILL_COLUMNS, review: ["In review", "QA"] },
           },
         },
-        secrets: { KODOR_BOARD_TOKEN: "x" },
+        secrets: { LUNAMILL_BOARD_TOKEN: "x" },
         columns,
       });
     const all = board([...SIX, "QA"]);
@@ -940,7 +942,7 @@ describe("kodor doctor", () => {
     const lacking = board(SIX);
     expect(await lacking.run()).toBe(1);
     expect(lacking.out.find((l) => l.startsWith("✗ Board"))).toBe(
-      "✗ Board 3: the Status field lacks QA (tickets.columns.review). Run kodor init",
+      "✗ Board 3: the Status field lacks QA (tickets.columns.review). Run lunamill init",
     );
   });
 
@@ -954,7 +956,7 @@ describe("kodor doctor", () => {
       const r = doctor({ raw: FAKE, tools: fake });
       expect(await r.run()).toBe(1);
       expect(r.out).toContain(
-        `✗ ${FAKE_TOKEN} is not set, for Fake Tickets. Run kodor init`,
+        `✗ ${FAKE_TOKEN} is not set, for Fake Tickets. Run lunamill init`,
       );
     });
 
@@ -976,8 +978,8 @@ describe("kodor doctor", () => {
       const r = doctor({});
       expect(await r.run()).toBe(0);
       expect(section(r.printed, "Claude Code")).toEqual([
-        "✓ CLAUDE.md imports kodor's rules",
-        "✓ .claude/settings.json has kodor's hooks",
+        "✓ CLAUDE.md imports lunamill's rules",
+        "✓ .claude/settings.json has lunamill's hooks",
         "✓ The claude command is installed",
       ]);
     });
@@ -986,13 +988,13 @@ describe("kodor doctor", () => {
       const r = doctor({ files: { "CLAUDE.md": "# Ours\n" } });
       expect(await r.run()).toBe(1);
       expect(r.out).toContain(
-        "✗ CLAUDE.md imports kodor's rules. Run kodor sync",
+        "✗ CLAUDE.md imports lunamill's rules. Run lunamill sync",
       );
     });
 
-    it("fails when one of kodor's hooks is gone, saying to sync", async () => {
+    it("fails when one of lunamill's hooks is gone, saying to sync", async () => {
       const synced = JSON.parse(
-        withHooks(null, "node_modules/@kodor-ai/kodor/bin/kodor.js"),
+        withHooks(null, "node_modules/@lunamill-ai/lunamill/bin/lunamill.js"),
       );
       delete synced.hooks.SubagentStop;
       const r = doctor({
@@ -1000,7 +1002,7 @@ describe("kodor doctor", () => {
       });
       expect(await r.run()).toBe(1);
       expect(r.out).toContain(
-        "✗ .claude/settings.json has kodor's hooks. Run kodor sync",
+        "✗ .claude/settings.json has lunamill's hooks. Run lunamill sync",
       );
     });
 
@@ -1076,7 +1078,7 @@ describe("kodor doctor", () => {
         SET,
         SET_DEPENDABOT,
         `✓ .github/dependabot.yml uses ${JFROG} for its npm updates`,
-        "- kodor.yml is not on the default branch yet",
+        "- lunamill.yml is not on the default branch yet",
       ]);
     });
 
@@ -1084,8 +1086,8 @@ describe("kodor doctor", () => {
       const { run, out } = doctor({ files: { ".npmrc": NPMRC } });
       expect(await run()).toBe(1);
       expect(npmLines(out)).toEqual([
-        "✗ NPM_TOKEN is not set, for installing what .npmrc names. Run kodor init",
-        "✗ NPM_TOKEN is not set for Dependabot, for installing on Dependabot's pull requests. Run kodor init",
+        "✗ NPM_TOKEN is not set, for installing what .npmrc names. Run lunamill init",
+        "✗ NPM_TOKEN is not set for Dependabot, for installing on Dependabot's pull requests. Run lunamill init",
       ]);
     });
 
@@ -1173,7 +1175,7 @@ describe("kodor doctor", () => {
     });
 
     describe("on a repository an organization owns", () => {
-      it("passes a secret the organization shares, saying so, for any secret kodor reads", async () => {
+      it("passes a secret the organization shares, saying so, for any secret lunamill reads", async () => {
         const { run, out } = doctor({
           raw: { "pr-review": true },
           files: { ".npmrc": NPMRC },
@@ -1262,7 +1264,7 @@ describe("kodor doctor", () => {
         });
         expect(await run()).toBe(1);
         expect(npmLines(out).at(-1)).toBe(
-          "✗ NPM_TOKEN is not set for Dependabot, for installing on Dependabot's pull requests. Run kodor init",
+          "✗ NPM_TOKEN is not set for Dependabot, for installing on Dependabot's pull requests. Run lunamill init",
         );
       });
     });
@@ -1302,7 +1304,7 @@ describe("kodor doctor", () => {
   });
 });
 
-describe("kodor doctor, the ticket fields the settings name", () => {
+describe("lunamill doctor, the ticket fields the settings name", () => {
   const FIELDS: TicketField[] = [
     { name: "Priority", description: null, text: false },
     { name: "Acceptance criteria", description: null, text: true },
@@ -1374,17 +1376,17 @@ describe("kodor doctor, the ticket fields the settings name", () => {
   });
 });
 
-describe("kodor doctor, in color", () => {
+describe("lunamill doctor, in color", () => {
   it.each([
     ["pass", "{good:✓} The settings are valid"],
     ["off", "{skip:-} The settings are valid"],
     ["unknown", "{yourTurn:?} The settings are valid"],
-    ["fail", "{bad:✗} The settings are valid. Run {copy:kodor init}"],
+    ["fail", "{bad:✗} The settings are valid. Run {copy:lunamill init}"],
   ] as const)("colors a %s mark, and a command in its fix", (state, look_) => {
     const c = {
       state,
       text: "The settings are valid",
-      fix: "Run kodor init",
+      fix: "Run lunamill init",
     };
     expect(look(line(c))).toBe(look_);
   });
@@ -1407,7 +1409,7 @@ describe("kodor doctor, in color", () => {
   });
 });
 
-describe("kodor doctor, a credential kept on the machine", () => {
+describe("lunamill doctor, a credential kept on the machine", () => {
   const SITE = "acme.example";
   const RAW = { tickets: { type: "fake", site: SITE } };
   const PAIR = {
@@ -1471,17 +1473,17 @@ describe("kodor doctor, a credential kept on the machine", () => {
     [
       "missing",
       null,
-      "✗ No credential on this machine for acme.example. Run kodor init",
+      "✗ No credential on this machine for acme.example. Run lunamill init",
     ],
     [
       "refused",
       { ...PAIR, FAKE_TICKETS_TOKEN: REFUSED },
-      "✗ The credential on this machine is refused (401 Unauthorized). It may have expired. Run kodor init",
+      "✗ The credential on this machine is refused (401 Unauthorized). It may have expired. Run lunamill init",
     ],
     [
       "not checked",
       { ...PAIR, FAKE_TICKETS_TOKEN: "down" },
-      "✗ The credential on this machine could not be checked (Fake Tickets is down.). Check that acme.example can be reached. Run kodor doctor",
+      "✗ The credential on this machine could not be checked (Fake Tickets is down.). Check that acme.example can be reached. Run lunamill doctor",
     ],
   ])(
     "fails when it is %s, with the fix, and skips the tool's own checks",
@@ -1502,13 +1504,13 @@ describe("kodor doctor, a credential kept on the machine", () => {
   it("fails on a file that is not YAML", async () => {
     const r = await run(PAIR, { spoil: (p) => writeFileSync(p, "fake: [") });
     expect(r.lines).toEqual([
-      `✗ ${r.path} is not valid YAML. Fix or delete it. Run kodor init`,
+      `✗ ${r.path} is not valid YAML. Fix or delete it. Run lunamill init`,
     ]);
   });
 });
 
-describe("kodor doctor, where the organization's poller starts the builds", () => {
-  const ORG = "acme/kodor-config";
+describe("lunamill doctor, where the organization's poller starts the builds", () => {
+  const ORG = "acme/lunamill-config";
   /** Doctor in a repository whose builds that repository's poller starts,
    * with the state of each workflow there, and of this repository's own. */
   const run = async (
@@ -1527,10 +1529,10 @@ describe("kodor doctor, where the organization's poller starts the builds", () =
             open: (repository) => {
               opened.push(repository);
               return memoryRunner({
-                secrets: { KODOR_BOARD_TOKEN: "ghp_x" },
+                secrets: { LUNAMILL_BOARD_TOKEN: "ghp_x" },
                 workflows:
                   repository !== ORG
-                    ? { "kodor.yml": "active" }
+                    ? { "lunamill.yml": "active" }
                     : there instanceof Error
                       ? {}
                       : there,
@@ -1553,20 +1555,20 @@ describe("kodor doctor, where the organization's poller starts the builds", () =
   };
 
   it("says its workflow is enabled there, after this repository's own workflow", async () => {
-    const r = await run({ "kodor-poller.yml": "active" });
+    const r = await run({ "lunamill-poller.yml": "active" });
     expect(r.lines).toEqual([
-      "✓ kodor.yml is enabled",
-      "✓ kodor-poller.yml is enabled in acme/kodor-config",
+      "✓ lunamill.yml is enabled",
+      "✓ lunamill-poller.yml is enabled in acme/lunamill-config",
     ]);
     expect(r.code).toBe(0);
     expect(r.opened).toEqual(["acme/site", ORG]);
   });
 
   it("fails when it is disabled there, naming that repository's Actions tab", async () => {
-    const r = await run({ "kodor-poller.yml": "disabled" });
+    const r = await run({ "lunamill-poller.yml": "disabled" });
     expect(r.lines).toEqual([
-      "✓ kodor.yml is enabled",
-      "✗ kodor-poller.yml is disabled in acme/kodor-config: Enable it on the Actions tab of acme/kodor-config",
+      "✓ lunamill.yml is enabled",
+      "✗ lunamill-poller.yml is disabled in acme/lunamill-config: Enable it on the Actions tab of acme/lunamill-config",
     ]);
     expect(r.code).toBe(1);
   });
@@ -1574,8 +1576,8 @@ describe("kodor doctor, where the organization's poller starts the builds", () =
   it("fails when the default branch there no longer has it", async () => {
     const r = await run({});
     expect(r.lines).toEqual([
-      "✓ kodor.yml is enabled",
-      "✗ kodor-poller.yml is not on the default branch of acme/kodor-config: An owner of acme runs kodor init --org again",
+      "✓ lunamill.yml is enabled",
+      "✗ lunamill-poller.yml is not on the default branch of acme/lunamill-config: An owner of acme runs lunamill init --org again",
     ]);
     expect(r.code).toBe(1);
   });
@@ -1583,15 +1585,15 @@ describe("kodor doctor, where the organization's poller starts the builds", () =
   it("cannot tell, and fails nothing, when that repository's workflows cannot be read", async () => {
     const r = await run(new Error("HTTP 404: Not Found"));
     expect(r.lines).toEqual([
-      "✓ kodor.yml is enabled",
-      "? Could not tell whether kodor-poller.yml is enabled in acme/kodor-config: HTTP 404: Not Found",
+      "✓ lunamill.yml is enabled",
+      "? Could not tell whether lunamill-poller.yml is enabled in acme/lunamill-config: HTTP 404: Not Found",
     ]);
     expect(r.code).toBe(0);
   });
 
   it("checks this repository's own workflow where no other repository's poller starts its builds", async () => {
     const r = await run({}, "");
-    expect(r.lines).toEqual(["✓ kodor.yml is enabled"]);
+    expect(r.lines).toEqual(["✓ lunamill.yml is enabled"]);
     expect(r.opened).toEqual(["acme/site"]);
   });
 });
@@ -1649,11 +1651,11 @@ describe("the warning status gives on the Claude token", () => {
     expect(
       await warning({
         raw: AUTOMERGE,
-        secrets: { KODOR_AUTOMERGE_TOKEN: "x" },
+        secrets: { LUNAMILL_AUTOMERGE_TOKEN: "x" },
         env: machine({ pasted: "2026-10-03", expires: "2026-12-10" }),
       }),
     ).toBe(
-      "? The GitHub access token expires on 2026-12-10, in 13 days. Run kodor init to replace it",
+      "? The GitHub access token expires on 2026-12-10, in 13 days. Run lunamill init to replace it",
     );
   });
 
@@ -1661,17 +1663,20 @@ describe("the warning status gives on the Claude token", () => {
     expect(
       await warning({
         raw: { ...AUTOMERGE, "pr-review": true },
-        secrets: { CLAUDE_CODE_OAUTH_TOKEN: "x", KODOR_AUTOMERGE_TOKEN: "x" },
+        secrets: {
+          CLAUDE_CODE_OAUTH_TOKEN: "x",
+          LUNAMILL_AUTOMERGE_TOKEN: "x",
+        },
         stored: {
           CLAUDE_CODE_OAUTH_TOKEN: "2025-12-10T00:00:00Z",
-          KODOR_AUTOMERGE_TOKEN: "2026-01-01T00:00:00Z",
+          LUNAMILL_AUTOMERGE_TOKEN: "2026-01-01T00:00:00Z",
         },
         env: machine({ pasted: "2026-10-03", expires: "2026-12-10" }),
       }),
     ).toBe(
       [
-        "? CLAUDE_CODE_OAUTH_TOKEN stops working by 2026-12-10, in 13 days. Run kodor init to replace it",
-        "? KODOR_AUTOMERGE_TOKEN here is older than the GitHub access token on this machine. Run kodor init to replace it",
+        "? CLAUDE_CODE_OAUTH_TOKEN stops working by 2026-12-10, in 13 days. Run lunamill init to replace it",
+        "? LUNAMILL_AUTOMERGE_TOKEN here is older than the GitHub access token on this machine. Run lunamill init to replace it",
       ].join("\n"),
     );
   });
@@ -1680,7 +1685,7 @@ describe("the warning status gives on the Claude token", () => {
     expect(
       await warning({
         raw: AUTOMERGE,
-        secrets: { KODOR_AUTOMERGE_TOKEN: "x" },
+        secrets: { LUNAMILL_AUTOMERGE_TOKEN: "x" },
         env: machine({ pasted: "2026-10-03", expires: "2027-01-01" }),
       }),
     ).toBeNull();
@@ -1693,7 +1698,7 @@ describe("the warning status gives on the Claude token", () => {
         stored: { CLAUDE_CODE_OAUTH_TOKEN: "2025-12-10T00:00:00Z" },
       }),
     ).toBe(
-      "? CLAUDE_CODE_OAUTH_TOKEN stops working by 2026-12-10, in 13 days. Run kodor init to replace it",
+      "? CLAUDE_CODE_OAUTH_TOKEN stops working by 2026-12-10, in 13 days. Run lunamill init to replace it",
     );
   });
 
@@ -1705,7 +1710,7 @@ describe("the warning status gives on the Claude token", () => {
         stored: { CLAUDE_CODE_OAUTH_TOKEN: "2025-11-10T00:00:00Z" },
       }),
     ).toBe(
-      "✗ CLAUDE_CODE_OAUTH_TOKEN stopped working by 2026-11-10. An owner of acme runs kodor init --org to replace it",
+      "✗ CLAUDE_CODE_OAUTH_TOKEN stopped working by 2026-11-10. An owner of acme runs lunamill init --org to replace it",
     );
   });
 
@@ -1740,7 +1745,7 @@ describe("the warning status gives on the Claude token", () => {
         stored: { CLAUDE_CODE_OAUTH_TOKEN: "2025-12-10T00:00:00Z" },
       }),
     ).toBe(
-      "? CLAUDE_CODE_OAUTH_TOKEN stops working by 2026-12-10, in 13 days. Run kodor init to replace it",
+      "? CLAUDE_CODE_OAUTH_TOKEN stops working by 2026-12-10, in 13 days. Run lunamill init to replace it",
     );
   });
 

@@ -1,6 +1,6 @@
 # Features
 
-For someone whose first tickets are built and who wants more from kodor. Each feature is optional and stands alone. `kodor init` offers
+For someone whose first tickets are built and who wants more from lunamill. Each feature is optional and stands alone. `lunamill init` offers
 the first five in the table, from the automated review to pull requests
 that merge themselves, as parts you check: run it again and check the ones
 you want ([Set up a repository](../setup/repository.md)). When you check
@@ -14,7 +14,7 @@ work runs with nobody at the keyboard.
 | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | ------------------------------------------- |
 | [The automated review](automated-review.md)                  | An agent reviews every pull request marked ready, and passes it or asks for changes. A merge waits for its pass   | A cloud runner, and your coding agent's token stored for it                            | In the cloud                                |
 | [The board](board.md)                                        | Every ticket's state, the session that has it, and its cost, in one view kept up to date                          | A board, and a token that can write to it                                              | In the cloud, after each change to a ticket |
-| [Builds in the cloud](cloud-builds.md)                       | `kodor build 12` builds ticket 12 with no session open on your machine                                            | A cloud runner, your coding agent's token, and a token for your code host              | In the cloud                                |
+| [Builds in the cloud](cloud-builds.md)                       | `lunamill build 12` builds ticket 12 with no session open on your machine                                         | A cloud runner, your coding agent's token, and a token for your code host              | In the cloud                                |
 | [Builds that start from the board](builds-from-the-board.md) | Moving a ticket to Ready builds it: the poller, a small program, checks the board and starts the build            | The board, and builds in the cloud                                                     | In the cloud, on a schedule                 |
 | [Pull requests that merge themselves](auto-merge.md)         | A pull request that changes only files matching patterns you list, such as `docs/**`, merges once its checks pass | The patterns, and a token for your code host                                           | In the cloud                                |
 | [Host the poller](hosting-the-poller.md)                     | Builds start within a minute of the move, in place of at the next scheduled pass                                  | Builds that start from the board, and a server you run                                 | On your server                              |

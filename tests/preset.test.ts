@@ -1,4 +1,4 @@
-// Presets combined with kodor's defaults and the repository's own
+// Presets combined with lunamill's defaults and the repository's own
 // settings, the refusals, explain's marks, and reading the settings from
 // the lock.
 import { rmSync } from "node:fs";
@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   defaultDeps,
-  KODOR_POLICY,
+  LUNAMILL_POLICY,
   loadSettings,
   main as config,
   pluginsOf,
@@ -48,7 +48,7 @@ const acme = (presets = [ACME, NODE], body: string[] = []) => {
   return root;
 };
 
-/** What `kodor config explain` prints, read from the files. */
+/** What `lunamill config explain` prints, read from the files. */
 const explain = async () => {
   const r = deps(root);
   const code = await config(["explain"], r.d);
@@ -59,7 +59,7 @@ const lineOf = (lines: string[], start: string) =>
   lines.find((l) => l.trimStart().startsWith(start))?.trim();
 
 describe("combining presets", () => {
-  it("applies the defaults, then each preset in the order listed, then .claude/kodor.yaml", async () => {
+  it("applies the defaults, then each preset in the order listed, then .claude/lunamill.yaml", async () => {
     acme([ACME, NODE], ["rules:", "  review-rounds: 5"]);
     const { settings } = await resolveAt(root);
     expect(settings.rules.smallChangeLines).toBe(30);
@@ -72,17 +72,17 @@ describe("combining presets", () => {
     expect((await resolveAt(root)).settings.rules.smallChangeLines).toBe(30);
     put(
       root,
-      ".claude/kodor.choices.yaml",
+      ".claude/lunamill.choices.yaml",
       `rules.small-change-lines: "${ACME}"\n`,
     );
     expect((await resolveAt(root)).settings.rules.smallChangeLines).toBe(40);
   });
 
-  it("takes .claude/kodor.yaml's value over every preset's, whatever is chosen", async () => {
+  it("takes .claude/lunamill.yaml's value over every preset's, whatever is chosen", async () => {
     acme([ACME, NODE], ["rules:", "  small-change-lines: 50"]);
     put(
       root,
-      ".claude/kodor.choices.yaml",
+      ".claude/lunamill.choices.yaml",
       `rules.small-change-lines: "${ACME}"\n`,
     );
     expect((await resolveAt(root)).settings.rules.smallChangeLines).toBe(50);
@@ -95,11 +95,11 @@ describe("combining presets", () => {
         settings: "version: 1\ncommands:\n  gate: [npm run lint, npm test]\n",
       },
     });
-    put(root, ".claude/kodor.yaml", own([NODE, "acme/more"]));
+    put(root, ".claude/lunamill.yaml", own([NODE, "acme/more"]));
     expect(
       (await resolveAt(root)).settings.commands.gate.map((c) => c.run),
     ).toEqual(["npm run lint", "npm test"]);
-    put(root, ".claude/kodor.choices.yaml", `commands.gate: "${NODE}"\n`);
+    put(root, ".claude/lunamill.choices.yaml", `commands.gate: "${NODE}"\n`);
     expect(
       (await resolveAt(root)).settings.commands.gate.map((c) => c.run),
     ).toEqual(["npm test"]);
@@ -129,7 +129,7 @@ describe("combining presets", () => {
     ]);
   });
 
-  it("leaves out a plugin .claude/kodor.yaml marks off, so kodor plugins does not list it", async () => {
+  it("leaves out a plugin .claude/lunamill.yaml marks off, so lunamill plugins does not list it", async () => {
     acme(
       [ACME, NODE],
       [
@@ -259,7 +259,7 @@ describe("the agents and skills presets ship", () => {
     );
     put(
       root,
-      ".claude/kodor.choices.yaml",
+      ".claude/lunamill.choices.yaml",
       `.claude/agents/shared.md: "${ACME}"\n`,
     );
     files = (await resolveAt(root)).resolution.files;
@@ -276,10 +276,18 @@ describe("the agents and skills presets ship", () => {
 
 describe("a name under presets", () => {
   it.each([
-    ["acme/kodor-config", "acme/kodor-config", ""],
-    ["acme/kodor-config//node", "acme/kodor-config", "node"],
-    ["acme/kodor-config//stacks/node", "acme/kodor-config", "stacks/node"],
-    ["acme/platform/kodor-config//go", "acme/platform/kodor-config", "go"],
+    ["acme/lunamill-config", "acme/lunamill-config", ""],
+    ["acme/lunamill-config//node", "acme/lunamill-config", "node"],
+    [
+      "acme/lunamill-config//stacks/node",
+      "acme/lunamill-config",
+      "stacks/node",
+    ],
+    [
+      "acme/platform/lunamill-config//go",
+      "acme/platform/lunamill-config",
+      "go",
+    ],
   ])("%s is the repository %s and the folder %j", (name, repo, folder) => {
     expect(parseName(name)).toEqual({ repo, folder });
   });
@@ -287,21 +295,21 @@ describe("a name under presets", () => {
   it("is told it is an npm package when it starts with @", () => {
     expect(() => parseName("@acme/factory-preset")).toThrow(
       new PresetNameError(
-        'presets: "@acme/factory-preset" is an npm package, and a preset now comes from a repository. Name the repository, such as acme/kodor-config.',
+        'presets: "@acme/factory-preset" is an npm package, and a preset now comes from a repository. Name the repository, such as acme/lunamill-config.',
       ),
     );
   });
 
   it.each([
-    "kodor-config",
+    "lunamill-config",
     "acme/",
-    "/kodor-config",
-    "acme/kodor-config//",
-    "acme/kodor-config/node//",
-    "acme/../kodor-config",
-    "acme/kodor-config//../node",
-    "acme/kodor config",
-    "https://github.com/acme/kodor-config",
+    "/lunamill-config",
+    "acme/lunamill-config//",
+    "acme/lunamill-config/node//",
+    "acme/../lunamill-config",
+    "acme/lunamill-config//../node",
+    "acme/lunamill config",
+    "https://github.com/acme/lunamill-config",
   ])("is refused as %j, which names no repository", (name) => {
     expect(() => parseName(name)).toThrow(
       new PresetNameError(
@@ -313,11 +321,11 @@ describe("a name under presets", () => {
   it.each([
     [
       '"@acme/factory-preset"',
-      'presets: "@acme/factory-preset" is an npm package, and a preset now comes from a repository. Name the repository, such as acme/kodor-config.',
+      'presets: "@acme/factory-preset" is an npm package, and a preset now comes from a repository. Name the repository, such as acme/lunamill-config.',
     ],
     [
-      "kodor-config",
-      'presets: "kodor-config" is not a preset\'s name. Write its repository, as OWNER/NAME or OWNER/NAME//FOLDER',
+      "lunamill-config",
+      'presets: "lunamill-config" is not a preset\'s name. Write its repository, as OWNER/NAME or OWNER/NAME//FOLDER',
     ],
   ])("stops config check when it is %s", async (name, message) => {
     root = repo(own([name]));
@@ -332,7 +340,7 @@ describe("a name under presets", () => {
     const r = deps(root);
     expect(await config(["check"], r.d)).toBe(1);
     expect(r.err).toEqual([
-      `presets: ${NODE} is not pinned yet. Run: kodor preset add ${NODE}`,
+      `presets: ${NODE} is not pinned yet. Run: lunamill preset add ${NODE}`,
     ]);
   });
 });
@@ -376,11 +384,11 @@ describe("what a preset can't do", () => {
   it("refuses a preset that leaves a plugin out", async () => {
     await refused(
       { plugins: { build: { reviewers: [{ agent: "x", off: true }] } } },
-      `${ACME}: plugins.build.reviewers[0]: off: only .claude/kodor.yaml can leave a plugin out`,
+      `${ACME}: plugins.build.reviewers[0]: off: only .claude/lunamill.yaml can leave a plugin out`,
     );
   });
 
-  it("refuses a key kodor doesn't know in a plugin the repository's own file replaces", async () => {
+  it("refuses a key lunamill doesn't know in a plugin the repository's own file replaces", async () => {
     root = repo(
       own(
         [ACME],
@@ -411,7 +419,7 @@ describe("what a preset can't do", () => {
     ]);
   });
 
-  it("refuses a preset with a key kodor doesn't know, as config check words it", async () => {
+  it("refuses a preset with a key lunamill doesn't know, as config check words it", async () => {
     await refused(
       { rules: { "small-change-lnes": 3 } },
       `${ACME}: rules.small-change-lnes: unknown key`,
@@ -428,7 +436,7 @@ describe("what a preset can't do", () => {
     async (path) => {
       await refused(
         {},
-        `.claude/kodor.lock: ${ACME}: ${path} is not an agent's, a skill's, or an approval policy's path`,
+        `.claude/lunamill.lock: ${ACME}: ${path} is not an agent's, a skill's, or an approval policy's path`,
         { [path]: "sha256:0" },
       );
     },
@@ -560,12 +568,12 @@ describe("a pinned preset's values", () => {
     const r = await checked({
       plugins: {
         build: {
-          reviewers: [{ agent: "kodor-ui-reviewer", files: ["src/**"] }],
+          reviewers: [{ agent: "lunamill-ui-reviewer", files: ["src/**"] }],
         },
       },
     });
     expect(r.err).toEqual([
-      ".claude/kodor.yaml: site: is required to list kodor-ui-reviewer",
+      ".claude/lunamill.yaml: site: is required to list lunamill-ui-reviewer",
     ]);
     expect(r.code).toBe(1);
   });
@@ -576,14 +584,14 @@ describe("a pinned preset's values", () => {
         rules: { "review-rounds": "zero" },
         plugins: {
           build: {
-            reviewers: [{ agent: "kodor-ui-reviewer", files: ["src/**"] }],
+            reviewers: [{ agent: "lunamill-ui-reviewer", files: ["src/**"] }],
           },
         },
       },
       ["rules:", "  review-rounds: 3"],
     );
     expect(r.err).toEqual([
-      ".claude/kodor.yaml: site: is required to list kodor-ui-reviewer",
+      ".claude/lunamill.yaml: site: is required to list lunamill-ui-reviewer",
     ]);
   });
 
@@ -593,7 +601,7 @@ describe("a pinned preset's values", () => {
       "  review-rounds: none",
     ]);
     expect(r.err).toEqual([
-      ".claude/kodor.yaml: rules.review-rounds: must be a whole number above zero",
+      ".claude/lunamill.yaml: rules.review-rounds: must be a whole number above zero",
     ]);
   });
 });
@@ -684,35 +692,35 @@ describe("a branch name a preset supplies", () => {
     withoutOwn();
     const { out } = await explain();
     expect(lineOf(out, "branch-name:")).toMatch(
-      /^branch-name: "feature\/\{user\}\/\{ticket\}" +# acme\/kodor-config$/,
+      /^branch-name: "feature\/\{user\}\/\{ticket\}" +# acme\/lunamill-config$/,
     );
   });
 });
 
-describe("kodor config explain with presets", () => {
+describe("lunamill config explain with presets", () => {
   it("marks a value from a preset with its name, and a disagreement with whether it is chosen", async () => {
     acme();
     let { out } = await explain();
     expect(lineOf(out, "review-rounds:")).toMatch(
-      /^review-rounds: 3 +# acme\/kodor-config\/\/node, not chosen yet$/,
+      /^review-rounds: 3 +# acme\/lunamill-config\/\/node, not chosen yet$/,
     );
     put(
       root,
-      ".claude/kodor.choices.yaml",
+      ".claude/lunamill.choices.yaml",
       `rules.small-change-lines: "${NODE}"\n`,
     );
     ({ out } = await explain());
     expect(lineOf(out, "small-change-lines:")).toMatch(
-      /^small-change-lines: 30 +# acme\/kodor-config\/\/node, chosen over acme\/kodor-config$/,
+      /^small-change-lines: 30 +# acme\/lunamill-config\/\/node, chosen over acme\/lunamill-config$/,
     );
     expect(lineOf(out, "relock:")).toMatch(/^relock: npm install +# default$/);
   });
 
-  it("marks a value of .claude/kodor.yaml that replaces a preset's, and leaves its own unmarked", async () => {
+  it("marks a value of .claude/lunamill.yaml that replaces a preset's, and leaves its own unmarked", async () => {
     acme([ACME, NODE], ["rules:", "  small-change-lines: 50"]);
     const { out } = await explain();
     expect(lineOf(out, "small-change-lines:")).toMatch(
-      /^small-change-lines: 50 +# over acme\/kodor-config and acme\/kodor-config\/\/node$/,
+      /^small-change-lines: 50 +# over acme\/lunamill-config and acme\/lunamill-config\/\/node$/,
     );
     expect(lineOf(out, "repository:")).toBe("repository: acme/billing");
   });
@@ -721,11 +729,11 @@ describe("kodor config explain with presets", () => {
     acme([ACME, NODE], ["auto-merge:", "  deny: [node]"]);
     const { out } = await explain();
     expect(lineOf(out, "- package-lock.json")).toMatch(
-      /^- package-lock.json +# acme\/kodor-config\/\/node$/,
+      /^- package-lock.json +# acme\/lunamill-config\/\/node$/,
     );
     expect(lineOf(out, "- node")).toBe("- node");
     expect(lineOf(out, "- agent: acme-security-reviewer")).toMatch(
-      /# acme\/kodor-config$/,
+      /# acme\/lunamill-config$/,
     );
   });
 
@@ -734,7 +742,7 @@ describe("kodor config explain with presets", () => {
     installAcme(root, "version: 1\nbuilds:\n  hosts: [acme.example]\n");
     const { out } = await explain();
     expect(lineOf(out, "- acme.example")).toMatch(
-      /^- acme\.example +# acme\/kodor-config$/,
+      /^- acme\.example +# acme\/lunamill-config$/,
     );
     expect(lineOf(out, '- "*.own')).toBe('- "*.own.example"');
   });
@@ -761,7 +769,7 @@ describe("reading the settings from the lock", () => {
     });
   };
 
-  it("reads every setting from the lock's settings, not .claude/kodor.yaml", async () => {
+  it("reads every setting from the lock's settings, not .claude/lunamill.yaml", async () => {
     const { d } = lockDeps(lock());
     expect((await loadSettings(d)).rules.reviewRounds).toBe(7);
   });
@@ -770,7 +778,7 @@ describe("reading the settings from the lock", () => {
     const r = lockDeps(lock());
     expect(await config(["explain"], r.d)).toBe(0);
     expect(r.out).toEqual([
-      '# The settings in effect. "# default" marks kodor\'s own value,',
+      '# The settings in effect. "# default" marks lunamill\'s own value,',
       "# a preset's name marks that preset's, and an unmarked line is yours.",
       "version: 1",
       "repository: o/r",
@@ -796,22 +804,22 @@ describe("reading the settings from the lock", () => {
     expect(err).toEqual([message]);
   };
 
-  it("stops, naming sync, when .claude/kodor.yaml changed since the last sync", async () => {
+  it("stops, naming sync, when .claude/lunamill.yaml changed since the last sync", async () => {
     const { d } = lockDeps(lock({ hash: settingsHash("old", null) }));
     await stops(
       d,
-      ".claude/kodor.yaml changed since the last sync. Run: kodor sync",
+      ".claude/lunamill.yaml changed since the last sync. Run: lunamill sync",
     );
   });
 
   it("names the choices file when it is the one that changed", async () => {
     const { d } = lockDeps(lock(), {
       readChoices: () => 'a: "b"\n',
-      changed: () => [".claude/kodor.choices.yaml"],
+      changed: () => [".claude/lunamill.choices.yaml"],
     });
     await stops(
       d,
-      ".claude/kodor.choices.yaml changed since the last sync. Run: kodor sync",
+      ".claude/lunamill.choices.yaml changed since the last sync. Run: lunamill sync",
     );
   });
 
@@ -819,20 +827,20 @@ describe("reading the settings from the lock", () => {
     const { d } = lockDeps(
       "settings:\n<<<<<<< HEAD\n  a: 1\n=======\n  a: 2\n>>>>>>> b\n",
     );
-    await stops(d, ".claude/kodor.lock can't be read. Run: kodor sync");
+    await stops(d, ".claude/lunamill.lock can't be read. Run: lunamill sync");
   });
 
   it("stops on a lock from an earlier release, which has no settings", async () => {
     const { d } = lockDeps("# old\nversion: 0.4.0\nfiles:\n  - a\n");
     await stops(
       d,
-      ".claude/kodor.lock is from an earlier version of kodor. Run: kodor sync",
+      ".claude/lunamill.lock is from an earlier version of lunamill. Run: lunamill sync",
     );
   });
 
   it("stops when there is no lock", async () => {
     const { d } = lockDeps(null);
-    await stops(d, ".claude/kodor.lock is missing. Run: kodor sync");
+    await stops(d, ".claude/lunamill.lock is missing. Run: lunamill sync");
   });
 
   it("names the first reason in order: missing, earlier, changed", () => {
@@ -870,39 +878,39 @@ describe("reading the settings from the lock", () => {
     ).toBeNull();
   });
 
-  it("reads the lock KODOR_LOCK names without checking it is current", async () => {
+  it("reads the lock LUNAMILL_LOCK names without checking it is current", async () => {
     root = repo(settings);
     put(root, "base.lock", lock({ hash: settingsHash("anything else", null) }));
-    const d = defaultDeps(root, { KODOR_LOCK: join(root, "base.lock") });
+    const d = defaultDeps(root, { LUNAMILL_LOCK: join(root, "base.lock") });
     expect((await loadSettings(d)).rules.reviewRounds).toBe(7);
   });
 
-  it("reads the file KODOR_SETTINGS names, with no lock", async () => {
+  it("reads the file LUNAMILL_SETTINGS names, with no lock", async () => {
     root = repo(settings);
     put(root, "try.yaml", own([], ["rules:", "  review-rounds: 6"]));
-    const d = defaultDeps(root, { KODOR_SETTINGS: join(root, "try.yaml") });
+    const d = defaultDeps(root, { LUNAMILL_SETTINGS: join(root, "try.yaml") });
     expect((await loadSettings(d)).rules.reviewRounds).toBe(6);
   });
 
-  it("stops on a file KODOR_SETTINGS names that lists presets, even ones the lock pins", async () => {
+  it("stops on a file LUNAMILL_SETTINGS names that lists presets, even ones the lock pins", async () => {
     root = repo(settings);
     installAcme(root);
     put(root, "try.yaml", own([NODE]));
-    const d = defaultDeps(root, { KODOR_SETTINGS: join(root, "try.yaml") });
+    const d = defaultDeps(root, { LUNAMILL_SETTINGS: join(root, "try.yaml") });
     await expect(loadSettings(d)).rejects.toThrow(
-      "KODOR_SETTINGS: presets are read through the lock. Use KODOR_LOCK",
+      "LUNAMILL_SETTINGS: presets are read through the lock. Use LUNAMILL_LOCK",
     );
     const err: string[] = [];
     expect(await config(["get", "repository"], { ...d, err: into(err) })).toBe(
       1,
     );
     expect(err).toEqual([
-      "KODOR_SETTINGS: presets are read through the lock. Use KODOR_LOCK",
+      "LUNAMILL_SETTINGS: presets are read through the lock. Use LUNAMILL_LOCK",
     ]);
   });
 });
 
-describe("the version of kodor a lock names", () => {
+describe("the version of lunamill a lock names", () => {
   it("is its version line, whatever follows it", () => {
     expect(lockedVersion("# a comment\nversion: 0.3.0\npresets: []\n")).toBe(
       "0.3.0",
@@ -973,8 +981,8 @@ describe("a preset for some folders", () => {
     put(root, ".claude/agents/py-reviewer.md", "---\nname: py-reviewer\n---\n");
     put(
       root,
-      ".claude/agents/kodor-test-reviewer.md",
-      "---\nname: kodor-test-reviewer\n---\n",
+      ".claude/agents/lunamill-test-reviewer.md",
+      "---\nname: lunamill-test-reviewer\n---\n",
     );
     python("plugins:\n  test:\n    reviewers:\n      - agent: py-reviewer\n");
     const reviewers = (await resolveAt(root)).settings.plugins.filter(
@@ -1004,13 +1012,13 @@ describe("a preset for some folders", () => {
     ]);
   });
 
-  it("keeps kodor's test reviewer for the rest of the repository when it adds one", async () => {
+  it("keeps lunamill's test reviewer for the rest of the repository when it adds one", async () => {
     forServices();
     put(root, ".claude/agents/py-reviewer.md", "---\nname: py-reviewer\n---\n");
     put(
       root,
-      ".claude/agents/kodor-test-reviewer.md",
-      "---\nname: kodor-test-reviewer\n---\n",
+      ".claude/agents/lunamill-test-reviewer.md",
+      "---\nname: lunamill-test-reviewer\n---\n",
     );
     python("plugins:\n  test:\n    reviewers:\n      - agent: py-reviewer\n");
     const { settings } = await resolveAt(root);
@@ -1019,7 +1027,7 @@ describe("a preset for some folders", () => {
         .filter((p) => p.role === "test-reviewer")
         .map((p) => [p.name, p.files]),
     ).toEqual([
-      ["kodor-test-reviewer", []],
+      ["lunamill-test-reviewer", []],
       ["py-reviewer", ["services/*/**"]],
     ]);
   });
@@ -1090,7 +1098,7 @@ describe("approval policies from presets", () => {
     const { settings } = await resolveAt(root);
     expect(settings.approvalPolicies.map((p) => p.run)).toEqual([
       "node strict.mjs",
-      KODOR_POLICY.run,
+      LUNAMILL_POLICY.run,
     ]);
     const { out } = await explain();
     expect(lineOf(out, "- name: licenses")).toMatch(
@@ -1112,7 +1120,7 @@ describe("approval policies from presets", () => {
     ).toEqual(["migrations", "credentials"]);
   });
 
-  it("turns kodor's own credentials policy off with off: true in your own file, which no preset names", async () => {
+  it("turns lunamill's own credentials policy off with off: true in your own file, which no preset names", async () => {
     root = repo(
       own(
         [ACME],
@@ -1134,7 +1142,7 @@ describe("approval policies from presets", () => {
         in: ["services/*"],
         files: ["./package-lock.json"],
       },
-      KODOR_POLICY,
+      LUNAMILL_POLICY,
     ]);
   });
 });

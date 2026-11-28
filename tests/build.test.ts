@@ -9,7 +9,7 @@ import { into } from "./printed";
 
 const STARTED = Date.parse("2026-11-14T22:00:00.400Z");
 
-/** `kodor build` against the in-memory code host and runner, on a clock
+/** `lunamill build` against the in-memory code host and runner, on a clock
  * each sleep moves. */
 function build(options: MemoryRunnerOptions & { strict?: boolean } = {}) {
   let clock = STARTED;
@@ -45,7 +45,7 @@ function build(options: MemoryRunnerOptions & { strict?: boolean } = {}) {
   return { d, out, err, slept, picked, host, runner };
 }
 
-describe("kodor build", () => {
+describe("lunamill build", () => {
   it("starts a build of the ticket on the default branch, and prints the run that start made", async () => {
     const { d, out, runner } = build();
 
@@ -130,7 +130,7 @@ describe("kodor build", () => {
       const { d, err, host, runner } = build();
 
       expect(await main(argv, d)).toBe(2);
-      expect(err).toEqual(["Usage: kodor build N"]);
+      expect(err).toEqual(["Usage: lunamill build N"]);
       expect([...host.log, ...runner.log]).toEqual([]);
     },
   );

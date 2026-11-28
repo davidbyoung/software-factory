@@ -9,7 +9,7 @@ a repository up with one command.
 ## Set an organization up, once
 
 For an owner of the organization, with the code host's command-line tool
-signed in, a coding agent, and the `kodor` command
+signed in, a coding agent, and the `lunamill` command
 ([What you need](repository.md#what-you-need)). You need no repository.
 The command needs three permissions for the command-line tool that a
 plain sign-in lacks
@@ -19,10 +19,10 @@ your browser so you can grant it: answer yes, and grant them there.
 Give the organization's address, from any folder:
 
 ```bash
-kodor init --org https://github.com/acme
+lunamill init --org https://github.com/acme
 ```
 
-It asks which board to use: a new one, made with kodor's columns,
+It asks which board to use: a new one, made with lunamill's columns,
 or one the organization already has. For a board you already have, it
 reads the board's own columns and has the coding agent suggest which column
 shows each of a ticket's six states, as
@@ -43,7 +43,7 @@ the coding agent, for which it runs the agent's command that makes a
 token and you paste the token it prints, or an API key, which you paste
 ([Claude Code](../integrations/claude-code.md#tokens-and-secrets) names
 both). The command creates a repository named
-`kodor-config` in the organization, to hold the settings its
+`lunamill-config` in the organization, to hold the settings its
 repositories share. It is private, except on a plan that shares an organization's secrets
 only with public repositories
 ([On GitHub's Free plan](../integrations/github-organizations.md#on-githubs-free-plan)).
@@ -56,10 +56,10 @@ it will do and asks "Go ahead?", where Enter alone answers no. After
 `y`, it prints:
 
 ```text
-✓ Created board 12, "kodor".
-✓ Created acme/kodor-config.
+✓ Created board 12, "lunamill".
+✓ Created acme/lunamill-config.
 
-Registering the GitHub App "kodor for acme". Two steps, both in your browser.
+Registering the GitHub App "lunamill for acme". Two steps, both in your browser.
 
 1. Create the app. Your browser should open this address. If it does not, open it yourself:
      http://127.0.0.1:4100/
@@ -68,8 +68,8 @@ Registering the GitHub App "kodor for acme". Two steps, both in your browser.
 ✓ Created the app, and stored its key for acme.
 
 2. Install it. Your browser should open this address. If it does not, open it yourself:
-     https://github.com/apps/kodor-acme/installations/new/permissions?suggested_target_id=4242
-   Choose all repositories, or a selection that includes kodor-config, and press "Install".
+     https://github.com/apps/lunamill-acme/installations/new/permissions?suggested_target_id=4242
+   Choose all repositories, or a selection that includes lunamill-config, and press "Install".
    Waiting up to 10 minutes for the installation to show.
 ✓ Installed the app on 212 repositories.
 
@@ -77,21 +77,21 @@ The coding agent's token: running claude setup-token...
 ? Paste the token it printed, the line that starts sk-ant-oat01- (leave empty to do this later):
 Trying the token...
 ✓ Stored 2 secrets and 1 variable for acme.
-✓ Required "Review verdict" where the property kodor is "on".
+✓ Required "Review verdict" where the property lunamill is "on".
 
 ✓ acme is set up.
 
-Next, in each repository you want kodor in:
-  1. A developer installs kodor once on their machine:
-       npm install -g @kodor-ai/kodor
+Next, in each repository you want lunamill in:
+  1. A developer installs lunamill once on their machine:
+       npm install -g @lunamill-ai/lunamill
   2. In the repository's checkout, they run:
-       kodor init
+       lunamill init
      It asks them for no token, and opens the pull request that sets the repository up.
 
 The settings every repository shares are yours to edit:
-     https://github.com/acme/kodor-config/blob/HEAD/kodor-preset.yaml
+     https://github.com/acme/lunamill-config/blob/HEAD/lunamill-preset.yaml
 The steps in full:
-     https://github.com/kodor-ai/kodor/blob/v0.4.0/docs/setup/organization.md#what-each-developer-does-next
+     https://github.com/lunamill-ai/lunamill/blob/v0.4.0/docs/setup/organization.md#what-each-developer-does-next
 ```
 
 The terminal says what to press at each of the two steps in your
@@ -113,24 +113,24 @@ browser. What it does not say:
 
 **It worked when** it prints `✓ acme is set up.` It leaves you with:
 
-- The App "kodor for acme", which builds in the cloud act as.
+- The App "lunamill for acme", which builds in the cloud act as.
 - Two secrets and a variable, which
   [Tokens and secrets](../security/credentials.md#who-handles-a-token) names.
-- The repository `acme/kodor-config`, with the organization's preset
+- The repository `acme/lunamill-config`, with the organization's preset
   and its one poller.
-- The rule "kodor", which requires "Review verdict" in each
-  repository set up with kodor.
-- A board with kodor's columns and fields, or the board you chose,
+- The rule "lunamill", which requires "Review verdict" in each
+  repository set up with lunamill.
+- A board with lunamill's columns and fields, or the board you chose,
   with its own columns and whatever it lacked.
 
 [What setup adds on GitHub organizations](../integrations/github-organizations.md#what-setup-adds)
 says where to find each.
 
-The preset, `kodor-preset.yaml`, is yours to edit. Under
+The preset, `lunamill-preset.yaml`, is yours to edit. Under
 [`code-host`](../reference/settings/code-host.md#code-host) it holds the pattern builds
 name their branches by. Under
 [`tickets.columns`](../reference/settings/tickets.md#ticketscolumns) it names the
-board's column for each state: kodor's own names on a new board,
+board's column for each state: lunamill's own names on a new board,
 and the columns you confirmed on a board you already had. Edit them
 there if the board's columns change.
 
@@ -150,20 +150,20 @@ nothing missing, it ends `✓ acme is set up. Nothing to do.`
 
 Three things stay by hand, on the code host:
 
-| What has happened                                              | What you do                                                                                                                                                                                                                                                          |
-| -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| The App's key has to be replaced                               | Follow [Replacing the App's key](../integrations/github-organizations.md#replacing-the-apps-key)                                                                                                                                                                     |
-| A run fails because the App is not installed on its repository | The failed run prints the address of the organization's installations page. Add the repository there. A ticket moved to Ready in such a repository starts no build and gets no comment: the poller's run in `kodor-config` shows a warning that names the repository |
-| A later release of kodor needs a new permission                | The code host asks an owner to review the App's new permission. Accept it, as [GitHub organizations](../integrations/github-organizations.md#when-something-goes-wrong) shows                                                                                        |
+| What has happened                                              | What you do                                                                                                                                                                                                                                                             |
+| -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The App's key has to be replaced                               | Follow [Replacing the App's key](../integrations/github-organizations.md#replacing-the-apps-key)                                                                                                                                                                        |
+| A run fails because the App is not installed on its repository | The failed run prints the address of the organization's installations page. Add the repository there. A ticket moved to Ready in such a repository starts no build and gets no comment: the poller's run in `lunamill-config` shows a warning that names the repository |
+| A later release of lunamill needs a new permission             | The code host asks an owner to review the App's new permission. Accept it, as [GitHub organizations](../integrations/github-organizations.md#when-something-goes-wrong) shows                                                                                           |
 
 ## What each developer does next
 
-Send each developer who will use kodor these two steps, which the
+Send each developer who will use lunamill these two steps, which the
 command printed after `✓ acme is set up.`:
 
-1. Install kodor once on their machine
+1. Install lunamill once on their machine
    ([Install](../get-started/install.md)).
-2. In each repository's checkout, run `kodor init`. It asks them for no
+2. In each repository's checkout, run `lunamill init`. It asks them for no
    token, and opens the pull request that sets the repository up.
 
 [In an organization](repository.md#in-an-organization) says what that run

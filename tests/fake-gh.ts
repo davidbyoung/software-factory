@@ -1,9 +1,9 @@
 import { parseSettings } from "../src/config.mts";
 import type { Gh } from "../src/lib/gh.mts";
-import { KODOR_COLUMNS } from "./kodor-columns";
+import { LUNAMILL_COLUMNS } from "./lunamill-columns";
 import { CODE_HOST } from "./settings-fixture";
 
-/** kodor's settings as the scripts' tests read them: this repository
+/** lunamill's settings as the scripts' tests read them: this repository
  * and its board, with builds started from the board. */
 export const fakeSettings = async () =>
   parseSettings(
@@ -11,7 +11,7 @@ export const fakeSettings = async () =>
       version: 1,
       repository: "acme/widgets",
       "code-host": CODE_HOST,
-      tickets: { board: 1, columns: KODOR_COLUMNS },
+      tickets: { board: 1, columns: LUNAMILL_COLUMNS },
       builds: { trigger: "own-server" },
     },
     () => true,

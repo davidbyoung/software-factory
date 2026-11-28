@@ -1,4 +1,4 @@
-// `kodor workspace`, against real git repositories in a temporary folder.
+// `lunamill workspace`, against real git repositories in a temporary folder.
 import { execFileSync } from "node:child_process";
 import {
   existsSync,
@@ -115,7 +115,7 @@ function world(
   };
 }
 
-describe("kodor workspace N", () => {
+describe("lunamill workspace N", () => {
   it("clones each other repository on the ticket's branch, and says where", async () => {
     remote("acme/web", { "CLAUDE.md": "Rules.\n" });
     const w = world();
@@ -230,7 +230,7 @@ describe("a session's claim and clock in a clone", () => {
   });
 });
 
-describe("kodor workspace N --remove", () => {
+describe("lunamill workspace N --remove", () => {
   it("deletes each clone with nothing to lose, and the ticket's folder", async () => {
     remote("acme/web");
     const w = world();
@@ -298,7 +298,7 @@ describe("kodor workspace N --remove", () => {
   });
 });
 
-describe("kodor workspace --remove with nothing cloned", () => {
+describe("lunamill workspace --remove with nothing cloned", () => {
   it("says so", async () => {
     const w = world();
     expect(await w.run("12", "--remove")).toBe(0);
@@ -327,7 +327,7 @@ describe("the clones left", () => {
   });
 });
 
-describe("kodor workspace in the cloud", () => {
+describe("lunamill workspace in the cloud", () => {
   it("clones nothing, and says what may be changed and what read", async () => {
     const run = {
       repository: "acme/web",
@@ -364,7 +364,9 @@ describe("kodor workspace in the cloud", () => {
 
 describe("where the clones go", () => {
   it("is under the home folder, as .claude/settings.json names it", () => {
-    expect(workFolder("/home/dev")).toBe("/home/dev/.local/share/kodor/work");
+    expect(workFolder("/home/dev")).toBe(
+      "/home/dev/.local/share/lunamill/work",
+    );
   });
 });
 
@@ -374,7 +376,7 @@ describe("the arguments", () => {
     async (...argv) => {
       const w = world();
       expect(await w.run(...argv)).toBe(2);
-      expect(w.errors).toEqual(["Usage: kodor workspace N [--remove]"]);
+      expect(w.errors).toEqual(["Usage: lunamill workspace N [--remove]"]);
     },
   );
 });

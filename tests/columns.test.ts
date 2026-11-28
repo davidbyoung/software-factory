@@ -45,7 +45,7 @@ import {
 import { toBoard, type BoardPage } from "../src/tickets/github.mts";
 import stockPages from "./fixtures/stock-board.json";
 import { BOARD_FIELDS, memoryTickets } from "./memory-tickets";
-import { KODOR_COLUMNS, KODOR_COLUMNS_YAML } from "./kodor-columns";
+import { LUNAMILL_COLUMNS, LUNAMILL_COLUMNS_YAML } from "./lunamill-columns";
 import { ACME, installAcme, own, repo } from "./preset-fixture";
 import { CODE_HOST, CODE_HOST_YAML } from "./settings-fixture";
 import { into, look, plainOf } from "./printed";
@@ -125,7 +125,7 @@ describe("tickets.columns and tickets.fields in the settings", () => {
     version: 1,
     repository: "o/n",
     "code-host": CODE_HOST,
-    tickets: { board: 3, columns: KODOR_COLUMNS },
+    tickets: { board: 3, columns: LUNAMILL_COLUMNS },
   };
   /** The tickets block as given, with no state filled in. */
   const bare = (tickets: object) => ({
@@ -133,7 +133,7 @@ describe("tickets.columns and tickets.fields in the settings", () => {
     tickets: { board: 3, ...tickets },
   });
   /** The tickets block with every state its columns leave out named by the
-   * kodor's own name. */
+   * lunamill's own name. */
   const withTickets = (
     tickets: { columns?: object; fields?: object },
     builds?: object,
@@ -142,14 +142,14 @@ describe("tickets.columns and tickets.fields in the settings", () => {
     tickets: {
       board: 3,
       ...tickets,
-      columns: { ...KODOR_COLUMNS, ...tickets.columns },
+      columns: { ...LUNAMILL_COLUMNS, ...tickets.columns },
     },
     ...(builds ? { builds } : {}),
   });
   const columns = (written: object) => ({ columns: written });
   const without = (...states: string[]) => ({
     columns: Object.fromEntries(
-      Object.entries(KODOR_COLUMNS).filter(([k]) => !states.includes(k)),
+      Object.entries(LUNAMILL_COLUMNS).filter(([k]) => !states.includes(k)),
     ),
   });
 
@@ -191,13 +191,13 @@ describe("tickets.columns and tickets.fields in the settings", () => {
     ["null columns", { columns: null }],
   ])("requires tickets.columns with a board, given %s", (_name, tickets) => {
     expect(() => parse(bare(tickets))).toThrow(
-      ".claude/kodor.yaml: tickets.columns: is required with tickets.board: run kodor init to choose which of board 3's columns shows each state",
+      ".claude/lunamill.yaml: tickets.columns: is required with tickets.board: run lunamill init to choose which of board 3's columns shows each state",
     );
   });
 
   it("names every state left out, in the states' order, with the Oxford comma", () => {
     expect(() => parse(bare(without("done", "building")))).toThrow(
-      ".claude/kodor.yaml: tickets.columns: building and done have no column: give each a column, a list of columns, or none, or run kodor init to choose them",
+      ".claude/lunamill.yaml: tickets.columns: building and done have no column: give each a column, a list of columns, or none, or run lunamill init to choose them",
     );
     expect(() => parse(bare(without("done", "refining", "building")))).toThrow(
       "tickets.columns: refining, building, and done have no column: give each",
@@ -206,7 +206,7 @@ describe("tickets.columns and tickets.fields in the settings", () => {
 
   it("words one state left out on its own", () => {
     expect(() => parse(bare(without("review")))).toThrow(
-      ".claude/kodor.yaml: tickets.columns: review has no column: give it a column, a list of columns, or none, or run kodor init to choose it",
+      ".claude/lunamill.yaml: tickets.columns: review has no column: give it a column, a list of columns, or none, or run lunamill init to choose it",
     );
   });
 
@@ -271,7 +271,7 @@ describe("tickets.columns and tickets.fields in the settings", () => {
       "tickets.fields.Notes: must be a heading in lowercase, with hyphens for spaces",
     ],
     [
-      "two kodor fields in one ticket field",
+      "two lunamill fields in one ticket field",
       { fields: { decisions: "Notes", "for-the-builder": "notes" } },
       "tickets.fields.for-the-builder: names the same field as decisions",
     ],
@@ -355,7 +355,7 @@ describe("tickets.columns and tickets.fields in the settings", () => {
     };
     const withReady = (ready: string) =>
       `version: 1\nrepository: o/n\n${CODE_HOST_YAML}\ntickets:\n  board: 1\n` +
-      KODOR_COLUMNS_YAML.replace("ready: Ready", `ready: ${ready}`) +
+      LUNAMILL_COLUMNS_YAML.replace("ready: Ready", `ready: ${ready}`) +
       "\n";
     const [a, outA] = d(withReady("Ready for dev"));
     await configMain(["get", "tickets.columns.ready"].slice(1), a);
@@ -366,11 +366,11 @@ describe("tickets.columns and tickets.fields in the settings", () => {
     expect([outA, outB, outC]).toEqual([["Ready for dev"], ["Done"], ["none"]]);
   });
 
-  it("reads the settings from KODOR_SETTINGS in place of the repository's file", () => {
-    expect(settingsPath("/repo", { KODOR_SETTINGS: "/tmp/s.yaml" })).toBe(
+  it("reads the settings from LUNAMILL_SETTINGS in place of the repository's file", () => {
+    expect(settingsPath("/repo", { LUNAMILL_SETTINGS: "/tmp/s.yaml" })).toBe(
       "/tmp/s.yaml",
     );
-    expect(settingsPath("/repo", {})).toBe("/repo/.claude/kodor.yaml");
+    expect(settingsPath("/repo", {})).toBe("/repo/.claude/lunamill.yaml");
   });
 });
 
@@ -663,14 +663,14 @@ describe("the sentences that name a column", () => {
         commentBody({ kind: "refined", issue: { key: "7", ref: "#7" } }, none),
       ),
     ).toBe(
-      "Refinement is done. This board has no column for approving a build: tell a session to build #7, or run `kodor build 7`.",
+      "Refinement is done. This board has no column for approving a build: tell a session to build #7, or run `lunamill build 7`.",
     );
     expect(
       sentence(
         commentBody({ kind: "ended", issue: { key: "7", ref: "#7" } }, none),
       ),
     ).toBe(
-      "The run ended without a pull request. The card stays In Progress, waiting on you. To try again, tell a session to build #7, or run `kodor build 7`.",
+      "The run ended without a pull request. The card stays In Progress, waiting on you. To try again, tell a session to build #7, or run `lunamill build 7`.",
     );
     expect(
       sentence(
@@ -685,7 +685,7 @@ describe("the sentences that name a column", () => {
         ),
       ),
     ).toBe(
-      "Stopped without a pull request: r. The card stays In Progress, waiting on you. Run `kodor build 7` to try again.",
+      "Stopped without a pull request: r. The card stays In Progress, waiting on you. Run `lunamill build 7` to try again.",
     );
     expect(
       sentence(
@@ -710,7 +710,7 @@ describe("the sentences that name a column", () => {
         ),
       ),
     ).toBe(
-      "Pull request #9 was closed without merging. The card stays In Progress, waiting on you. Tell a session to build #7, or run `kodor build 7`, to rebuild it, or ask a session to refine it first.",
+      "Pull request #9 was closed without merging. The card stays In Progress, waiting on you. Tell a session to build #7, or run `lunamill build 7`, to rebuild it, or ask a session to refine it first.",
     );
     for (const kind of kinds.filter(
       (k) => k.kind !== "started" && k.kind !== "dispatch-failed",
@@ -718,7 +718,7 @@ describe("the sentences that name a column", () => {
       expect(commentBody(kind, none)).not.toMatch(/move it to|moves to/i);
   });
 
-  it("keeps the markers in kodor's words whatever the columns", () => {
+  it("keeps the markers in lunamill's words whatever the columns", () => {
     expect(
       commentBody(
         { kind: "ended", issue: { key: "7", ref: "#7" } },
@@ -770,15 +770,15 @@ describe("the poller", () => {
     withCards(stockBoard(), [[1, column, at(0)]]);
   const snap = toSnapshot([issue(1)], [], new Date(at(30)));
 
-  it("starts a build for a card in the column KODOR_READY_COLUMN names, and no other", () => {
-    const columns = columnsFrom({ KODOR_READY_COLUMN: "Ready for dev" });
+  it("starts a build for a card in the column LUNAMILL_READY_COLUMN names, and no other", () => {
+    const columns = columnsFrom({ LUNAMILL_READY_COLUMN: "Ready for dev" });
     expect(selectToStart(snap, board("Ready for dev"), columns)).toEqual(["1"]);
     expect(selectToStart(snap, board("ready for dev"), columns)).toEqual(["1"]);
     expect(selectToStart(snap, board("Ready"), columns)).toEqual([]);
   });
 });
 
-describe("kodor ticket ready", () => {
+describe("lunamill ticket ready", () => {
   const run = async (
     settings: ReturnType<typeof parse>,
     status: string,
@@ -833,7 +833,7 @@ describe("kodor ticket ready", () => {
       ...STOCK_YAML,
       tickets: {
         board: 7,
-        columns: { ...KODOR_COLUMNS, ready: "ready for DEV" },
+        columns: { ...LUNAMILL_COLUMNS, ready: "ready for DEV" },
       },
     });
     const { code, memory } = await run(settings, "Backlog", ["Ready for dev"]);
@@ -850,13 +850,13 @@ describe("kodor ticket ready", () => {
     const { code, message, memory } = await run(STOCK, "Backlog");
     expect(code).toBe(1);
     expect(message).toBe(
-      "This board has no column for ready. Tell a session to build #10, or run kodor build 10.",
+      "This board has no column for ready. Tell a session to build #10, or run lunamill build 10.",
     );
     expect(memory.writes).toEqual([]);
   });
 });
 
-describe("kodor status", () => {
+describe("lunamill status", () => {
   const lines = (columns: Columns | undefined) =>
     formatRows(
       toRows(
@@ -875,7 +875,7 @@ describe("kodor status", () => {
       { color: false, width: null, columns },
     ).map(plainOf);
 
-  it("heads each group with the repository's column, or kodor's name for a state with none", () => {
+  it("heads each group with the repository's column, or lunamill's name for a state with none", () => {
     const heads = lines(STOCK_COLUMNS).filter(
       (l) => l && !l.startsWith(" ") && !l.startsWith("#"),
     );
@@ -892,7 +892,7 @@ describe("kodor status", () => {
   });
 });
 
-describe("kodor board check", () => {
+describe("lunamill board check", () => {
   const stockDeps = (settings = STOCK, board: Board = stockBoard()) => {
     const out: string[] = [];
     const written: unknown[] = [];
@@ -929,7 +929,7 @@ describe("kodor board check", () => {
     return { d, out, written };
   };
 
-  /** A report of the board with kodor's own fields, whose Status
+  /** A report of the board with lunamill's own fields, whose Status
    * holds the columns given, with `fields` in place of any of the same name. */
   const fullBoard = (columns: string[], fields: BoardField[] = []): Board => ({
     ...stockBoard(),
@@ -1008,7 +1008,7 @@ describe("kodor board check", () => {
       {
         tickets: {
           board: 7,
-          columns: { ...KODOR_COLUMNS, review: ["Code review", "QA"] },
+          columns: { ...LUNAMILL_COLUMNS, review: ["Code review", "QA"] },
         },
       },
       fullBoard([
@@ -1030,7 +1030,7 @@ describe("kodor board check", () => {
       builds: { trigger },
       tickets: {
         board: 7,
-        columns: { ...KODOR_COLUMNS, ready: "Ready for dev" },
+        columns: { ...LUNAMILL_COLUMNS, ready: "Ready for dev" },
       },
     });
     const withColumn = fullBoard(
@@ -1053,8 +1053,8 @@ describe("kodor board check", () => {
         builds: { trigger: "own-server", "max-per-hour": 40 },
         tickets: {
           board: 7,
-          columns: KODOR_COLUMNS,
-          labels: { kodor: "built-by-factory" },
+          columns: LUNAMILL_COLUMNS,
+          labels: { lunamill: "built-by-factory" },
         },
       },
       fullBoard(SIX),
@@ -1079,7 +1079,7 @@ describe("kodor board check", () => {
     board.fields[0] = { id: "F_status", name: "Status", dataType: "TEXT" };
     expect(
       rowOf(
-        report({ tickets: { board: 7, columns: KODOR_COLUMNS } }, board),
+        report({ tickets: { board: 7, columns: LUNAMILL_COLUMNS } }, board),
         "Status",
       ),
     ).toBe("  ✗ Status     not a single select");
@@ -1130,7 +1130,7 @@ describe("kodor board check", () => {
     "prints a field that is %s",
     (_, fields, boardFields, row) => {
       const lines = report(
-        { tickets: { board: 7, columns: KODOR_COLUMNS, fields } },
+        { tickets: { board: 7, columns: LUNAMILL_COLUMNS, fields } },
         fullBoard(SIX, boardFields),
       );
       expect(rowOf(lines, "Runs in")).toBe(row);
@@ -1168,7 +1168,7 @@ describe("kodor board check", () => {
     const { d, out, written } = stockDeps(
       parse({
         ...STOCK_YAML,
-        tickets: { board: 7, columns: KODOR_COLUMNS },
+        tickets: { board: 7, columns: LUNAMILL_COLUMNS },
       }),
     );
     d.env = { GH_TOKEN: "t" };
@@ -1263,28 +1263,28 @@ describe("a state with a list of columns", () => {
     [
       "a list for ready",
       { ready: ["Ready", "Go"] },
-      ".claude/kodor.yaml: tickets.columns.ready: must be one column, or none: only a ticket you approved goes there",
+      ".claude/lunamill.yaml: tickets.columns.ready: must be one column, or none: only a ticket you approved goes there",
     ],
     [
       "an empty list",
       { review: [] },
-      ".claude/kodor.yaml: tickets.columns.review: must name at least one column",
+      ".claude/lunamill.yaml: tickets.columns.review: must name at least one column",
     ],
     [
       "a listed name another state names",
       { backlog: "Todo", review: ["Code review", "todo"] },
-      ".claude/kodor.yaml: tickets.columns.review: names the same column as backlog",
+      ".claude/lunamill.yaml: tickets.columns.review: names the same column as backlog",
     ],
     [
       "a name twice in one list",
       { review: ["QA", "Code review", "qa"] },
-      ".claude/kodor.yaml: tickets.columns.review: names qa twice",
+      ".claude/lunamill.yaml: tickets.columns.review: names qa twice",
     ],
   ])("rejects %s, in the words the issue gives", (_name, columns, message) => {
     expect(() =>
       parse({
         ...LIST_YAML,
-        tickets: { board: 3, columns: { ...KODOR_COLUMNS, ...columns } },
+        tickets: { board: 3, columns: { ...LUNAMILL_COLUMNS, ...columns } },
       }),
     ).toThrow(message);
   });
@@ -1349,7 +1349,7 @@ describe("a state with a list of columns", () => {
     );
   });
 
-  it("heads a kodor status group with the first name", () => {
+  it("heads a lunamill status group with the first name", () => {
     const heads = formatRows(
       toRows(
         { issues: [issue(1, [marked(1, 0, "claim local s1")])], pulls: [] },

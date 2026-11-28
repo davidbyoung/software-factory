@@ -20,7 +20,7 @@ import {
 import { branchDeps } from "../src/lib/default-branch.mts";
 import { CODE_HOST_YAML } from "./settings-fixture";
 
-const LAUNCHER = new URL("../bin/kodor.js", import.meta.url).pathname;
+const LAUNCHER = new URL("../bin/lunamill.js", import.meta.url).pathname;
 const MAIN_BLOCK = "main is checked out";
 const GATE_BLOCK = "the gate failed";
 const OVERRIDE_BLOCK = "is an approver's label";
@@ -79,7 +79,7 @@ beforeAll(() => {
 afterAll(() => rmSync(root, { recursive: true, force: true }));
 
 /** Runs the hook on a Bash call made from `cwd`. These bare repositories
- * have no kodor settings, so a call that gets past the branch check is
+ * have no lunamill settings, so a call that gets past the branch check is
  * let through. */
 function hook(command: string, cwd: string) {
   return spawnSync("node", [LAUNCHER, "guard", "commit"], {
@@ -91,8 +91,8 @@ function hook(command: string, cwd: string) {
   });
 }
 
-describe("kodor guard commit", () => {
-  // These checkouts have no kodor settings, so a commit the branch check
+describe("lunamill guard commit", () => {
+  // These checkouts have no lunamill settings, so a commit the branch check
   // lets through is let through whole.
   it("reads the branch from the directory a command cds into", () => {
     const r = hook(`cd ${feature} && git commit -m x`, main);
@@ -112,7 +112,7 @@ describe("kodor guard commit", () => {
     expect(r.stderr).not.toContain(MAIN_BLOCK);
   });
 
-  it("lets a commit through in a repository kodor does not govern, one with no settings", () => {
+  it("lets a commit through in a repository lunamill does not govern, one with no settings", () => {
     const r = hook("git commit -m x", feature);
     expect(r.status).toBe(0);
     expect(r.stderr).toBe("");
@@ -204,7 +204,7 @@ describe("kodor guard commit", () => {
     });
   });
 
-  // Whether a checkout has `.claude/kodor.yaml` decides which sources the
+  // Whether a checkout has `.claude/lunamill.yaml` decides which sources the
   // guard lets answer, and what it does when none does. The code host is
   // stood in for here, so no test asks one.
   describe("when the default branch cannot be told", () => {
@@ -237,7 +237,7 @@ describe("kodor guard commit", () => {
       if (o.settings) {
         mkdirSync(join(repo, ".claude"));
         writeFileSync(
-          join(repo, ".claude/kodor.yaml"),
+          join(repo, ".claude/lunamill.yaml"),
           `version: 1\nrepository: o/r\n${CODE_HOST_YAML}\n`,
         );
       }
@@ -267,7 +267,7 @@ describe("kodor guard commit", () => {
 
     afterEach(() => rmSync(repo, { recursive: true, force: true }));
 
-    it("blocks the git command, naming the fix, in a checkout that has kodor's settings", async () => {
+    it("blocks the git command, naming the fix, in a checkout that has lunamill's settings", async () => {
       const { block, asked } = await guarded({
         settings: true,
         remotes: [["origin", "https://github.com/o/r.git"]],
@@ -316,7 +316,7 @@ describe("kodor guard commit", () => {
       );
     });
 
-    it("reads origin where its address is an SSH host alias, which names no repository kodor can read", async () => {
+    it("reads origin where its address is an SSH host alias, which names no repository lunamill can read", async () => {
       const { block } = await guarded({
         settings: true,
         remotes: [["origin", "git@github-work:o/r.git", "main"]],
@@ -335,7 +335,7 @@ describe("kodor guard commit", () => {
       });
 
       expect(block).toBe(
-        "✗ repository: .claude/kodor.yaml says o/r, and no remote here is o/r. origin is dev/r. Add the remote, or change the line and run kodor sync.",
+        "✗ repository: .claude/lunamill.yaml says o/r, and no remote here is o/r. origin is dev/r. Add the remote, or change the line and run lunamill sync.",
       );
       expect(asked).toBe(0);
     });
@@ -452,7 +452,7 @@ describe("kodor guard commit", () => {
         execFileSync("git", ["init", "-q", "-b", "feature", repo]);
         mkdirSync(join(repo, ".claude"));
         writeFileSync(
-          join(repo, ".claude/kodor.lock"),
+          join(repo, ".claude/lunamill.lock"),
           [
             "version: 1.0.0",
             "presets: []",
@@ -572,7 +572,7 @@ describe("kodor guard commit", () => {
       const r = hook("git commit -m x", repo);
       expect(r.status).toBe(2);
       expect(r.stderr).toContain(
-        "✗ repository: .claude/kodor.yaml says o/r, and no remote here is o/r. Add the remote, or change the line and run kodor sync.",
+        "✗ repository: .claude/lunamill.yaml says o/r, and no remote here is o/r. Add the remote, or change the line and run lunamill sync.",
       );
     });
 
@@ -580,17 +580,17 @@ describe("kodor guard commit", () => {
       withLoader("version: 3\nrepository: o/r\n");
       const r = hook("git commit -m x", repo);
       expect(r.status).toBe(2);
-      expect(r.stderr).toContain("kodor's settings could not be read");
+      expect(r.stderr).toContain("lunamill's settings could not be read");
       expect(r.stderr).toContain("version: must be 1");
     });
 
     it("blocks the commit, naming the fix, when the settings changed since the last sync", () => {
       withLoader(prints(`echo one >> ${LOG}`));
-      writeFileSync(join(repo, ".claude/kodor.yaml"), prints());
+      writeFileSync(join(repo, ".claude/lunamill.yaml"), prints());
       const r = hook("git commit -m x", repo);
       expect(r.status).toBe(2);
       expect(r.stderr).toContain(
-        ".claude/kodor.yaml changed since the last sync. Run: kodor sync",
+        ".claude/lunamill.yaml changed since the last sync. Run: lunamill sync",
       );
       expect(ran()).toEqual([]);
     });
@@ -666,7 +666,7 @@ describe("kodor guard commit", () => {
       expect(ran()).toEqual([]);
     });
 
-    describe("in a checkout with its own copy of kodor", () => {
+    describe("in a checkout with its own copy of lunamill", () => {
       const PACKAGE = dirname(dirname(LAUNCHER));
       const CHECKOUT = execFileSync("git", ["rev-parse", "--show-toplevel"], {
         cwd: PACKAGE,
@@ -675,7 +675,7 @@ describe("kodor guard commit", () => {
       const ASKED = "asked.json";
 
       /** A checkout whose settings have a key this copy does not know, as a
-       * branch that adds one has, and a copy of kodor, where this one
+       * branch that adds one has, and a copy of lunamill, where this one
        * sits in its checkout, that records the call and exits with `status`. */
       function withOwnCopy(status: number) {
         withLoader(
@@ -684,7 +684,7 @@ describe("kodor guard commit", () => {
         const bin = join(repo, relative(CHECKOUT, PACKAGE), "bin");
         mkdirSync(bin, { recursive: true });
         writeFileSync(
-          join(bin, "kodor.js"),
+          join(bin, "lunamill.js"),
           `const fs = require("fs");
            fs.writeFileSync(${JSON.stringify(join(repo, ASKED))}, JSON.stringify({
              args: process.argv.slice(2),

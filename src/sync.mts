@@ -1,14 +1,14 @@
-// Writes kodor's skills, agents, rules, and review instructions from
+// Writes lunamill's skills, agents, rules, and review instructions from
 // the package into the repository, the two workflow files that call the
-// kodor's own workflows, the agents and skills its presets ship, its hook
+// lunamill's own workflows, the agents and skills its presets ship, its hook
 // entries into `.claude/settings.json`, the rules' import into `CLAUDE.md`,
-// and `.claude/kodor.lock`: kodor's version, the commit each preset
+// and `.claude/lunamill.lock`: lunamill's version, the commit each preset
 // is pinned to, the settings in effect, and the files it wrote. Every other
 // command reads the settings from the lock.
 //
-//   kodor sync           # write what differs
-//   kodor sync --check   # write nothing; exit 1 naming what differs
-//   kodor sync --check --against COMMIT [--public]
+//   lunamill sync           # write what differs
+//   lunamill sync --check   # write nothing; exit 1 naming what differs
+//   lunamill sync --check --against COMMIT [--public]
 //                          # and check each pin that differs from the
 //                          # lock at COMMIT against its preset's repository
 //
@@ -33,7 +33,7 @@ import { fileURLToPath } from "node:url";
 import { firstRefusal, npmrcAt } from "./npmrc.mts";
 import { refOf } from "./tickets/index.mts";
 import {
-  KODOR_FILE,
+  LUNAMILL_FILE,
   factoryWorkflow,
   REVIEW_FILE,
   reviewWorkflow,
@@ -41,7 +41,7 @@ import {
   type WorkflowOptions,
 } from "./workflow-files.mts";
 import {
-  KODOR_POLICY,
+  LUNAMILL_POLICY,
   filesDeps,
   repoRoot,
   resolveFiles,
@@ -85,11 +85,11 @@ import * as say from "./lib/output.mts";
  * compiled. */
 export const PACKAGE = dirname(dirname(fileURLToPath(import.meta.url)));
 
-export const LOCK = ".claude/kodor.lock";
+export const LOCK = ".claude/lunamill.lock";
 export const SETTINGS_JSON = ".claude/settings.json";
 export const CLAUDE_MD = "CLAUDE.md";
-export const IMPORT_LINE = "@.claude/kodor/rules.md";
-const LAUNCHER = "bin/kodor.js";
+export const IMPORT_LINE = "@.claude/lunamill/rules.md";
+const LAUNCHER = "bin/lunamill.js";
 
 const DEPENDABOT = ".github/dependabot.yml";
 
@@ -98,20 +98,20 @@ type Has = (path: string) => boolean;
 
 /** A part of the package written only when a setting or a file in the
  * repository turns it on, by its path in the package: a skill's folder or
- * an agent's file. Everything else is kodor's core, called by its
+ * an agent's file. Everything else is lunamill's core, called by its
  * own steps, and is written to every repository. */
 export const NEEDS: Record<string, (s: Settings, has: Has) => boolean> = {
-  "skills/kodor-design": (s) => s.sites.length > 0,
-  "agents/kodor-ui-reviewer.md": (s) => s.sites.length > 0,
-  "agents/kodor-e2e-reviewer.md": (s) => s.commands.endToEnd.length > 0,
-  "skills/kodor-deps": (_, has) => has(DEPENDABOT),
-  "agents/kodor-credentials-reader.md": (s) =>
-    s.approvalPolicies.some((p) => p.agent === KODOR_POLICY.agent),
+  "skills/lunamill-design": (s) => s.sites.length > 0,
+  "agents/lunamill-ui-reviewer.md": (s) => s.sites.length > 0,
+  "agents/lunamill-e2e-reviewer.md": (s) => s.commands.endToEnd.length > 0,
+  "skills/lunamill-deps": (_, has) => has(DEPENDABOT),
+  "agents/lunamill-credentials-reader.md": (s) =>
+    s.approvalPolicies.some((p) => p.agent === LUNAMILL_POLICY.agent),
   "approval-policies/credentials": (s) =>
-    s.approvalPolicies.some((p) => p.run === KODOR_POLICY.run),
+    s.approvalPolicies.some((p) => p.run === LUNAMILL_POLICY.run),
 };
 
-/** The parts that are on, which a job of kodor's workflows is
+/** The parts that are on, which a job of lunamill's workflows is
  * skipped without, in the order the workflow files list them. */
 export function partsOn(s: Settings, has: Has): Part[] {
   const on: [Part, boolean][] = [
@@ -178,7 +178,7 @@ const RULE_PHRASES: Record<
       r.reviewRounds !== RULE_NUMBERS["review-rounds"],
     ],
   ],
-  "skills/kodor-address-review/SKILL.md": (r) => [
+  "skills/lunamill-address-review/SKILL.md": (r) => [
     [
       /^## 6\. Two rounds, then escalate$/gm,
       `## 6. ${capital(rounds(r.reviewRounds))}, then escalate`,
@@ -235,15 +235,15 @@ export function copies(pkg: string, s: Settings, has: Has): [string, string][] {
   add("skills", ".claude/skills");
   add("agents", ".claude/agents");
   add("approval-policies", ".claude/approval-policies");
-  out.push(["rules.md", ".claude/kodor/rules.md"]);
-  out.push(["review.md", ".github/kodor-review.md"]);
+  out.push(["rules.md", ".claude/lunamill/rules.md"]);
+  out.push(["review.md", ".github/lunamill-review.md"]);
   return out;
 }
 
 /** The launcher's path from the repository's root, where the package is in
  * the repository: the root's own, where the repository is the package
  * itself, and the package's own folder, as a workspace has it. Null
- * anywhere else, where the hooks run kodor installed on the machine. */
+ * anywhere else, where the hooks run lunamill installed on the machine. */
 export function launcherPath(pkg: string, root: string): string | null {
   const rel = relative(realpathSync(root), realpathSync(pkg))
     .split(sep)
@@ -266,13 +266,13 @@ type ClaudeSettings = {
   permissions?: { additionalDirectories?: unknown } & Record<string, unknown>;
 } & Record<string, unknown>;
 
-/** What a hook prints where kodor is not installed on the machine. */
+/** What a hook prints where lunamill is not installed on the machine. */
 export const notInstalled = (name: string) =>
-  `kodor is not installed on this machine. Install it once: npm install -g ${name}`;
+  `lunamill is not installed on this machine. Install it once: npm install -g ${name}`;
 
 /** The hook entries: one per event, and a second before a tool runs, the
  * guard on the credentials file for the tools that read, search, and list
- * files. With no `launcher` they run the machine's `kodor`, the package
+ * files. With no `launcher` they run the machine's `lunamill`, the package
  * `name` installs. Where it is missing, the two guards block the call,
  * since exit 2 is what stops a tool, the session-start hook says so on
  * stdout, which a session shows, and the rest do nothing. */
@@ -280,16 +280,18 @@ export function factoryHooks(
   launcher: string | null,
   name = "",
 ): [string, HookGroup][] {
-  const factory = launcher ? `node "$CLAUDE_PROJECT_DIR"/${launcher}` : "kodor";
+  const factory = launcher
+    ? `node "$CLAUDE_PROJECT_DIR"/${launcher}`
+    : "lunamill";
   const unless = (otherwise: string) =>
-    launcher ? "" : `command -v kodor >/dev/null 2>&1 || ${otherwise}; `;
+    launcher ? "" : `command -v lunamill >/dev/null 2>&1 || ${otherwise}; `;
   const say = `echo "${notInstalled(name)}"`;
   const run = (args: string) => `${factory} ${args}`;
   const installed = unless(`{ ${say} >&2; exit 2; }`);
   const guard = (args: string) => `${installed}${factory} ${args}`;
   // It runs before every file read, search, and listing, so the shell
-  // starts kodor only for an input that holds the file's path.
-  const named = `input=$(cat); case "$input" in *kodor/credentials*) ;; *) exit 0 ;; esac; printf '%s' "$input" | `;
+  // starts lunamill only for an input that holds the file's path.
+  const named = `input=$(cat); case "$input" in *lunamill/credentials*) ;; *) exit 0 ;; esac; printf '%s' "$input" | `;
   return [
     [
       "SessionStart",
@@ -312,7 +314,7 @@ export function factoryHooks(
             type: "command",
             command: guard("guard"),
             timeout: 180,
-            statusMessage: "Checking kodor's guards",
+            statusMessage: "Checking lunamill's guards",
           },
         ],
       },
@@ -376,15 +378,17 @@ export function factoryHooks(
  * Actions does, reads the repository's. */
 const NO_ATTRIBUTION = { commit: "", pr: "", sessionUrl: false };
 
-/** An entry that runs kodor: its launcher by path, as kodor's
+/** An entry that runs lunamill: its launcher by path, as lunamill's
  * own repository and every earlier release wrote it, or the machine's
- * `kodor` on one of the three commands the hooks run. */
+ * `lunamill` on one of the three commands the hooks run. */
 const isFactory = (h: HookEntry) =>
   typeof h.command === "string" &&
   (h.command.includes(`/${LAUNCHER}`) ||
-    /(?:^|[\s;&|{(])kodor (?:session-start|guard|reviewers)\b/.test(h.command));
+    /(?:^|[\s;&|{(])lunamill (?:session-start|guard|reviewers)\b/.test(
+      h.command,
+    ));
 
-/** `.claude/settings.json` with the entries that run kodor's launcher
+/** `.claude/settings.json` with the entries that run lunamill's launcher
  * replaced by those above, and attribution turned off unless the file
  * sets its own. Every other entry stays, in its order. */
 export function withHooks(
@@ -444,7 +448,7 @@ function withoutWork(settings: ClaudeSettings) {
   return Object.keys(left).length ? left : undefined;
 }
 
-/** Every hook entry that is not kodor's, by event. */
+/** Every hook entry that is not lunamill's, by event. */
 function othersHooks(settings: ClaudeSettings): Record<string, HookGroup[]> {
   const hooks: Record<string, HookGroup[]> = {};
   for (const [event, groups] of Object.entries(settings.hooks ?? {})) {
@@ -456,7 +460,7 @@ function othersHooks(settings: ClaudeSettings): Record<string, HookGroup[]> {
   return hooks;
 }
 
-/** Whether every event of the five has kodor's entry. */
+/** Whether every event of the five has lunamill's entry. */
 export function hasFactoryHooks(text: string | null): boolean {
   if (!text) return false;
   const hooks = (JSON.parse(text) as ClaudeSettings).hooks ?? {};
@@ -465,7 +469,7 @@ export function hasFactoryHooks(text: string | null): boolean {
   );
 }
 
-/** Whether any hook entry is kodor's. */
+/** Whether any hook entry is lunamill's. */
 export function hasAnyFactoryHook(text: string | null): boolean {
   if (!text) return false;
   const hooks = (JSON.parse(text) as ClaudeSettings).hooks ?? {};
@@ -474,7 +478,7 @@ export function hasAnyFactoryHook(text: string | null): boolean {
   );
 }
 
-/** `.claude/settings.json` with kodor's entries taken out and an
+/** `.claude/settings.json` with lunamill's entries taken out and an
  * emptied `hooks` dropped, or null when nothing is left. */
 export function withoutHooks(text: string): string | null {
   const {
@@ -518,7 +522,7 @@ export type LockParts = {
   hash: string;
   /** The variables `.npmrc`'s sign-in lines read. */
   npmrcVariables: string[];
-  /** The settings in effect, as `kodor config explain` prints them. */
+  /** The settings in effect, as `lunamill config explain` prints them. */
   settings: string[];
   overridden: Record<string, Replaced[]>;
   files: string[];
@@ -527,7 +531,7 @@ export type LockParts = {
 export function lockText(l: LockParts): string {
   const replaced = Object.entries(l.overridden);
   return [
-    "# Written by `kodor sync`: kodor's version, the presets, the",
+    "# Written by `lunamill sync`: lunamill's version, the presets, the",
     "# settings in effect, and the files it wrote. Do not edit.",
     `version: ${l.version}`,
     ...l.presets,
@@ -628,7 +632,7 @@ export async function plan(
     );
   const launcher = launcherPath(pkg, root);
   const workflows: WorkflowOptions = {
-    // kodor's own repository runs the workflows in the same commit.
+    // lunamill's own repository runs the workflows in the same commit.
     version: launcher === LAUNCHER ? null : manifest.version,
     branch,
     parts: partsOn(s, has),
@@ -642,10 +646,10 @@ export async function plan(
     policyLabel: s.codeHost.labels["policy-override"],
     secrets: [...new Set([...npmrc.names, ...ticketNames])],
   };
-  write.set(KODOR_FILE, factoryWorkflow(workflows));
+  write.set(LUNAMILL_FILE, factoryWorkflow(workflows));
   write.set(REVIEW_FILE, reviewWorkflow(workflows));
   const files = [...write.keys()];
-  // A preset's agent or skill, unless kodor's own file or one the
+  // A preset's agent or skill, unless lunamill's own file or one the
   // repository wrote itself is at its path: those always stay. The copy
   // here is kept while it is what the lock records, so no preset's
   // repository is read for it.
@@ -653,7 +657,7 @@ export async function plan(
   const kept: string[] = [];
   const unrestored: Plan["unrestored"] = [];
   for (const [to, { from, hash }] of r.resolution.files) {
-    if (write.has(to)) kept.push(`kept ${to}, kodor's own, over ${from}`);
+    if (write.has(to)) kept.push(`kept ${to}, lunamill's own, over ${from}`);
     else if (existsSync(join(root, to)) && !previous.includes(to))
       kept.push(`kept ${to}, this repository's own, over ${from}`);
     else {
@@ -768,7 +772,7 @@ export async function main(
   const against = againstAt < 0 ? null : argv[againstAt + 1];
   if (againstAt >= 0 && (!check || !against)) {
     d.err(
-      say.text("Usage: kodor sync [--check [--against COMMIT [--public]]]"),
+      say.text("Usage: lunamill sync [--check [--against COMMIT [--public]]]"),
     );
     return 2;
   }
@@ -799,7 +803,7 @@ export async function main(
     d.err(
       say.mark(
         "fail",
-        `repository: ${SETTINGS_FILE} says ${repository}, and this pull request is in ${d.pullIn}. Change the line and run kodor sync.`,
+        `repository: ${SETTINGS_FILE} says ${repository}, and this pull request is in ${d.pullIn}. Change the line and run lunamill sync.`,
       ),
     );
     return 1;
@@ -848,18 +852,18 @@ export async function main(
   const differ = differences(d.root, p);
   if (check) {
     if (differ.length === 0) {
-      d.out(say.mark("ok", "kodor's files match the settings."));
+      d.out(say.mark("ok", "lunamill's files match the settings."));
       return 0;
     }
     const n = differ.length;
     d.err(
       say.mark(
         "fail",
-        `${n} of kodor's files ${n === 1 ? "doesn't" : "don't"} match the settings:`,
+        `${n} of lunamill's files ${n === 1 ? "doesn't" : "don't"} match the settings:`,
       ),
     );
     for (const path of differ) d.err(say.text(`  ${path}`));
-    d.err(say.text("Run kodor sync and commit what it writes."));
+    d.err(say.text("Run lunamill sync and commit what it writes."));
     return 1;
   }
   if (p.unrestored.length) {
@@ -887,7 +891,7 @@ export async function main(
   }
   if (differ.length === 0 && d.announce)
     d.out(
-      say.text("kodor's files already match the settings. Nothing changed."),
+      say.text("lunamill's files already match the settings. Nothing changed."),
     );
   return 0;
 }
@@ -906,7 +910,7 @@ export const syncDeps = (root: string) => ({
 });
 
 /** The repository whose pull request a run checks, or null where `root` is
- * not that run's checkout: a repository's own tests can run kodor in
+ * not that run's checkout: a repository's own tests can run lunamill in
  * another. */
 export const pullIn = (
   env: Record<string, string | undefined>,
@@ -916,7 +920,7 @@ export const pullIn = (
     ? (env.GITHUB_REPOSITORY ?? null)
     : null;
 
-/** `kodor sync`. */
+/** `lunamill sync`. */
 /** `announce` is false when `init` runs the sync inside its own output. */
 export async function run(argv: string[], announce = true): Promise<number> {
   return main(argv, {

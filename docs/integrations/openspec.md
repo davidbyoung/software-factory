@@ -3,7 +3,7 @@
 The spec tool: it keeps each ticket's Spec in your repository, as well as
 in the ticket. It is optional ([Specs](../features/specs.md)).
 
-## What kodor uses it for
+## What lunamill uses it for
 
 Each build writes the ticket's Spec into `openspec/specs/`, using
 [OpenSpec](https://github.com/Fission-AI/OpenSpec), so that folder always
@@ -11,15 +11,15 @@ describes what your project does, readable without opening a ticket.
 
 ## You need
 
-Node, which kodor needs anyway. Your repository can be in any
+Node, which lunamill needs anyway. Your repository can be in any
 language.
 
 ## Set it up
 
-`kodor init` asks "Which spec tool do you use?". Choose OpenSpec. To
+`lunamill init` asks "Which spec tool do you use?". Choose OpenSpec. To
 turn it on later, write
 [`specs: openspec`](../reference/settings/specs.md#specs) in your
-settings and run `kodor init` again.
+settings and run `lunamill init` again.
 
 **It worked when** init prints `Installed @fission-ai/openspec.` and your
 `package.json` lists the package.
@@ -37,24 +37,24 @@ settings and run `kodor init` again.
 
 Nothing: OpenSpec needs no token.
 
-## What kodor can and cannot do there
+## What lunamill can and cannot do there
 
-A build runs `kodor specs new`, `check`, and `finish` itself.
-`kodor specs list` prints the specs your repository keeps, which is what
+A build runs `lunamill specs new`, `check`, and `finish` itself.
+`lunamill specs list` prints the specs your repository keeps, which is what
 to read before changing what one describes
 ([Your repository's commands](../reference/cli.md#your-repositorys-commands)).
 
-OpenSpec collects usage statistics unless `DO_NOT_TRACK=1` is set, so kodor sets it whenever it runs
+OpenSpec collects usage statistics unless `DO_NOT_TRACK=1` is set, so lunamill sets it whenever it runs
 [`specs.check`](../reference/settings/specs.md#specscheck).
 
 ## Limits that come from OpenSpec
 
-None kodor adds to.
+None lunamill adds to.
 
 ## When something goes wrong
 
-A build that stops at its first spec step, saying to run `kodor init`:
-OpenSpec is not installed. Run `kodor init` again.
+A build that stops at its first spec step, saying to run `lunamill init`:
+OpenSpec is not installed. Run `lunamill init` again.
 
 ## By hand
 

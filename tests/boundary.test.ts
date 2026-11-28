@@ -1,6 +1,6 @@
 // The boundaries the three interfaces rest on. No skill, agent, rule, or
 // workflow in the package talks to GitHub's issues or projects itself: it
-// runs a `kodor ticket` or `kodor pr` command, and no skill, agent, or
+// runs a `lunamill ticket` or `lunamill pr` command, and no skill, agent, or
 // rule names GitHub's CLI at all. No file under src/ but
 // the three folders that hold an interface and its implementations
 // (`src/tickets/`, `src/code-host/`, `src/runner/`) calls GitHub or holds
@@ -44,7 +44,7 @@ export function ticketCallsIn(text: string): string[] {
 }
 
 /** Each line that writes a ticket the way only GitHub does: a `Closes #`
- * or `Part of #` link, or "GitHub issue", where kodor's commands give
+ * or `Part of #` link, or "GitHub issue", where lunamill's commands give
  * the ticket system's own words. */
 export function githubTicketWordsIn(text: string): string[] {
   return text
@@ -54,7 +54,7 @@ export function githubTicketWordsIn(text: string): string[] {
 }
 
 /** Each place a skill, agent, rule, or workflow runs a spec tool itself
- * rather than through `kodor specs`: OpenSpec's command, run with npx or
+ * rather than through `lunamill specs`: OpenSpec's command, run with npx or
  * on its own with a subcommand. A path such as `openspec/specs/` is not a
  * run. */
 export function specToolCallsIn(text: string): string[] {
@@ -157,17 +157,17 @@ export function underscoredNamesIn(text: string): string[] {
   return found;
 }
 
-/** Each command line that runs `kodor` after a `cd` in the same command:
+/** Each command line that runs `lunamill` after a `cd` in the same command:
  * from another directory it runs for whatever repository that directory is
  * in, at the version that repository names, or for none. */
 export function factoryAfterCdIn(text: string): string[] {
   return joinContinuations(text)
     .split("\n")
-    .filter((line) => /\bcd\b[^\n]*[;&]\s*kodor\b/.test(line))
+    .filter((line) => /\bcd\b[^\n]*[;&]\s*lunamill\b/.test(line))
     .map((line) => line.trim());
 }
 
-/** kodor's own workflows, which the two files `kodor sync` writes
+/** lunamill's own workflows, which the two files `lunamill sync` writes
  * into a repository call, and the one an organization's poller file calls. */
 const WORKFLOWS = [
   "run.yml",
@@ -223,10 +223,10 @@ describe("githubTicketWordsIn", () => {
     ).toHaveLength(1);
   });
 
-  it("lets through kodor's command for the link and a pull request's number", () => {
+  it("lets through lunamill's command for the link and a pull request's number", () => {
     expect(
       githubTicketWordsIn(
-        "Start the body with the line `kodor ticket link N` prints. Each `(#N)` names a pull request.",
+        "Start the body with the line `lunamill ticket link N` prints. Each `(#N)` names a pull request.",
       ),
     ).toEqual([]);
   });
@@ -256,8 +256,8 @@ describe("ticketCallsIn", () => {
     ).toHaveLength(1);
   });
 
-  it("lets through kodor's commands and gh api calls to other paths", () => {
-    expect(ticketCallsIn("kodor ticket view N")).toEqual([]);
+  it("lets through lunamill's commands and gh api calls to other paths", () => {
+    expect(ticketCallsIn("lunamill ticket view N")).toEqual([]);
     expect(ticketCallsIn("gh api repos/REPO/pulls/N/files")).toEqual([]);
     expect(ticketCallsIn("See the issues list on GitHub.")).toEqual([]);
   });
@@ -277,8 +277,8 @@ describe("specToolCallsIn", () => {
     ).toHaveLength(1);
   });
 
-  it("lets through kodor's commands, OpenSpec's folders, and its name", () => {
-    expect(specToolCallsIn("kodor specs new N")).toEqual([]);
+  it("lets through lunamill's commands, OpenSpec's folders, and its name", () => {
+    expect(specToolCallsIn("lunamill specs new N")).toEqual([]);
     expect(specToolCallsIn("a line of `openspec/specs/` false")).toEqual([]);
     expect(specToolCallsIn("when `openspec/config.yaml` changed")).toEqual([]);
     expect(specToolCallsIn("With OpenSpec, the build folds it in.")).toEqual(
@@ -300,22 +300,22 @@ describe("hostToolIn", () => {
     expect(hostToolIn("Read its `mergeable_state` first.")).toHaveLength(1);
   });
 
-  it("lets through kodor's commands and words that only hold the letters", () => {
-    expect(hostToolIn("kodor pr view 12 --field head")).toEqual([]);
+  it("lets through lunamill's commands and words that only hold the letters", () => {
+    expect(hostToolIn("lunamill pr view 12 --field head")).toEqual([]);
     expect(hostToolIn("A high bar, though.")).toEqual([]);
     expect(hostToolIn("whether it can merge is `dirty`")).toEqual([]);
   });
 });
 
 describe("factoryAfterCdIn", () => {
-  it("finds a kodor command run after a cd, and lets one from the root through", () => {
+  it("finds a lunamill command run after a cd, and lets one from the root through", () => {
     expect(
       factoryAfterCdIn(
-        'cd "$dir" && kodor ticket comment N \\\n  --body-file body.md',
+        'cd "$dir" && lunamill ticket comment N \\\n  --body-file body.md',
       ),
     ).toHaveLength(1);
     expect(
-      factoryAfterCdIn('kodor ticket comment N --body-file "$dir/body.md"'),
+      factoryAfterCdIn('lunamill ticket comment N --body-file "$dir/body.md"'),
     ).toEqual([]);
   });
 });
@@ -475,7 +475,7 @@ describe("hostNamesIn", () => {
 
   it("lets through what any site has", () => {
     expect(
-      hostNamesIn("Read the design guide, then `kodor site compare`."),
+      hostNamesIn("Read the design guide, then `lunamill site compare`."),
     ).toEqual([]);
   });
 });
@@ -507,17 +507,17 @@ const STACK_WORDS = [
 /** The files written only for a website or an end-to-end suite, which may
  * name Playwright and say "visitor", since a website has visitors. */
 const WEBSITE_FILES = [
-  "agents/kodor-ui-reviewer.md",
-  "agents/kodor-e2e-reviewer.md",
-  "skills/kodor-design/",
+  "agents/lunamill-ui-reviewer.md",
+  "agents/lunamill-e2e-reviewer.md",
+  "skills/lunamill-design/",
 ];
 
-/** The words a file may hold all the same. kodor's own update is an
+/** The words a file may hold all the same. lunamill's own update is an
  * npm package's, so the skill that makes it names npm's files and commands. */
 function allowedStackWords(file: string): string[] {
   if (WEBSITE_FILES.some((f) => file.startsWith(f)))
     return ["Playwright", "visitor"];
-  if (file.startsWith("skills/kodor-deps/"))
+  if (file.startsWith("skills/lunamill-deps/"))
     return ["package-lock.json", "npm ci", "npm install"];
   return [];
 }
@@ -603,26 +603,26 @@ describe("stackWordsIn", () => {
   it("lets a website's files, and no other, name Playwright and visitors, and no other stack word", () => {
     const website = "Drive it with Playwright, as a visitor would.";
     for (const file of [
-      "agents/kodor-ui-reviewer.md",
-      "agents/kodor-e2e-reviewer.md",
-      "skills/kodor-design/SKILL.md",
+      "agents/lunamill-ui-reviewer.md",
+      "agents/lunamill-e2e-reviewer.md",
+      "skills/lunamill-design/SKILL.md",
     ])
       expect(stackWordsIn(website, file)).toEqual([]);
-    expect(stackWordsIn(website, "agents/kodor-test-reviewer.md")).toEqual([
+    expect(stackWordsIn(website, "agents/lunamill-test-reviewer.md")).toEqual([
       "visitor (line 1)",
       "Playwright (line 1)",
     ]);
     expect(
-      stackWordsIn("git merge origin/main", "skills/kodor-design/SKILL.md"),
+      stackWordsIn("git merge origin/main", "skills/lunamill-design/SKILL.md"),
     ).toEqual(["origin/main (line 1)"]);
   });
 
   it("lets the dependency skill, and no other, name npm's lock file and commands, and no other stack word", () => {
     const npm = "Take package-lock.json, then `npm ci` or `npm install`.";
-    expect(stackWordsIn(npm, "skills/kodor-deps/SKILL.md")).toEqual([]);
-    expect(stackWordsIn(npm, "skills/kodor-build/SKILL.md")).toHaveLength(3);
+    expect(stackWordsIn(npm, "skills/lunamill-deps/SKILL.md")).toEqual([]);
+    expect(stackWordsIn(npm, "skills/lunamill-build/SKILL.md")).toHaveLength(3);
     expect(
-      stackWordsIn("Read AGENTS.md first.", "skills/kodor-deps/SKILL.md"),
+      stackWordsIn("Read AGENTS.md first.", "skills/lunamill-deps/SKILL.md"),
     ).toEqual(["AGENTS.md (line 1)"]);
   });
 });
@@ -657,24 +657,24 @@ describe("the boundaries", () => {
     expect(found).toEqual([]);
   });
 
-  it("the design skill names nothing of the repository kodor is developed in", () => {
-    const path = join(PACKAGE, "skills/kodor-design/SKILL.md");
+  it("the design skill names nothing of the repository lunamill is developed in", () => {
+    const path = join(PACKAGE, "skills/lunamill-design/SKILL.md");
     expect(hostNamesIn(readFileSync(path, "utf8"))).toEqual([]);
   });
 
   it("reads real files: each list below holds a skill, an agent, and the rules it is said to", () => {
     expect(guideFiles()).toEqual(
       expect.arrayContaining([
-        "skills/kodor-build/SKILL.md",
-        "agents/kodor-test-reviewer.md",
+        "skills/lunamill-build/SKILL.md",
+        "agents/lunamill-test-reviewer.md",
         "rules.md",
         "review.md",
       ]),
     );
     expect(instructionFiles()).toEqual(
       expect.arrayContaining([
-        "skills/kodor-build/SKILL.md",
-        "agents/kodor-test-reviewer.md",
+        "skills/lunamill-build/SKILL.md",
+        "agents/lunamill-test-reviewer.md",
         ".github/workflows/run.yml",
         ".github/workflows/run-pull-request.yml",
         ".github/workflows/run-tickets.yml",
@@ -688,8 +688,8 @@ describe("the boundaries", () => {
     );
     expect(guidesWithNoHost()).toEqual(
       expect.arrayContaining([
-        "skills/kodor-build/SKILL.md",
-        "agents/kodor-test-reviewer.md",
+        "skills/lunamill-build/SKILL.md",
+        "agents/lunamill-test-reviewer.md",
         "rules.md",
       ]),
     );
@@ -727,7 +727,7 @@ describe("the boundaries", () => {
     expect(found).toEqual([]);
   });
 
-  it("no skill, agent, rule, review, or workflow in the package runs kodor after a cd", () => {
+  it("no skill, agent, rule, review, or workflow in the package runs lunamill after a cd", () => {
     const found = instructionFiles().flatMap((path) =>
       factoryAfterCdIn(readFileSync(path, "utf8")).map((l) => `${path}: ${l}`),
     );
@@ -745,7 +745,7 @@ describe("the boundaries", () => {
     const allowed = [
       "src/lib/output.mts",
       "src/lib/prompts.mts",
-      "bin/kodor.js",
+      "bin/lunamill.js",
     ];
     const files = ["src", "bin"]
       .flatMap((dir) => filesUnder(join(PACKAGE, dir)))
@@ -862,9 +862,9 @@ describe("hostWordsIn", () => {
   });
 
   it("lets through the package's own name and owner", () => {
-    expect(hostWordsIn("Install @kodor-ai/kodor from kodor-ai/kodor.")).toEqual(
-      [],
-    );
+    expect(
+      hostWordsIn("Install @lunamill-ai/lunamill from lunamill-ai/lunamill."),
+    ).toEqual([]);
   });
 });
 

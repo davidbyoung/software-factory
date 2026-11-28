@@ -18,8 +18,9 @@ function runner(routes: Parameters<typeof fakeGh>[0] = []) {
 }
 
 const DISPATCH =
-  /-X POST repos\/acme\/widgets\/actions\/workflows\/kodor\.yml\/dispatches/;
-const BUILDS = /actions\/workflows\/kodor\.yml\/runs\?event=workflow_dispatch/;
+  /-X POST repos\/acme\/widgets\/actions\/workflows\/lunamill\.yml\/dispatches/;
+const BUILDS =
+  /actions\/workflows\/lunamill\.yml\/runs\?event=workflow_dispatch/;
 const build = (id: number, title: string, created: string) => ({
   id,
   display_title: title,
@@ -29,8 +30,8 @@ const build = (id: number, title: string, created: string) => ({
 });
 
 const REVIEWS =
-  /actions\/workflows\/kodor\.yml\/runs\?event=pull_request_target/;
-/** A run of a pull request's event, named as kodor.yml names it. */
+  /actions\/workflows\/lunamill\.yml\/runs\?event=pull_request_target/;
+/** A run of a pull request's event, named as lunamill.yml names it. */
 const pullRun = (id: number, sha: string, status = "completed") => ({
   id,
   status,
@@ -50,17 +51,17 @@ describe("starting a build", () => {
     await r.startBuild("12", "main");
 
     expect(calls).toEqual([
-      "api -X POST repos/acme/widgets/actions/workflows/kodor.yml/dispatches -f ref=main -f inputs[job]=build -f inputs[ticket]=12",
+      "api -X POST repos/acme/widgets/actions/workflows/lunamill.yml/dispatches -f ref=main -f inputs[job]=build -f inputs[ticket]=12",
     ]);
   });
 
   it("starts the board sync on the branch", async () => {
-    const { r, calls } = runner([[/kodor\.yml\/dispatches/, {}]]);
+    const { r, calls } = runner([[/lunamill\.yml\/dispatches/, {}]]);
 
     await r.startSync("main");
 
     expect(calls).toEqual([
-      "api -X POST repos/acme/widgets/actions/workflows/kodor.yml/dispatches -f ref=main -f inputs[job]=board",
+      "api -X POST repos/acme/widgets/actions/workflows/lunamill.yml/dispatches -f ref=main -f inputs[job]=board",
     ]);
   });
 
@@ -79,7 +80,7 @@ describe("starting a session on a pull request", () => {
     await r.startAnswer(31, "trunk");
 
     expect(calls).toEqual([
-      "api -X POST repos/acme/widgets/actions/workflows/kodor.yml/dispatches -f ref=trunk -f inputs[job]=answer -f inputs[pr]=31",
+      "api -X POST repos/acme/widgets/actions/workflows/lunamill.yml/dispatches -f ref=trunk -f inputs[job]=answer -f inputs[pr]=31",
     ]);
   });
 
@@ -91,7 +92,7 @@ describe("starting a session on a pull request", () => {
       await r.startOn(kind, 31, "trunk");
 
       expect(calls).toEqual([
-        `api -X POST repos/acme/widgets/actions/workflows/kodor.yml/dispatches -f ref=trunk -f inputs[job]=${kind} -f inputs[pr]=31`,
+        `api -X POST repos/acme/widgets/actions/workflows/lunamill.yml/dispatches -f ref=trunk -f inputs[job]=${kind} -f inputs[pr]=31`,
       ]);
     },
   );
@@ -135,7 +136,7 @@ describe("counting the answers to a pull request", () => {
 
     expect(await r.answersTo(31, SINCE)).toBe(0);
     expect(calls).toEqual([
-      "api repos/acme/widgets/actions/workflows/kodor.yml/runs?event=workflow_dispatch&created=%3E%3D2026-11-20T10%3A00%3A00Z&per_page=100&page=1",
+      "api repos/acme/widgets/actions/workflows/lunamill.yml/runs?event=workflow_dispatch&created=%3E%3D2026-11-20T10%3A00%3A00Z&per_page=100&page=1",
     ]);
   });
 
@@ -195,7 +196,7 @@ describe("pages", () => {
   it("gives the page that lists builds, and a run's page from its ID", () => {
     const { r, calls } = runner();
 
-    expect(r.buildsPage()).toBe(`${SITE}/actions/workflows/kodor.yml`);
+    expect(r.buildsPage()).toBe(`${SITE}/actions/workflows/lunamill.yml`);
     expect(r.runPage("123456789")).toBe(`${SITE}/actions/runs/123456789`);
     expect(calls).toEqual([]);
   });
@@ -244,7 +245,7 @@ describe("the run this session is in", () => {
 });
 
 describe("the runs for a commit", () => {
-  it("returns every run in kodor's words", async () => {
+  it("returns every run in lunamill's words", async () => {
     const { r, calls } = runner([
       [
         /actions\/runs\?head_sha=h/,
@@ -300,10 +301,10 @@ describe("the runs for a commit", () => {
     session: string | null,
     publish: string | null,
   ) => [
-    job(1, "kodor / Pull request / Record the verdict", "failure"),
-    job(2, "kodor / Review / Prepare", prepare),
-    job(3, "kodor / Review / Session", session),
-    job(4, "kodor / Review / Publish", publish),
+    job(1, "lunamill / Pull request / Record the verdict", "failure"),
+    job(2, "lunamill / Review / Prepare", prepare),
+    job(3, "lunamill / Review / Session", session),
+    job(4, "lunamill / Review / Publish", publish),
   ];
 
   it("gives a review that ended, by its own jobs alone", async () => {
@@ -351,7 +352,7 @@ describe("the runs for a commit", () => {
         [pullRun(9, "h", "in_progress")],
         [
           ...ran("success", "success", "success"),
-          job(5, "kodor / Tickets / Sync the board", null),
+          job(5, "lunamill / Tickets / Sync the board", null),
         ],
       ),
     ).toEqual([{ status: "completed", conclusion: "success" }]);
@@ -362,8 +363,8 @@ describe("the runs for a commit", () => {
       await reviews(
         [pullRun(9, "h")],
         [
-          job(1, "kodor / Pull request / Record the verdict", "success"),
-          job(2, "kodor / Review", "skipped"),
+          job(1, "lunamill / Pull request / Record the verdict", "success"),
+          job(2, "lunamill / Review", "skipped"),
         ],
       ),
     ).toEqual([]);
@@ -389,14 +390,14 @@ describe("asking for the review again", () => {
         /actions\/runs\/77\/jobs/,
         {
           jobs: [
-            job(6, "kodor / Review / Session", "success"),
-            job(5, "kodor / Review / Prepare", "success"),
+            job(6, "lunamill / Review / Session", "success"),
+            job(5, "lunamill / Review / Prepare", "success"),
           ],
         },
       ],
       [
         /actions\/runs\/70\/jobs/,
-        { jobs: [job(4, "kodor / Review / Prepare", "failure")] },
+        { jobs: [job(4, "lunamill / Review / Prepare", "failure")] },
       ],
       [RERUN, ""],
     ]);
@@ -471,7 +472,7 @@ describe("the jobs that failed in a run", () => {
 
 describe("a workflow's state", () => {
   const WORKFLOW =
-    /^api repos\/acme\/widgets\/actions\/workflows\/kodor-poller\.yml$/;
+    /^api repos\/acme\/widgets\/actions\/workflows\/lunamill-poller\.yml$/;
 
   it.each([
     ["active", "active"],
@@ -480,23 +481,23 @@ describe("a workflow's state", () => {
   ])("reads %s as %s", async (state, said) => {
     const { r, calls } = runner([[WORKFLOW, { state }]]);
 
-    expect(await r.workflowState("kodor-poller.yml")).toBe(said);
+    expect(await r.workflowState("lunamill-poller.yml")).toBe(said);
     expect(calls).toEqual([
-      "api repos/acme/widgets/actions/workflows/kodor-poller.yml",
+      "api repos/acme/widgets/actions/workflows/lunamill-poller.yml",
     ]);
   });
 
   it("is missing when the default branch has no such workflow", async () => {
     const { r } = runner([[WORKFLOW, new HttpError(404, "x", "Not Found")]]);
 
-    expect(await r.workflowState("kodor-poller.yml")).toBe("missing");
+    expect(await r.workflowState("lunamill-poller.yml")).toBe("missing");
   });
 
   it("fails with GitHub's own error for anything else", async () => {
     const refused = new HttpError(403, "x", "Resource not accessible");
     const { r } = runner([[WORKFLOW, refused]]);
 
-    await expect(r.workflowState("kodor-poller.yml")).rejects.toBe(refused);
+    await expect(r.workflowState("lunamill-poller.yml")).rejects.toBe(refused);
   });
 });
 
@@ -506,15 +507,18 @@ describe("the run that kept an artifact", () => {
   const RUN = /^api repos\/acme\/widgets\/actions\/runs\/91$/;
   const kept = { artifacts: [{ expired: false, workflow_run: { id: 91 } }] };
 
-  it("is kodor's own run, started by a pull request's event", async () => {
+  it("is lunamill's own run, started by a pull request's event", async () => {
     const { r } = runner([
       [LIST, kept],
       [
         RUN,
-        { path: ".github/workflows/kodor.yml", event: "pull_request_target" },
+        {
+          path: ".github/workflows/lunamill.yml",
+          event: "pull_request_target",
+        },
       ],
     ]);
-    expect(await r.keptBy("approval-policies-7-abc", "kodor.yml")).toBe(91);
+    expect(await r.keptBy("approval-policies-7-abc", "lunamill.yml")).toBe(91);
   });
 
   it.each([
@@ -524,14 +528,16 @@ describe("the run that kept an artifact", () => {
     ],
     [
       "the pull request's own copy",
-      { path: ".github/workflows/kodor.yml", event: "pull_request" },
+      { path: ".github/workflows/lunamill.yml", event: "pull_request" },
     ],
   ])("is none when the run is %s", async (_, run) => {
     const { r } = runner([
       [LIST, kept],
       [RUN, run],
     ]);
-    expect(await r.keptBy("approval-policies-7-abc", "kodor.yml")).toBeNull();
+    expect(
+      await r.keptBy("approval-policies-7-abc", "lunamill.yml"),
+    ).toBeNull();
   });
 
   it.each([
@@ -542,7 +548,9 @@ describe("the run that kept an artifact", () => {
     ["is not there", { artifacts: [] }],
   ])("is none when the artifact %s", async (_, listed) => {
     const { r } = runner([[LIST, listed]]);
-    expect(await r.keptBy("approval-policies-7-abc", "kodor.yml")).toBeNull();
+    expect(
+      await r.keptBy("approval-policies-7-abc", "lunamill.yml"),
+    ).toBeNull();
   });
 });
 

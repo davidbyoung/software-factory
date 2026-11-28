@@ -1,14 +1,14 @@
 schema: spec-driven
 
-# The project's rules live in CLAUDE.md and .claude/kodor/rules.md. Point
+# The project's rules live in CLAUDE.md and .claude/lunamill/rules.md. Point
 # at them rather than copying them here, or the two drift apart.
 context: |
-  Follow CLAUDE.md and .claude/kodor/rules.md. Write American English with
-  the Oxford comma. This repository is kodor itself: a spec
-  here describes what a kodor user sees, such as a command's output, a
-  setting, or what kodor writes into their repository.
-  Changes come from GitHub issues refined by the kodor-refine skill and built
-  by the kodor-build skill; see "Spec track" in .claude/kodor/rules.md.
+  Follow CLAUDE.md and .claude/lunamill/rules.md. Write American English with
+  the Oxford comma. This repository is lunamill itself: a spec
+  here describes what a lunamill user sees, such as a command's output, a
+  setting, or what lunamill writes into their repository.
+  Changes come from GitHub issues refined by the lunamill-refine skill and built
+  by the lunamill-build skill; see "Spec track" in .claude/lunamill/rules.md.
 
 rules:
   proposal:
@@ -20,4 +20,4 @@ rules:
   tasks:
     - Include the tests, by file, beside the task each checks; a verify task
       mapping every scenario to its test; and the gate (npm run format,
-      then npx --no-install kodor gate).
+      then npx --no-install lunamill gate).

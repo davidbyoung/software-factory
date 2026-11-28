@@ -9,17 +9,17 @@ repository holds your preset, and others follow it.
 
 1. **Create a repository** on your code host, or use one you have. It can
    have any name, and hold other things too. If you name it
-   `kodor-config`, `kodor init` finds it without being told, in
+   `lunamill-config`, `lunamill init` finds it without being told, in
    every repository of the same owner. For an organization,
-   [`kodor init --org`](../setup/organization.md#set-an-organization-up-once)
-   creates `kodor-config` with a first preset in it.
-2. **Write `kodor-preset.yaml` at its root.** It takes the
-   same settings as `.claude/kodor.yaml` ([Settings](../reference/settings/README.md#every-setting)),
+   [`lunamill init --org`](../setup/organization.md#set-an-organization-up-once)
+   creates `lunamill-config` with a first preset in it.
+2. **Write `lunamill-preset.yaml` at its root.** It takes the
+   same settings as `.claude/lunamill.yaml` ([Settings](../reference/settings/README.md#every-setting)),
    except [three](#what-a-preset-cant-set), so a line moves between the
    two unchanged:
 
    ```yaml
-   version: 2 # the settings version, as in .claude/kodor.yaml
+   version: 2 # the settings version, as in .claude/lunamill.yaml
    tickets:
      type: github
      board: 7
@@ -44,36 +44,36 @@ repository holds your preset, and others follow it.
    ```
 
    When the file's first line is a comment, as in
-   `# The preset for every acme repository.`, `kodor init` shows that
+   `# The preset for every acme repository.`, `lunamill init` shows that
    line beside the preset's name in the list it offers.
 
 3. **Add the agents and skills its settings name** in `agents/` and
-   `skills/`, beside `kodor-preset.yaml`, written the way your coding
+   `skills/`, beside `lunamill-preset.yaml`, written the way your coding
    agent expects them ([Your own skills and agents](plugins.md)), and each approval policy's
    files in `approval-policies/NAME/`
    ([Approval policies](../features/approval-policies.md#ship-a-policy-in-a-preset)).
-   `kodor sync` copies them into each repository that follows the
+   `lunamill sync` copies them into each repository that follows the
    preset.
 4. **For a second preset in the same repository,** such as one for Node
-   repositories, add a folder with its own `kodor-preset.yaml`, and its
+   repositories, add a folder with its own `lunamill-preset.yaml`, and its
    own `agents/` and `skills/` if it needs them. Its name is the
-   repository's, `//`, and the folder: `acme/kodor-config//node`.
+   repository's, `//`, and the folder: `acme/lunamill-config//node`.
 
    ```text
-   acme/kodor-config
-   ├── kodor-preset.yaml       # the preset acme/kodor-config
+   acme/lunamill-config
+   ├── lunamill-preset.yaml       # the preset acme/lunamill-config
    ├── agents/
    │   └── acme-security-reviewer.md
    ├── skills/
    │   └── acme-refine/SKILL.md
    └── node/
-       └── kodor-preset.yaml   # the preset acme/kodor-config//node
+       └── lunamill-preset.yaml   # the preset acme/lunamill-config//node
    ```
 
 A preset has no version of its own, and says nowhere which versions of
-kodor it works with. kodor refuses a settings file with a key it
+lunamill it works with. lunamill refuses a settings file with a key it
 does not know, and names the key, so a preset written for a newer
-version stops `kodor preset add` and `kodor update`, with that key's
+version stops `lunamill preset add` and `lunamill update`, with that key's
 name.
 
 ## The ticket system is set through a company preset
@@ -82,13 +82,13 @@ A company, or any organization, whose repositories share one ticket
 system and one board puts [`tickets`](../reference/settings/tickets.md#tickets) in its
 preset, as the file above does: the system, the board's number, and its
 columns. Every repository that follows the preset then has its tickets
-on that board, `kodor init` asks
+on that board, `lunamill init` asks
 none of them about tickets or a board, and one poller starts the builds
 of all of them ([The poller](../features/builds-from-the-board.md#the-poller)). The preset that
-`kodor init --org` writes for an organization is one of these.
+`lunamill init --org` writes for an organization is one of these.
 
 Presets stay optional. A repository that follows none writes `tickets`
-in its own `.claude/kodor.yaml`.
+in its own `.claude/lunamill.yaml`.
 
 ## What a preset can't set
 
@@ -108,15 +108,15 @@ brings in another.
 In a checkout of the preset's repository, run:
 
 ```bash
-kodor preset check
+lunamill preset check
 ```
 
 It prints each preset it found and what it ships, so you can see a
 preset in a folder was picked up:
 
 ```text
-kodor-preset.yaml        1 agent, 1 skill
-node/kodor-preset.yaml   no agents or skills
+lunamill-preset.yaml        1 agent, 1 skill
+node/lunamill-preset.yaml   no agents or skills
 ```
 
 **It worked when** it lists every preset and nothing else. A problem gets
@@ -124,7 +124,7 @@ a line saying what to change, and the command fails. One is a setting a
 preset can't set:
 
 ```text
-node/kodor-preset.yaml: auto-merge.allow: a preset can't set this. Remove it, and set it in each repository that wants it
+node/lunamill-preset.yaml: auto-merge.allow: a preset can't set this. Remove it, and set it in each repository that wants it
 ```
 
 Another is a value no repository could use, such as a pattern written
@@ -132,24 +132,24 @@ without its quotes, as `branch-name: {ticket}`. The check prints the first
 of these in each file, so run it again after you fix one:
 
 ```text
-kodor-preset.yaml: code-host.branch-name: is a map, not a pattern. Quote it: branch-name: "{ticket}"
+lunamill-preset.yaml: code-host.branch-name: is a map, not a pattern. Quote it: branch-name: "{ticket}"
 ```
 
 A setting the preset leaves out is not a problem, even when a setting it
 does write needs it. A preset can list the reviewer
-`kodor-ui-reviewer`, which needs to know how to start your website, and
+`lunamill-ui-reviewer`, which needs to know how to start your website, and
 leave [`site`](../reference/settings/site.md#site) to each repository that follows it
 or to another preset.
 
-In an organization's `kodor-config`, the command also compares the
-schedule of `.github/workflows/kodor-poller.yml` with
+In an organization's `lunamill-config`, the command also compares the
+schedule of `.github/workflows/lunamill-poller.yml` with
 [`builds.poll-minutes`](../reference/settings/builds.md#builds) in the preset beside
 it, and fails when they differ: the poller runs on the file's schedule,
-and `kodor status` in each repository takes the interval from the
+and `lunamill status` in each repository takes the interval from the
 preset:
 
 ```text
-✗ .github/workflows/kodor-poller.yml runs on "*/5 * * * *", and builds.poll-minutes is 30. Write "*/30 * * * *" there.
+✗ .github/workflows/lunamill-poller.yml runs on "*/5 * * * *", and builds.poll-minutes is 30. Write "*/30 * * * *" there.
 ```
 
 A plugin that names an agent or a skill the repository doesn't ship gets
@@ -157,7 +157,7 @@ a note, not a failure, since a repository that follows the preset can
 provide it:
 
 ```text
-kodor-preset.yaml: plugins.build.reviewers: acme-docs-reader: not shipped here, so each repository that uses this preset must provide it
+lunamill-preset.yaml: plugins.build.reviewers: acme-docs-reader: not shipped here, so each repository that uses this preset must provide it
 ```
 
 Then merge it. A merge into the default branch is the release: each
@@ -168,4 +168,4 @@ repository that follows it is offered.
 
 There is no way to offer a change to one repository before the rest. To
 try one first, put it in a folder of its own, such as `next/`, and
-follow `acme/kodor-config//next` from the repository you try it in.
+follow `acme/lunamill-config//next` from the repository you try it in.

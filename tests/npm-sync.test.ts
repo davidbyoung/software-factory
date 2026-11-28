@@ -1,6 +1,6 @@
-// What `kodor sync` does with the variables the repository's `.npmrc`
-// reads to sign in: kodor.yml passes them, by name, as secrets to the
-// kodor's workflows, kodor-review.yml passes none, and the lock records
+// What `lunamill sync` does with the variables the repository's `.npmrc`
+// reads to sign in: lunamill.yml passes them, by name, as secrets to the
+// lunamill's workflows, lunamill-review.yml passes none, and the lock records
 // them, so a change to them makes it stale.
 import { readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
@@ -14,9 +14,9 @@ import {
   staleOf,
 } from "../src/config.mts";
 import { main, PACKAGE } from "../src/sync.mts";
-import { KODOR_FILE, REVIEW_FILE } from "../src/workflow-files.mts";
+import { LUNAMILL_FILE, REVIEW_FILE } from "../src/workflow-files.mts";
 import { own, put, read, repo } from "./preset-fixture.ts";
-import { KODOR_COLUMNS_YAML } from "./kodor-columns";
+import { LUNAMILL_COLUMNS_YAML } from "./lunamill-columns";
 import { into } from "./printed";
 
 let root = "";
@@ -37,11 +37,11 @@ async function sync(argv: string[] = []) {
   return { code, out, err };
 }
 
-const LOCK = ".claude/kodor.lock";
+const LOCK = ".claude/lunamill.lock";
 const JFROG = "https://acme.jfrog.io/artifactory/api/npm/npm/";
 const NPMRC = `@acme:registry=${JFROG}\n//acme.jfrog.io/artifactory/api/npm/npm/:_authToken=\${NPM_TOKEN}\n`;
 
-/** A repository with every part of kodor's workflows turned on. */
+/** A repository with every part of lunamill's workflows turned on. */
 function everyPart(npmrc: string | null) {
   root = repo(
     own(
@@ -49,7 +49,7 @@ function everyPart(npmrc: string | null) {
       [
         "tickets:",
         "  board: 7",
-        KODOR_COLUMNS_YAML,
+        LUNAMILL_COLUMNS_YAML,
         "builds:",
         "  trigger: github-action",
         "auto-merge:",
@@ -75,7 +75,7 @@ type Written = {
   jobs: Record<string, { secrets?: Record<string, string> }>;
 };
 /** A workflow file a sync wrote, read as YAML, with the one job that calls
- * kodor's workflow. */
+ * lunamill's workflow. */
 const written = (path: string) => {
   const file = parse(read(root, path)!) as Written;
   return { file, called: Object.values(file.jobs)[0]! };
@@ -85,15 +85,15 @@ const extra = (names: string[]) =>
   `\${{ format('{{${names.map((n, i) => `"${n}":{${i}}`).join(",")}}}', ${names.map((n) => `toJSON(secrets.${n})`).join(", ")}) }}`;
 
 describe("the workflows sync writes for .npmrc's variables", () => {
-  it("passes NPM_TOKEN, by name, from kodor.yml", async () => {
+  it("passes NPM_TOKEN, by name, from lunamill.yml", async () => {
     everyPart(NPMRC);
     expect((await sync()).code).toBe(0);
-    const { called } = written(KODOR_FILE);
+    const { called } = written(LUNAMILL_FILE);
     expect(called.secrets!.extra).toBe(extra(["NPM_TOKEN"]));
   });
 
   it.each(["NPM_TOKEN", "GITHUB_TOKEN"])(
-    "passes %s from kodor-review.yml to nothing, which runs a pull request's copy",
+    "passes %s from lunamill-review.yml to nothing, which runs a pull request's copy",
     async (name) => {
       everyPart(null);
       await sync();
@@ -101,7 +101,9 @@ describe("the workflows sync writes for .npmrc's variables", () => {
       rmSync(root, { recursive: true, force: true });
       everyPart(`//a.example/:_authToken=\${${name}}\n`);
       await sync();
-      expect(read(root, KODOR_FILE)!.includes(name)).toBe(name === "NPM_TOKEN");
+      expect(read(root, LUNAMILL_FILE)!.includes(name)).toBe(
+        name === "NPM_TOKEN",
+      );
       expect(read(root, REVIEW_FILE)).toBe(without);
       expect(written(REVIEW_FILE).called).not.toHaveProperty("secrets");
     },
@@ -112,12 +114,12 @@ describe("the workflows sync writes for .npmrc's variables", () => {
       `//other.example/:_authToken=\${OTHER_TOKEN}\n${NPMRC}//third.example/:_authToken=\${OTHER_TOKEN}\n`,
     );
     await sync();
-    expect(written(KODOR_FILE).called.secrets!.extra).toBe(
+    expect(written(LUNAMILL_FILE).called.secrets!.extra).toBe(
       extra(["OTHER_TOKEN", "NPM_TOKEN"]),
     );
   });
 
-  it("only adds a line to kodor.yml: without it each workflow is what it is with no .npmrc", async () => {
+  it("only adds a line to lunamill.yml: without it each workflow is what it is with no .npmrc", async () => {
     everyPart(null);
     await sync();
     const before = workflows();
@@ -127,7 +129,9 @@ describe("the workflows sync writes for .npmrc's variables", () => {
     for (const [name, text] of Object.entries(workflows())) {
       const lines = text.split("\n");
       const added = lines.filter((line) => /^ {6}extra: /.test(line));
-      expect(added, name).toHaveLength(KODOR_FILE.endsWith(`/${name}`) ? 1 : 0);
+      expect(added, name).toHaveLength(
+        LUNAMILL_FILE.endsWith(`/${name}`) ? 1 : 0,
+      );
       expect(
         lines.filter((line) => !added.includes(line)),
         name,
@@ -145,10 +149,10 @@ describe("the workflows sync writes for .npmrc's variables", () => {
     expect(workflows()).toEqual(before);
   });
 
-  it("passes no GITHUB_TOKEN, which each job has its own of, and lets kodor.yml read packages", async () => {
+  it("passes no GITHUB_TOKEN, which each job has its own of, and lets lunamill.yml read packages", async () => {
     everyPart("//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}\n");
     await sync();
-    const { file, called } = written(KODOR_FILE);
+    const { file, called } = written(LUNAMILL_FILE);
     expect(file.permissions.packages).toBe("read");
     expect(called.secrets).not.toHaveProperty("extra");
   });
@@ -160,7 +164,7 @@ describe("a name sync refuses", () => {
     const r = await sync();
     expect(r.code).toBe(1);
     expect(r.err).toEqual([
-      ".npmrc reads ${GITHUB_PACKAGES_TOKEN} to sign in, and GitHub refuses a secret whose name starts with GITHUB_. Rename it in .npmrc, then run: kodor sync",
+      ".npmrc reads ${GITHUB_PACKAGES_TOKEN} to sign in, and GitHub refuses a secret whose name starts with GITHUB_. Rename it in .npmrc, then run: lunamill sync",
     ]);
     expect(read(root, LOCK)).toBeNull();
   });
@@ -170,7 +174,7 @@ describe("a name sync refuses", () => {
     const r = await sync();
     expect(r.code).toBe(1);
     expect(r.err).toEqual([
-      ".npmrc reads ${HOME} to sign in, and the runner sets HOME for itself. Rename it in .npmrc, then run: kodor sync",
+      ".npmrc reads ${HOME} to sign in, and the runner sets HOME for itself. Rename it in .npmrc, then run: lunamill sync",
     ]);
     expect(read(root, LOCK)).toBeNull();
   });
@@ -192,7 +196,7 @@ describe("the lock and .npmrc", () => {
     const r = await sync(["--check"]);
     expect(r.code).toBe(1);
     expect(r.err).toEqual([
-      ".npmrc changed since the last sync. Run: kodor sync",
+      ".npmrc changed since the last sync. Run: lunamill sync",
     ]);
   });
 
@@ -202,7 +206,7 @@ describe("the lock and .npmrc", () => {
     put(root, ".npmrc", NPMRC.replace("NPM_TOKEN", "HOME"));
     const r = await sync(["--check"]);
     expect(r.err).toEqual([
-      ".npmrc reads ${HOME} to sign in, and the runner sets HOME for itself. Rename it in .npmrc, then run: kodor sync",
+      ".npmrc reads ${HOME} to sign in, and the runner sets HOME for itself. Rename it in .npmrc, then run: lunamill sync",
     ]);
   });
 

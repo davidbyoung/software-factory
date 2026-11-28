@@ -66,20 +66,22 @@ describe("nextStep", () => {
     );
   });
 
-  it("leaves a bump that names kodor, whatever its state, for the Updates job's own pull request", () => {
+  it("leaves a bump that names lunamill, whatever its state, for the Updates job's own pull request", () => {
     const named = bump({
       title:
-        "Bump kodor-ai/kodor/.github/workflows/run.yml from 0.2.0 to 0.3.0",
+        "Bump lunamill-ai/lunamill/.github/workflows/run.yml from 0.2.0 to 0.3.0",
       mergeableState: "dirty",
       checks: [
         { id: 1, name: "E2E", status: "completed", conclusion: "failure" },
       ],
     });
 
-    expect(nextStep(named, "main", "kodor-ai/kodor")).toBe(
-      "leave (step 4): it names kodor",
+    expect(nextStep(named, "main", "lunamill-ai/lunamill")).toBe(
+      "leave (step 4): it names lunamill",
     );
-    expect(nextStep(bump(), "main", "kodor-ai/kodor")).not.toMatch(/step 4/);
+    expect(nextStep(bump(), "main", "lunamill-ai/lunamill")).not.toMatch(
+      /step 4/,
+    );
   });
 
   it("lists the merge, the fix, and the migration in step order", () => {

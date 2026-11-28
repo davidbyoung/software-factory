@@ -1,12 +1,12 @@
-// The two workflow files `kodor sync` writes into a repository, read as
-// YAML: each calls one of kodor's own workflows at one version, and
+// The two workflow files `lunamill sync` writes into a repository, read as
+// YAML: each calls one of lunamill's own workflows at one version, and
 // holds only what the repository's settings decide.
 import { describe, expect, it } from "vitest";
 import { format } from "prettier";
 import { parse } from "yaml";
 import { SESSION_MINUTES } from "../src/config.mts";
 import {
-  KODOR_EVENTS,
+  LUNAMILL_EVENTS,
   factoryWorkflow,
   HELD_EVENT,
   POLLER_FILE,
@@ -32,25 +32,25 @@ const factory = (over: Partial<WorkflowOptions> = {}) =>
 const review = (over: Partial<WorkflowOptions> = {}) =>
   parse(reviewWorkflow(options(over)));
 
-describe("kodor.yml", () => {
-  it("calls kodor's run.yml at the version the lock names, from one job", () => {
+describe("lunamill.yml", () => {
+  it("calls lunamill's run.yml at the version the lock names, from one job", () => {
     const file = factory();
-    expect(file.name).toBe("kodor");
-    expect(Object.keys(file.jobs)).toEqual(["kodor"]);
-    expect(file.jobs.kodor.uses).toBe(
-      "kodor-ai/kodor/.github/workflows/run.yml@v0.3.0",
+    expect(file.name).toBe("lunamill");
+    expect(Object.keys(file.jobs)).toEqual(["lunamill"]);
+    expect(file.jobs.lunamill.uses).toBe(
+      "lunamill-ai/lunamill/.github/workflows/run.yml@v0.3.0",
     );
   });
 
-  it("calls the copy in the same commit in kodor's own repository", () => {
-    expect(factory({ version: null }).jobs.kodor.uses).toBe(
+  it("calls the copy in the same commit in lunamill's own repository", () => {
+    expect(factory({ version: null }).jobs.lunamill.uses).toBe(
       "./.github/workflows/run.yml",
     );
   });
 
   it("starts on exactly the events a code host's policy for it lists", () => {
-    expect(Object.keys(factory().on)).toEqual(KODOR_EVENTS);
-    expect(KODOR_EVENTS).toContain(HELD_EVENT);
+    expect(Object.keys(factory().on)).toEqual(LUNAMILL_EVENTS);
+    expect(LUNAMILL_EVENTS).toContain(HELD_EVENT);
   });
 
   it("starts on everything that is judged from the default branch's copy", () => {
@@ -111,7 +111,7 @@ describe("kodor.yml", () => {
     );
   });
 
-  it("grants what kodor's jobs post with, and no more", () => {
+  it("grants what lunamill's jobs post with, and no more", () => {
     expect(factory().permissions).toEqual({
       actions: "read",
       checks: "read",
@@ -124,7 +124,7 @@ describe("kodor.yml", () => {
   });
 
   it("passes the parts that are on, a run by hand's inputs, and each token by name", () => {
-    const job = factory({ parts: ["review", "board"] }).jobs.kodor;
+    const job = factory({ parts: ["review", "board"] }).jobs.lunamill;
     expect(job.with).toEqual({
       parts: "review board",
       job: "${{ inputs.job }}",
@@ -134,21 +134,21 @@ describe("kodor.yml", () => {
     });
     expect(job.secrets).toEqual({
       "build-token":
-        "${{ secrets.KODOR_BUILD_TOKEN || secrets.KODOR_BOARD_TOKEN }}",
-      "board-token": "${{ secrets.KODOR_BOARD_TOKEN }}",
-      "automerge-token": "${{ secrets.KODOR_AUTOMERGE_TOKEN }}",
-      "app-key": "${{ secrets.KODOR_APP_PRIVATE_KEY }}",
-      "signing-key": "${{ secrets.KODOR_SIGNING_KEY }}",
+        "${{ secrets.LUNAMILL_BUILD_TOKEN || secrets.LUNAMILL_BOARD_TOKEN }}",
+      "board-token": "${{ secrets.LUNAMILL_BOARD_TOKEN }}",
+      "automerge-token": "${{ secrets.LUNAMILL_AUTOMERGE_TOKEN }}",
+      "app-key": "${{ secrets.LUNAMILL_APP_PRIVATE_KEY }}",
+      "signing-key": "${{ secrets.LUNAMILL_SIGNING_KEY }}",
       "claude-token": "${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}",
       "claude-api-key": "${{ secrets.ANTHROPIC_API_KEY }}",
     });
-    expect(factory().jobs.kodor.with.parts).toBe("");
+    expect(factory().jobs.lunamill.with.parts).toBe("");
   });
 
   it("passes a session's minutes, and its job's limit ten over, only where the settings change them", () => {
     const job = factory({
       minutes: { ...SESSION_MINUTES, build: 90, dependencies: 20 },
-    }).jobs.kodor;
+    }).jobs.lunamill;
     expect(job.with["build-minutes"]).toBe(90);
     expect(job.with["build-limit"]).toBe(100);
     expect(job.with["dependencies-minutes"]).toBe(20);
@@ -158,34 +158,36 @@ describe("kodor.yml", () => {
   });
 
   it("passes the override label's name only when the settings rename it", () => {
-    expect(factory().jobs.kodor.with).not.toHaveProperty("override-label");
+    expect(factory().jobs.lunamill.with).not.toHaveProperty("override-label");
     expect(
-      factory({ overrideLabel: "ship it" }).jobs.kodor.with["override-label"],
+      factory({ overrideLabel: "ship it" }).jobs.lunamill.with[
+        "override-label"
+      ],
     ).toBe("ship it");
   });
 
   it("passes the policy label's name only when the settings rename it", () => {
-    expect(factory().jobs.kodor.with).not.toHaveProperty("policy-label");
+    expect(factory().jobs.lunamill.with).not.toHaveProperty("policy-label");
     expect(
-      factory({ policyLabel: "accepted" }).jobs.kodor.with["policy-label"],
+      factory({ policyLabel: "accepted" }).jobs.lunamill.with["policy-label"],
     ).toBe("accepted");
   });
 
   it("passes the secrets .npmrc and the ticket system read as one JSON object, by name", () => {
-    expect(factory().jobs.kodor.secrets).not.toHaveProperty("extra");
+    expect(factory().jobs.lunamill.secrets).not.toHaveProperty("extra");
     expect(
-      factory({ secrets: ["NPM_TOKEN", "KODOR_JIRA_TOKEN"] }).jobs.kodor.secrets
-        .extra,
+      factory({ secrets: ["NPM_TOKEN", "LUNAMILL_JIRA_TOKEN"] }).jobs.lunamill
+        .secrets.extra,
     ).toBe(
-      `\${{ format('{{"NPM_TOKEN":{0},"KODOR_JIRA_TOKEN":{1}}}', toJSON(secrets.NPM_TOKEN), toJSON(secrets.KODOR_JIRA_TOKEN)) }}`,
+      `\${{ format('{{"NPM_TOKEN":{0},"LUNAMILL_JIRA_TOKEN":{1}}}', toJSON(secrets.NPM_TOKEN), toJSON(secrets.LUNAMILL_JIRA_TOKEN)) }}`,
     );
   });
 });
 
-describe("kodor-review.yml", () => {
-  it("calls kodor's review.yml on a pull request, from a job of another name", () => {
+describe("lunamill-review.yml", () => {
+  it("calls lunamill's review.yml on a pull request, from a job of another name", () => {
     const file = review({ parts: ["review", "dependabot"] });
-    expect(file.name).toBe("kodor review");
+    expect(file.name).toBe("lunamill review");
     expect(file.on).toEqual({
       pull_request: {
         types: ["opened", "reopened", "synchronize", "ready_for_review"],
@@ -193,7 +195,7 @@ describe("kodor-review.yml", () => {
     });
     expect(Object.keys(file.jobs)).toEqual(["review"]);
     expect(file.jobs.review.uses).toBe(
-      "kodor-ai/kodor/.github/workflows/review.yml@v0.3.0",
+      "lunamill-ai/lunamill/.github/workflows/review.yml@v0.3.0",
     );
     expect(review({ version: null }).jobs.review.uses).toBe(
       "./.github/workflows/review.yml",
@@ -205,7 +207,7 @@ describe("kodor-review.yml", () => {
     const text = reviewWorkflow(
       options({
         parts: ["review", "board", "auto-merge", "poller", "dependabot"],
-        secrets: ["NPM_TOKEN", "GITHUB_TOKEN", "KODOR_JIRA_TOKEN"],
+        secrets: ["NPM_TOKEN", "GITHUB_TOKEN", "LUNAMILL_JIRA_TOKEN"],
       }),
     );
     const file = parse(text);
@@ -217,10 +219,10 @@ describe("kodor-review.yml", () => {
 
 describe("both files", () => {
   // A repository's own formatter must leave them alone, or its check and
-  // kodor's would each undo the other.
+  // lunamill's would each undo the other.
   it.each([
-    ["kodor.yml", factoryWorkflow],
-    ["kodor-review.yml", reviewWorkflow],
+    ["lunamill.yml", factoryWorkflow],
+    ["lunamill-review.yml", reviewWorkflow],
   ])("%s is written as Prettier would leave it", async (_, write) => {
     const text = write(
       options({
@@ -235,7 +237,7 @@ describe("both files", () => {
   });
 });
 
-describe("kodor-poller.yml", () => {
+describe("lunamill-poller.yml", () => {
   const text = pollerWorkflow({
     owner: "acme",
     version: "0.4.0",
@@ -243,14 +245,14 @@ describe("kodor-poller.yml", () => {
   });
 
   it("is the file an organization's setup writes, word for word", () => {
-    expect(POLLER_FILE).toBe(".github/workflows/kodor-poller.yml");
+    expect(POLLER_FILE).toBe(".github/workflows/lunamill-poller.yml");
     expect(text).toBe(
       [
-        "# .github/workflows/kodor-poller.yml, written by kodor init --org.",
+        "# .github/workflows/lunamill-poller.yml, written by lunamill init --org.",
         "# The one poller for acme's board. The cron line is yours to change, with",
-        "# builds.poll-minutes in kodor-preset.yaml: kodor preset check fails",
+        "# builds.poll-minutes in lunamill-preset.yaml: lunamill preset check fails",
         "# when the two differ.",
-        "name: kodor poller",
+        "name: lunamill poller",
         "on:",
         "  schedule:",
         '    - cron: "*/30 * * * *" # the poller',
@@ -260,19 +262,19 @@ describe("kodor-poller.yml", () => {
         "  contents: read",
         "jobs:",
         "  poller:",
-        "    uses: kodor-ai/kodor/.github/workflows/poller.yml@v0.4.0",
+        "    uses: lunamill-ai/lunamill/.github/workflows/poller.yml@v0.4.0",
         "    secrets:",
-        "      app-key: ${{ secrets.KODOR_APP_PRIVATE_KEY }}",
+        "      app-key: ${{ secrets.LUNAMILL_APP_PRIVATE_KEY }}",
         "",
       ].join("\n"),
     );
   });
 
-  it("calls kodor's poller.yml from one job, with the app's key as its one secret", () => {
+  it("calls lunamill's poller.yml from one job, with the app's key as its one secret", () => {
     const file = parse(text);
     expect(Object.keys(file.jobs)).toEqual(["poller"]);
     expect(file.jobs.poller.secrets).toEqual({
-      "app-key": "${{ secrets.KODOR_APP_PRIVATE_KEY }}",
+      "app-key": "${{ secrets.LUNAMILL_APP_PRIVATE_KEY }}",
     });
     expect(file.permissions).toEqual({ contents: "read" });
   });

@@ -1,4 +1,4 @@
-// `kodor sync` with presets: the lock it writes, the agents and skills
+// `lunamill sync` with presets: the lock it writes, the agents and skills
 // it copies and restores, the pins it checks, the files it keeps back, and
 // the choices it drops.
 import { rmSync } from "node:fs";
@@ -68,9 +68,9 @@ async function sync(argv: string[] = [], base: string | null = null) {
   return { code, out, err, git };
 }
 
-const LOCK = ".claude/kodor.lock";
+const LOCK = ".claude/lunamill.lock";
 const DEPS = ".claude/agents/node-deps-reviewer.md";
-const REPO = "acme/kodor-config";
+const REPO = "acme/lunamill-config";
 let commit = "";
 const acme = (body: string[] = []) => {
   root = repo(own([ACME, NODE], body));
@@ -84,7 +84,7 @@ const unreachable = () => {
   rmSync(remoteOf(REPO), { recursive: true, force: true });
 };
 
-describe("the lock kodor sync writes", () => {
+describe("the lock lunamill sync writes", () => {
   it("holds the version, the presets, the settings' hash, .npmrc's variables, the settings, what they replaced, and the files, in that order", async () => {
     acme();
     expect((await sync()).code).toBe(0);
@@ -104,7 +104,7 @@ describe("the lock kodor sync writes", () => {
     ]);
     const lock = load(text) as Record<string, unknown>;
     expect(lock["settings-hash"]).toBe(
-      settingsHash(read(root, ".claude/kodor.yaml"), null),
+      settingsHash(read(root, ".claude/lunamill.yaml"), null),
     );
     expect(lock["npmrc-variables"]).toEqual([]);
     expect(
@@ -248,7 +248,7 @@ describe("the lock kodor sync writes", () => {
       "<<<<<<< HEAD\nsettings-hash: sha256:a\n=======\nsettings-hash: sha256:b\n>>>>>>> other",
     );
     put(root, LOCK, text);
-    put(root, ".claude/kodor.yaml", own([ACME]));
+    put(root, ".claude/lunamill.yaml", own([ACME]));
     const r = await sync();
     expect(r.code).toBe(0);
     expect(r.out).toContain(`deleted ${DEPS}`);
@@ -260,22 +260,22 @@ describe("the lock kodor sync writes", () => {
   it("fails the check, naming the fix, when the lock is stale", async () => {
     acme();
     await sync();
-    put(root, ".claude/kodor.yaml", own([ACME]));
+    put(root, ".claude/lunamill.yaml", own([ACME]));
     const r = await sync(["--check"]);
     expect(r.code).toBe(1);
     expect(r.err).toEqual([
-      ".claude/kodor.yaml changed since the last sync. Run: kodor sync",
+      ".claude/lunamill.yaml changed since the last sync. Run: lunamill sync",
     ]);
   });
 });
 
-describe("a name under presets, at kodor sync", () => {
+describe("a name under presets, at lunamill sync", () => {
   it("stops the sync, with its mark, when it is an npm package's", async () => {
     root = repo(own(['"@acme/factory-preset"']));
     const r = await sync();
     expect(r.code).toBe(1);
     expect(r.err).toEqual([
-      '✗ presets: "@acme/factory-preset" is an npm package, and a preset now comes from a repository. Name the repository, such as acme/kodor-config.',
+      '✗ presets: "@acme/factory-preset" is an npm package, and a preset now comes from a repository. Name the repository, such as acme/lunamill-config.',
     ]);
     expect(read(root, LOCK)).toBeNull();
   });
@@ -285,7 +285,7 @@ describe("a name under presets, at kodor sync", () => {
     const r = await sync();
     expect(r.code).toBe(1);
     expect(r.err).toEqual([
-      "✗ presets: foo/presets//bar is not pinned yet. Run: kodor preset add foo/presets//bar",
+      "✗ presets: foo/presets//bar is not pinned yet. Run: lunamill preset add foo/presets//bar",
     ]);
     expect(read(root, LOCK)).toBeNull();
   });
@@ -293,7 +293,7 @@ describe("a name under presets, at kodor sync", () => {
   it("drops a pin whose name left presets, with the files only it shipped", async () => {
     acme();
     await sync();
-    put(root, ".claude/kodor.yaml", own([ACME]));
+    put(root, ".claude/lunamill.yaml", own([ACME]));
     const r = await sync();
     expect(r.out).toContain(`deleted ${DEPS}`);
     expect(read(root, DEPS)).toBeNull();
@@ -304,7 +304,7 @@ describe("a name under presets, at kodor sync", () => {
   });
 });
 
-describe("the agents and skills kodor sync copies from presets", () => {
+describe("the agents and skills lunamill sync copies from presets", () => {
   it("writes each and lists it in the lock", async () => {
     acme();
     const r = await sync();
@@ -317,7 +317,7 @@ describe("the agents and skills kodor sync copies from presets", () => {
     acme();
     await sync();
     unreachable();
-    put(root, ".claude/kodor.yaml", own([ACME, NODE], ["specs: none"]));
+    put(root, ".claude/lunamill.yaml", own([ACME, NODE], ["specs: none"]));
     const r = await sync();
     expect(r.code).toBe(0);
     expect(r.git).toEqual([]);
@@ -357,7 +357,7 @@ describe("the agents and skills kodor sync copies from presets", () => {
     await sync();
     unreachable();
     put(root, DEPS, "edited by hand\n");
-    put(root, ".claude/kodor.yaml", own([ACME, NODE], ["specs: none"]));
+    put(root, ".claude/lunamill.yaml", own([ACME, NODE], ["specs: none"]));
     const before = read(root, LOCK);
     const r = await sync();
     expect(r.code).toBe(1);
@@ -391,26 +391,26 @@ describe("the agents and skills kodor sync copies from presets", () => {
     expect(read(root, DEPS)).toBe("mine\n");
   });
 
-  it("keeps kodor's own file at a path a preset ships, saying so", async () => {
+  it("keeps lunamill's own file at a path a preset ships, saying so", async () => {
     root = repo(own([ACME]));
     install(root, ACME, {
       "": {
         settings: "version: 1\n",
-        agents: { "kodor-test-reviewer": "imposter\n" },
+        agents: { "lunamill-test-reviewer": "imposter\n" },
       },
     });
     const r = await sync();
     expect(r.out).toContain(
-      `kept .claude/agents/kodor-test-reviewer.md, kodor's own, over ${ACME}`,
+      `kept .claude/agents/lunamill-test-reviewer.md, lunamill's own, over ${ACME}`,
     );
-    expect(read(root, ".claude/agents/kodor-test-reviewer.md")).not.toBe(
+    expect(read(root, ".claude/agents/lunamill-test-reviewer.md")).not.toBe(
       "imposter\n",
     );
   });
 });
 
-describe("kodor sync --check with presets", () => {
-  const MATCH = "✓ kodor's files match the settings.";
+describe("lunamill sync --check with presets", () => {
+  const MATCH = "✓ lunamill's files match the settings.";
 
   it("passes with no repository to read while each copy is what the lock records", async () => {
     acme();
@@ -433,9 +433,9 @@ describe("kodor sync --check with presets", () => {
       const r = await sync(["--check"]);
       expect(r.code).toBe(1);
       expect(r.err).toEqual([
-        "✗ 1 of kodor's files doesn't match the settings:",
+        "✗ 1 of lunamill's files doesn't match the settings:",
         `  ${DEPS}`,
-        "Run kodor sync and commit what it writes.",
+        "Run lunamill sync and commit what it writes.",
       ]);
       expect(r.git).toEqual([]);
     },
@@ -450,14 +450,14 @@ describe("kodor sync --check with presets", () => {
       const r = await sync(argv);
       expect(r.code).toBe(2);
       expect(r.err).toEqual([
-        "Usage: kodor sync [--check [--against COMMIT [--public]]]",
+        "Usage: lunamill sync [--check [--against COMMIT [--public]]]",
       ]);
     }
   });
 });
 
-describe("kodor sync --check --against the base branch's commit", () => {
-  const MATCH = "✓ kodor's files match the settings.";
+describe("lunamill sync --check --against the base branch's commit", () => {
+  const MATCH = "✓ lunamill's files match the settings.";
   const AGAINST = ["--check", "--against", "BASE"];
   /** The lock on the base branch, then both pins moved to a newer commit
    * in the working tree, synced. */
@@ -497,7 +497,7 @@ describe("kodor sync --check --against the base branch's commit", () => {
     const other = install(root, "foo/presets", {
       bar: { settings: "version: 1\n" },
     });
-    put(root, ".claude/kodor.yaml", own([ACME, NODE, "foo/presets//bar"]));
+    put(root, ".claude/lunamill.yaml", own([ACME, NODE, "foo/presets//bar"]));
     await sync();
     rmSync(join(CACHE, "presets", HOST), { recursive: true });
     rmSync(remoteOf(REPO), { recursive: true });
@@ -559,7 +559,7 @@ describe("kodor sync --check --against the base branch's commit", () => {
     const r = await sync([...AGAINST, "--public"], base);
     expect(r.code).toBe(1);
     expect(r.err).toEqual([
-      `✗ .claude/kodor.lock: ${ACME} at ${short()} does not match what that commit holds. Run: kodor update`,
+      `✗ .claude/lunamill.lock: ${ACME} at ${short()} does not match what that commit holds. Run: lunamill update`,
     ]);
   });
 
@@ -595,7 +595,7 @@ describe("kodor sync --check --against the base branch's commit", () => {
       const r = await sync(AGAINST, base);
       expect(r.code).toBe(1);
       expect(r.err).toEqual([
-        `✗ .claude/kodor.lock: ${ACME} at ${short()} does not match what that commit holds. Run: kodor update`,
+        `✗ .claude/lunamill.lock: ${ACME} at ${short()} does not match what that commit holds. Run: lunamill update`,
       ]);
       expect(r.out).toEqual([]);
     },
@@ -626,41 +626,41 @@ describe("kodor sync --check --against the base branch's commit", () => {
       const r = await sync(AGAINST, base);
       expect(r.code).toBe(1);
       expect(r.err).toEqual([
-        `✗ .claude/kodor.lock: the settings or files recorded for ${NODE} changed, and its commit did not. Restore the lock from the default branch, then run: kodor sync`,
+        `✗ .claude/lunamill.lock: the settings or files recorded for ${NODE} changed, and its commit did not. Restore the lock from the default branch, then run: lunamill sync`,
       ]);
       expect(r.git).toEqual([]);
     },
   );
 });
 
-describe("the choices kodor sync drops", () => {
+describe("the choices lunamill sync drops", () => {
   it("drops a choice whose preset is no longer listed, deleting the emptied file", async () => {
     acme();
-    put(root, ".claude/kodor.yaml", own([NODE]));
+    put(root, ".claude/lunamill.yaml", own([NODE]));
     put(
       root,
-      ".claude/kodor.choices.yaml",
+      ".claude/lunamill.choices.yaml",
       `rules.small-change-lines: ${ACME}\n`,
     );
     const r = await sync();
     expect(r.out).toContain(
       `dropped the choice for rules.small-change-lines: ${ACME} is no longer in presets`,
     );
-    expect(read(root, ".claude/kodor.choices.yaml")).toBeNull();
+    expect(read(root, ".claude/lunamill.choices.yaml")).toBeNull();
   });
 
   it("drops a choice whose preset no longer sets its key", async () => {
     acme();
     put(
       root,
-      ".claude/kodor.choices.yaml",
+      ".claude/lunamill.choices.yaml",
       `rules.small-change-lines: ${NODE}\ncommands.gate: ${ACME}\n`,
     );
     const r = await sync();
     expect(r.out).toContain(
       `dropped the choice for commands.gate: ${ACME} no longer sets it`,
     );
-    expect(read(root, ".claude/kodor.choices.yaml")).toContain(
+    expect(read(root, ".claude/lunamill.choices.yaml")).toContain(
       `rules.small-change-lines: ${NODE}`,
     );
   });
@@ -689,13 +689,13 @@ describe("a repository whose preset's repository runs the organization's poller"
       },
     });
     expect((await sync()).code).toBe(0);
-    const file = load(read(root, ".github/workflows/kodor.yml")!) as {
+    const file = load(read(root, ".github/workflows/lunamill.yml")!) as {
       on: { schedule: { cron: string }[] };
-      jobs: { kodor: { with: { parts: string } } };
+      jobs: { lunamill: { with: { parts: string } } };
     };
     return {
       crons: file.on.schedule.map((s) => s.cron),
-      parts: file.jobs.kodor.with.parts.split(" "),
+      parts: file.jobs.lunamill.with.parts.split(" "),
       settings: await loadSettings(defaultDeps(root, {})),
     };
   };
@@ -723,7 +723,7 @@ describe("a repository whose preset's repository runs the organization's poller"
     ).toBe(settings.repository);
     expect(targetOf(settings, {}).watch).toEqual({
       minutes: 45,
-      flag: "not started, is the poller in acme/kodor-config running?",
+      flag: "not started, is the poller in acme/lunamill-config running?",
     });
     expect(
       (await resolveFiles(filesDeps(root, {}))).settings.builds.pollerIn,

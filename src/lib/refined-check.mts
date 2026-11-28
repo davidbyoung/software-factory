@@ -1,6 +1,6 @@
 // Whether a refined ticket's body is one a build can read: the check
-// `kodor ticket refined` makes before it posts the marker, for the
-// kodor's own refiner as for a plugin's. It reads headings only, never
+// `lunamill ticket refined` makes before it posts the marker, for the
+// lunamill's own refiner as for a plugin's. It reads headings only, never
 // what a section says.
 
 import { fencedLines } from "./fences.mts";
@@ -74,7 +74,7 @@ function threatsMissing(
 }
 
 /** Each part a build needs that the ticket's body lacks, as the line
- * `kodor ticket refined` prints for it; none when the ticket is sound.
+ * `lunamill ticket refined` prints for it; none when the ticket is sound.
  * A ticket without the `spec` label needs its decisions and at least one acceptance
  * criterion. One with it needs its decisions, a spec with a capability
  * and a numbered line, and the builder's design and tasks. Either needs

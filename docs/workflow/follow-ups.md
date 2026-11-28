@@ -38,14 +38,14 @@ Decide about each one while you review the pull request:
   empty. In the cloud, that starts
   [an answer](../features/cloud-builds.md#what-a-build-in-the-cloud-does). For a pull request
   built on your computer, the session that built it answers, if it is still
-  open. Otherwise start one with `/kodor-address-review 90`, 90 being the
+  open. Otherwise start one with `/lunamill-address-review 90`, 90 being the
   pull request's number.
 - **To drop it,** leave its checkbox empty. It stays in the description to
   read.
 
 **It worked when** the description says, a few minutes after you merge,
 "Opened #101." after each follow-up you ticked. Each new ticket waits in
-your backlog until you refine it, with `/kodor-refine 101`. If one is
+your backlog until you refine it, with `/lunamill-refine 101`. If one is
 missing, open the repository's Actions tab, find the failed run with the job
 "Open the ticked tickets", and re-run it. It never opens a ticket twice.
 

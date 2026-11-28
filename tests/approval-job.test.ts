@@ -27,7 +27,7 @@ import {
 } from "../src/approval-job.mts";
 import { runCommand, type Input, type Ran } from "../src/approval-policies.mts";
 import {
-  KODOR_POLICY,
+  LUNAMILL_POLICY,
   parseSettings,
   type ApprovalPolicy,
 } from "../src/config.mts";
@@ -415,14 +415,14 @@ describe("running the checks", () => {
     expect(s.answer).toEqual({ kind: "nothing" });
   });
 
-  it("runs no agent on a one-sentence change to a docs page, under kodor's own policy", async () => {
+  it("runs no agent on a one-sentence change to a docs page, under lunamill's own policy", async () => {
     const r = repository(false);
     put(
       r.checkout,
       ".claude/approval-policies/credentials/find.mts",
       readFileSync("approval-policies/credentials/find.mts", "utf8"),
     );
-    const { in: _, ...credentials } = KODOR_POLICY;
+    const { in: _, ...credentials } = LUNAMILL_POLICY;
     const s = setup(
       { policies: [credentials], env: { CLAUDE_CODE_OAUTH_TOKEN: "t" } },
       r,
@@ -793,7 +793,7 @@ describe("the run that kept an artifact", () => {
   });
 });
 
-describe("kodor approval-policies check", () => {
+describe("lunamill approval-policies check", () => {
   /** The checkout on a branch whose working folder changes `files`. */
   function local(
     files: Record<string, string>,
@@ -911,7 +911,7 @@ describe("kodor approval-policies check", () => {
       }),
     ).toBe(1);
     expect(l.err).toEqual([
-      "✗ licenses: node check.mjs failed (exit 1). Fix it, then run: kodor approval-policies check",
+      "✗ licenses: node check.mjs failed (exit 1). Fix it, then run: lunamill approval-policies check",
       "  TypeError: boom",
       "      at check.mjs:9:30",
     ]);

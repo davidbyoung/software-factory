@@ -1,6 +1,6 @@
 // Reading a preset's repository with git, against local repositories: the
 // newest commit, one commit in the cache, the sign-in each owner's is read
-// with, and what `kodor update` and the check of a moved pin are built
+// with, and what `lunamill update` and the check of a moved pin are built
 // from.
 import { existsSync, rmSync } from "node:fs";
 import { devNull } from "node:os";
@@ -46,7 +46,7 @@ import {
 let root = "";
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 
-const REPO = "acme/kodor-config";
+const REPO = "acme/lunamill-config";
 const BASE = { "": { settings: "version: 1\n", agents: { a: "one\n" } } };
 
 /** The fixture's reader, recording each call it makes to git. */
@@ -103,8 +103,10 @@ describe("one commit of a preset's repository in the cache", () => {
     const { d, calls } = recording();
     expect(cachedCommit(d, REPO, first)).toBeNull();
     const dir = fetchCommit(d, REPO, first);
-    expect(dir).toBe(join(CACHE, "presets", HOST, "acme/kodor-config", first));
-    expect(read(dir, "kodor-preset.yaml")).toBe("version: 1\n");
+    expect(dir).toBe(
+      join(CACHE, "presets", HOST, "acme/lunamill-config", first),
+    );
+    expect(read(dir, "lunamill-preset.yaml")).toBe("version: 1\n");
     expect(calls.map((c) => c.args.filter((a) => !a.startsWith("/")))).toEqual([
       ["init", "--quiet"],
       ["fetch", "--quiet", "--depth", "1", first],
@@ -158,12 +160,12 @@ describe("the sign-in a preset's repository is read with", () => {
   const d = (env: Record<string, string | undefined>) => ({
     env,
     repository: "acme/billing",
-    cache: "/home/sam/.cache/kodor",
+    cache: "/home/sam/.cache/lunamill",
   });
 
   it("is the same owner's when the first part of its name is the repository's owner", () => {
-    expect(sameOwner("acme/kodor-config", "acme/billing")).toBe(true);
-    expect(sameOwner("Acme/kodor-config", "acme/billing")).toBe(true);
+    expect(sameOwner("acme/lunamill-config", "acme/billing")).toBe(true);
+    expect(sameOwner("Acme/lunamill-config", "acme/billing")).toBe(true);
     expect(sameOwner("acme/platform/config", "acme/billing")).toBe(true);
     expect(sameOwner("foo/presets", "acme/billing")).toBe(false);
   });
@@ -195,10 +197,10 @@ describe("the sign-in a preset's repository is read with", () => {
       ]);
       expect(env.GIT_CONFIG_KEY_1).toBe("credential.helper");
       expect(env.GIT_CONFIG_VALUE_1).toContain(
-        'echo "password=$KODOR_PRESET_TOKEN"',
+        'echo "password=$LUNAMILL_PRESET_TOKEN"',
       );
       expect(env.GIT_CONFIG_VALUE_1).not.toContain("s3cret");
-      expect(env.KODOR_PRESET_TOKEN).toBe("s3cret");
+      expect(env.LUNAMILL_PRESET_TOKEN).toBe("s3cret");
       expect(env.GIT_TERMINAL_PROMPT).toBe("0");
     },
   );
@@ -208,9 +210,9 @@ describe("the sign-in a preset's repository is read with", () => {
       { ...d({ PATH: "/bin" }), signIn: () => "gho_machine" },
       REPO,
     );
-    expect(env.KODOR_PRESET_TOKEN).toBe("gho_machine");
+    expect(env.LUNAMILL_PRESET_TOKEN).toBe("gho_machine");
     expect(env.GIT_CONFIG_VALUE_1).toContain(
-      'echo "password=$KODOR_PRESET_TOKEN"',
+      'echo "password=$LUNAMILL_PRESET_TOKEN"',
     );
   });
 
@@ -221,17 +223,18 @@ describe("the sign-in a preset's repository is read with", () => {
       return "gho_machine";
     };
     expect(
-      gitEnv({ ...d({ GH_TOKEN: "s3cret" }), signIn }, REPO).KODOR_PRESET_TOKEN,
+      gitEnv({ ...d({ GH_TOKEN: "s3cret" }), signIn }, REPO)
+        .LUNAMILL_PRESET_TOKEN,
     ).toBe("s3cret");
     expect(
-      gitEnv({ ...d({}), signIn }, "foo/presets").KODOR_PRESET_TOKEN,
+      gitEnv({ ...d({}), signIn }, "foo/presets").LUNAMILL_PRESET_TOKEN,
     ).toBeUndefined();
     expect(asked).toBe(0);
   });
 
   it("is the machine's own when the code host's tool is signed in as nobody", () => {
     const env = gitEnv({ ...d({ PATH: "/bin" }), signIn: () => null }, REPO);
-    expect(env.KODOR_PRESET_TOKEN).toBeUndefined();
+    expect(env.LUNAMILL_PRESET_TOKEN).toBeUndefined();
     expect(env.GIT_CONFIG_COUNT).toBeUndefined();
   });
 
@@ -344,7 +347,7 @@ describe("a preset at one commit", () => {
       "": {
         settings: "version: 1\n",
         others: {
-          ".github/workflows/kodor-poller.yml": "name: Factory poller\n",
+          ".github/workflows/lunamill-poller.yml": "name: Factory poller\n",
         },
       },
       node: { settings: "version: 1\n" },
@@ -355,7 +358,7 @@ describe("a preset at one commit", () => {
       node: {
         settings: "version: 1\n",
         others: {
-          ".github/workflows/kodor-poller.yml": "name: Factory poller\n",
+          ".github/workflows/lunamill-poller.yml": "name: Factory poller\n",
         },
       },
     });
@@ -366,10 +369,10 @@ describe("a preset at one commit", () => {
     root = repo(own([]));
     const commit = publish(REPO, { node: { settings: "version: 1\n" } });
     expect(() => pinAt(fetching(), ACME, commit, load)).toThrow(
-      new PresetError(`${ACME}: no kodor-preset.yaml in ${REPO}`),
+      new PresetError(`${ACME}: no lunamill-preset.yaml in ${REPO}`),
     );
     expect(() => pinAt(fetching(), `${REPO}//go`, commit, load)).toThrow(
-      new PresetError(`${REPO}//go: no go/kodor-preset.yaml in ${REPO}`),
+      new PresetError(`${REPO}//go: no go/lunamill-preset.yaml in ${REPO}`),
     );
   });
 
@@ -462,8 +465,12 @@ describe("moving a preset's pin in the lock", () => {
       ...BASE,
       node: { settings: "version: 1\n" },
     });
-    const before = read(root, ".claude/kodor.lock")!;
-    put(root, ".claude/kodor.lock", `version: 1.2.3\n${before}files:\n  - a\n`);
+    const before = read(root, ".claude/lunamill.lock")!;
+    put(
+      root,
+      ".claude/lunamill.lock",
+      `version: 1.2.3\n${before}files:\n  - a\n`,
+    );
     const next = publish(REPO, {
       "": {
         settings: "version: 1\nrules:\n  review-rounds: 4\n",
@@ -483,7 +490,7 @@ describe("moving a preset's pin in the lock", () => {
       settings: { rules: { "review-rounds": 4 } },
       files: { ".claude/agents/a.md": fileHash("two\n") },
     });
-    const text = read(root, ".claude/kodor.lock")!;
+    const text = read(root, ".claude/lunamill.lock")!;
     const pins = pinsOf(text, load);
     expect(pins.map((p) => p.name)).toEqual([ACME, NODE]);
     expect(pins[0]).toEqual(moved);
@@ -496,7 +503,7 @@ describe("moving a preset's pin in the lock", () => {
     root = repo(own([ACME]));
     const commit = publish(REPO, BASE);
     await movePins(root, [{ name: ACME, commit }], fetching());
-    expect(pinsOf(read(root, ".claude/kodor.lock"), load)).toEqual([
+    expect(pinsOf(read(root, ".claude/lunamill.lock"), load)).toEqual([
       pinAt(fetching(), ACME, commit, load),
     ]);
   });
@@ -504,7 +511,7 @@ describe("moving a preset's pin in the lock", () => {
   it("leaves the lock as it was when one of several is not valid", async () => {
     root = repo(own([ACME, NODE]));
     install(root, REPO, { ...BASE, node: { settings: "version: 1\n" } });
-    const before = read(root, ".claude/kodor.lock");
+    const before = read(root, ".claude/lunamill.lock");
     const commit = publish(REPO, {
       "": { settings: "version: 1\nrules:\n  review-rounds: 4\n" },
       node: { settings: "version: 1\nrules:\n  review-rounds: zero\n" },
@@ -523,12 +530,12 @@ describe("moving a preset's pin in the lock", () => {
         `${NODE}: rules.review-rounds: must be a whole number above zero`,
       ),
     );
-    expect(read(root, ".claude/kodor.lock")).toBe(before);
+    expect(read(root, ".claude/lunamill.lock")).toBe(before);
   });
 });
 
 describe("what is wrong with a lock's pins beside the base lock's", () => {
-  const LOCK = ".claude/kodor.lock";
+  const LOCK = ".claude/lunamill.lock";
   const setUp = () => {
     root = repo(own([ACME]));
     install(root, REPO, BASE);
@@ -581,7 +588,7 @@ describe("what is wrong with a lock's pins beside the base lock's", () => {
       expect(
         pinFaults(fetching(), [{ ...pinned!, ...change }], [], load),
       ).toEqual([
-        `.claude/kodor.lock: ${ACME} at ${pinned!.commit.slice(0, 7)} does not match what that commit holds. Run: kodor update`,
+        `.claude/lunamill.lock: ${ACME} at ${pinned!.commit.slice(0, 7)} does not match what that commit holds. Run: lunamill update`,
       ]);
     },
   );
@@ -591,7 +598,7 @@ describe("what is wrong with a lock's pins beside the base lock's", () => {
     expect(
       pinFaults(fetching(), [{ ...pinned!, name: `${REPO}//go` }], [], load),
     ).toEqual([
-      `.claude/kodor.lock: ${REPO}//go at ${pinned!.commit.slice(0, 7)} does not match what that commit holds. Run: kodor update`,
+      `.claude/lunamill.lock: ${REPO}//go at ${pinned!.commit.slice(0, 7)} does not match what that commit holds. Run: lunamill update`,
     ]);
   });
 
@@ -606,7 +613,7 @@ describe("what is wrong with a lock's pins beside the base lock's", () => {
       expect(
         pinFaults(fetching(), [{ ...pins[0]!, ...change }], pins, load),
       ).toEqual([
-        `.claude/kodor.lock: the settings or files recorded for ${ACME} changed, and its commit did not. Restore the lock from the default branch, then run: kodor sync`,
+        `.claude/lunamill.lock: the settings or files recorded for ${ACME} changed, and its commit did not. Restore the lock from the default branch, then run: lunamill sync`,
       ]);
     },
   );
@@ -622,7 +629,7 @@ describe("what is wrong with a lock's pins beside the base lock's", () => {
     );
     expect(faults).toHaveLength(1);
     expect(faults[0]).toMatch(
-      /^\.claude\/kodor\.lock: acme\/kodor-config at 0123456 could not be read to check it: fatal: /,
+      /^\.claude\/lunamill\.lock: acme\/lunamill-config at 0123456 could not be read to check it: fatal: /,
     );
   });
 
@@ -660,11 +667,11 @@ describe("what is wrong with a lock's pins beside the base lock's", () => {
   });
 });
 
-describe("why a preset's repository could not be read, for kodor update", () => {
+describe("why a preset's repository could not be read, for lunamill update", () => {
   const git = new FetchError("fatal: Could not read from remote repository.");
 
   it("is git's last line, without its period, for a repository of the same owner", () => {
-    expect(whyUnread(git, "acme/kodor-config", "acme/web")).toBe(
+    expect(whyUnread(git, "acme/lunamill-config", "acme/web")).toBe(
       "fatal: Could not read from remote repository",
     );
   });
@@ -682,7 +689,7 @@ describe("a file at a revision of the repository", () => {
       "": { settings: "version: 1\n" },
     });
     const dir = remoteOf("acme/base-lock");
-    expect(fileAt(dir, commit, "kodor-preset.yaml")).toBe("version: 1\n");
-    expect(fileAt(dir, commit, ".claude/kodor.lock")).toBeNull();
+    expect(fileAt(dir, commit, "lunamill-preset.yaml")).toBe("version: 1\n");
+    expect(fileAt(dir, commit, ".claude/lunamill.lock")).toBeNull();
   });
 });

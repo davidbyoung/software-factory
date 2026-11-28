@@ -8,7 +8,7 @@ Which label the merge policy puts on a pull request, by the name the settings gi
 
 ### Requirement: Merge labels by their configured names
 
-kodor SHALL behave as this line says: When the merge policy labels a pull request, it adds the name `code-host.labels.merge-automatic` gives, or `code-host.labels.merge-manual`, and removes the other.
+lunamill SHALL behave as this line says: When the merge policy labels a pull request, it adds the name `code-host.labels.merge-automatic` gives, or `code-host.labels.merge-manual`, and removes the other.
 
 #### Scenario: Merge labels by their configured names
 
@@ -17,7 +17,7 @@ kodor SHALL behave as this line says: When the merge policy labels a pull reques
 
 ### Requirement: A pull request across repositories
 
-kodor SHALL behave as this line says: When a pull request links a ticket that names other repositories, or another repository's ticket, it is `merge-manual`, with the reason `part of acme/api#12, which spans repositories`.
+lunamill SHALL behave as this line says: When a pull request links a ticket that names other repositories, or another repository's ticket, it is `merge-manual`, with the reason `part of acme/api#12, which spans repositories`.
 
 #### Scenario: A pull request across repositories
 
@@ -26,7 +26,7 @@ kodor SHALL behave as this line says: When a pull request links a ticket that na
 
 ### Requirement: A policy with an agent waits for a person
 
-kodor SHALL behave as the scenario below says, in the Spec line's own words.
+lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A policy with an agent waits for a person
 
@@ -35,7 +35,7 @@ kodor SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: A policy with a command and an agent holds only on a finding
 
-kodor SHALL behave as the scenario below says, in the Spec line's own words.
+lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A policy with a command and an agent holds only on a finding
 

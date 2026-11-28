@@ -1,4 +1,4 @@
-// Every command kodor has, and how each one's module is loaded: only
+// Every command lunamill has, and how each one's module is loaded: only
 // when it runs, so a hook that runs before every shell command loads one
 // file and what it imports, not the whole tool.
 

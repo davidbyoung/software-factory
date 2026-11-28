@@ -36,7 +36,7 @@ import saved from "./fixtures/sync/repo.json";
 // The same repository as GitHub's GraphQL answers it, for the fake fetch.
 import repoPages from "./fixtures/sync/repo-graphql.json";
 import boardPages from "./fixtures/sync/board.json";
-import { KODOR_COLUMNS } from "./kodor-columns";
+import { LUNAMILL_COLUMNS } from "./lunamill-columns";
 import { CODE_HOST } from "./settings-fixture";
 import { builtOf, TOOLS } from "../src/tools.mts";
 import { memoryTickets } from "./memory-tickets";
@@ -44,15 +44,15 @@ import { FAKE_EMAIL, FAKE_TOKEN, withFakeTickets } from "./fake-tools";
 
 const NOW = Date.parse("2026-11-09T10:00:00Z");
 const ENV = {
-  KODOR_BOARD_OWNER: "acme",
-  KODOR_BOARD_NUMBER: "1",
-  KODOR_BOARD_TOKEN: "ghp_secret_github",
-  KODOR_READY_COLUMN: "Ready",
+  LUNAMILL_BOARD_OWNER: "acme",
+  LUNAMILL_BOARD_NUMBER: "1",
+  LUNAMILL_BOARD_TOKEN: "ghp_secret_github",
+  LUNAMILL_READY_COLUMN: "Ready",
 };
 const DISPATCH =
-  "https://api.github.com/repos/acme/widgets/actions/workflows/kodor.yml/dispatches";
+  "https://api.github.com/repos/acme/widgets/actions/workflows/lunamill.yml/dispatches";
 const LOCK_URL =
-  "https://api.github.com/repos/acme/widgets/contents/.claude/kodor.lock";
+  "https://api.github.com/repos/acme/widgets/contents/.claude/lunamill.lock";
 
 describe("selectToStart", () => {
   it("starts Ready tickets in key order, letters first and then the number as a number", () => {
@@ -212,11 +212,11 @@ describe("nextDelay", () => {
 
 describe("readConfig", () => {
   it("names every missing variable", () => {
-    expect(readConfig({ KODOR_BOARD_OWNER: "x" })).toEqual({
+    expect(readConfig({ LUNAMILL_BOARD_OWNER: "x" })).toEqual({
       missing: [
-        "KODOR_BOARD_NUMBER",
-        "KODOR_BOARD_TOKEN",
-        "KODOR_READY_COLUMN",
+        "LUNAMILL_BOARD_NUMBER",
+        "LUNAMILL_BOARD_TOKEN",
+        "LUNAMILL_READY_COLUMN",
       ],
     });
   });
@@ -224,21 +224,21 @@ describe("readConfig", () => {
   it("counts a ready column of only spaces as missing", () => {
     expect(
       readConfig({
-        KODOR_BOARD_OWNER: "x",
-        KODOR_BOARD_NUMBER: "1",
-        KODOR_BOARD_TOKEN: "t",
-        KODOR_READY_COLUMN: "  ",
+        LUNAMILL_BOARD_OWNER: "x",
+        LUNAMILL_BOARD_NUMBER: "1",
+        LUNAMILL_BOARD_TOKEN: "t",
+        LUNAMILL_READY_COLUMN: "  ",
       }),
-    ).toEqual({ missing: ["KODOR_READY_COLUMN"] });
+    ).toEqual({ missing: ["LUNAMILL_READY_COLUMN"] });
   });
 
   it("needs neither trigger variable", () => {
     expect(
       readConfig({
-        KODOR_BOARD_OWNER: "x",
-        KODOR_BOARD_NUMBER: "1",
-        KODOR_BOARD_TOKEN: "t",
-        KODOR_READY_COLUMN: "Ready",
+        LUNAMILL_BOARD_OWNER: "x",
+        LUNAMILL_BOARD_NUMBER: "1",
+        LUNAMILL_BOARD_TOKEN: "t",
+        LUNAMILL_READY_COLUMN: "Ready",
       }),
     ).toMatchObject({ owner: "x", number: 1 });
   });
@@ -257,7 +257,7 @@ function fakeFetch(answers: {
   boardPage?: unknown;
   /** The repository's page, in place of the recorded one. */
   repoPage?: unknown;
-  /** `.claude/kodor.lock` on the default branch: its text, or GitHub's
+  /** `.claude/lunamill.lock` on the default branch: its text, or GitHub's
    * answer. Not found unless given. */
   lock?: string | Answer;
 }) {
@@ -416,7 +416,7 @@ describe("tick", () => {
 
     const read = calls.find((c) => c.url === "https://api.github.com/graphql");
     expect(read?.headers).toMatchObject({
-      Authorization: `Bearer ${ENV.KODOR_BOARD_TOKEN}`,
+      Authorization: `Bearer ${ENV.LUNAMILL_BOARD_TOKEN}`,
       "User-Agent": "ready-poller",
     });
   });
@@ -438,10 +438,10 @@ describe("tick", () => {
     expect(order.slice(-2)).toEqual(["comments", "dispatch"]);
   });
 
-  it("starts no card in a column other than the one KODOR_READY_COLUMN names", async () => {
+  it("starts no card in a column other than the one LUNAMILL_READY_COLUMN names", async () => {
     const { d, state, comments, dispatches } = setup(
       {},
-      { ...ENV, KODOR_READY_COLUMN: "Ready for dev" },
+      { ...ENV, LUNAMILL_READY_COLUMN: "Ready for dev" },
     );
 
     await tick(d, state);
@@ -450,7 +450,7 @@ describe("tick", () => {
     expect(comments()).toEqual([]);
   });
 
-  it("starts a card in the column KODOR_READY_COLUMN names, and its comment names that column", async () => {
+  it("starts a card in the column LUNAMILL_READY_COLUMN names, and its comment names that column", async () => {
     const renamed = JSON.parse(
       JSON.stringify(boardPages[0]).replaceAll(
         '"name":"Ready"',
@@ -459,7 +459,7 @@ describe("tick", () => {
     );
     const { d, state, comments, dispatches } = setup(
       { boardPage: renamed },
-      { ...ENV, KODOR_READY_COLUMN: "Ready for dev" },
+      { ...ENV, LUNAMILL_READY_COLUMN: "Ready for dev" },
     );
 
     await tick(d, state);
@@ -617,13 +617,16 @@ describe("tick", () => {
   });
 
   it("logs the missing variables and reads nothing", async () => {
-    const { d, state, calls, logs } = setup({}, { KODOR_BOARD_OWNER: "acme" });
+    const { d, state, calls, logs } = setup(
+      {},
+      { LUNAMILL_BOARD_OWNER: "acme" },
+    );
 
     await tick(d, state);
 
     expect(calls).toEqual([]);
     expect(logs[0]).toMatch(
-      /^not polling: KODOR_BOARD_NUMBER, KODOR_BOARD_TOKEN, KODOR_READY_COLUMN not set/,
+      /^not polling: LUNAMILL_BOARD_NUMBER, LUNAMILL_BOARD_TOKEN, LUNAMILL_READY_COLUMN not set/,
     );
   });
 
@@ -649,7 +652,7 @@ describe("tick", () => {
 });
 
 describe("the poller you host", () => {
-  /** A lock as `kodor sync` writes it, written by factory `version`, with
+  /** A lock as `lunamill sync` writes it, written by factory `version`, with
    * `tickets` and `settings` adding lines under each. */
   function lockOf(
     o: {
@@ -664,7 +667,7 @@ describe("the poller you host", () => {
     } = {},
   ) {
     return [
-      "# Written by `kodor sync`. Do not edit.",
+      "# Written by `lunamill sync`. Do not edit.",
       `version: ${o.version ?? "0.2.0"}`,
       "presets: []",
       "settings:",
@@ -672,7 +675,7 @@ describe("the poller you host", () => {
       "  repository: acme/widgets",
       "  tickets:",
       "    type: github",
-      // `kodor config check` refuses columns with no board.
+      // `lunamill config check` refuses columns with no board.
       ...(o.board === "none"
         ? []
         : [
@@ -686,7 +689,7 @@ describe("the poller you host", () => {
             "      done: Done",
           ]),
       "    labels:",
-      `      kodor: ${o.label ?? "kodor"}`,
+      `      lunamill: ${o.label ?? "lunamill"}`,
       ...(o.tickets ?? []).map((l) => `    ${l}`),
       "  builds:",
       `    trigger: ${o.trigger ?? "own-server"}`,
@@ -700,7 +703,7 @@ describe("the poller you host", () => {
    * swapped between passes. */
   function host(
     over: Parameters<typeof fakeFetch>[0] = {},
-    env: Deps["env"] = { KODOR_BOARD_TOKEN: "ghp_secret_github" },
+    env: Deps["env"] = { LUNAMILL_BOARD_TOKEN: "ghp_secret_github" },
   ) {
     const answers: Parameters<typeof fakeFetch>[0] = {
       lock: lockOf(),
@@ -712,7 +715,7 @@ describe("the poller you host", () => {
   }
 
   const SETTINGS_LINE =
-    'settings from .claude/kodor.lock on trunk: board 1, ready column "Ready", label "kodor", 20 builds an hour';
+    'settings from .claude/lunamill.lock on trunk: board 1, ready column "Ready", label "lunamill", 20 builds an hour';
   const MANUAL =
     "not polling: builds.trigger is manual on trunk, not own-server";
 
@@ -726,12 +729,12 @@ describe("the poller you host", () => {
     ]);
   });
 
-  it("starts no card in Ready when the lock names another column, whatever KODOR_READY_COLUMN says", async () => {
+  it("starts no card in Ready when the lock names another column, whatever LUNAMILL_READY_COLUMN says", async () => {
     const { d, state, dispatches } = host(
       { lock: lockOf({ ready: "Approved" }) },
       {
-        KODOR_BOARD_TOKEN: "ghp_secret_github",
-        KODOR_READY_COLUMN: "Ready",
+        LUNAMILL_BOARD_TOKEN: "ghp_secret_github",
+        LUNAMILL_READY_COLUMN: "Ready",
       },
     );
 
@@ -744,9 +747,9 @@ describe("the poller you host", () => {
     const { d, state, calls } = host(
       { lock: lockOf({ board: "7" }) },
       {
-        KODOR_BOARD_TOKEN: "ghp_secret_github",
-        KODOR_BOARD_OWNER: "someone-else",
-        KODOR_BOARD_NUMBER: "1",
+        LUNAMILL_BOARD_TOKEN: "ghp_secret_github",
+        LUNAMILL_BOARD_OWNER: "someone-else",
+        LUNAMILL_BOARD_NUMBER: "1",
       },
     );
 
@@ -761,16 +764,16 @@ describe("the poller you host", () => {
     expect(new Set(boards.map(String))).toEqual(new Set(["acme,7"]));
   });
 
-  it("finds tickets by the label the lock names, whatever KODOR_LABEL says", async () => {
+  it("finds tickets by the label the lock names, whatever LUNAMILL_LABEL says", async () => {
     const renamed = JSON.parse(
       JSON.stringify(repoPages[0]).replaceAll(
-        '{"name":"kodor"}',
+        '{"name":"lunamill"}',
         '{"name":"built-by-factory"}',
       ),
     );
     const { d, state, dispatches } = host(
       { repoPage: renamed, lock: lockOf({ label: "built-by-factory" }) },
-      { KODOR_BOARD_TOKEN: "ghp_secret_github", KODOR_LABEL: "kodor" },
+      { LUNAMILL_BOARD_TOKEN: "ghp_secret_github", LUNAMILL_LABEL: "lunamill" },
     );
 
     await hosted(d, state);
@@ -778,13 +781,16 @@ describe("the poller you host", () => {
     expect(dispatches()).toHaveLength(1);
   });
 
-  it("keeps the hourly cap the lock sets, whatever KODOR_MAX_PER_HOUR says", async () => {
+  it("keeps the hourly cap the lock sets, whatever LUNAMILL_MAX_PER_HOUR says", async () => {
     const { d, state, dispatches, logs } = host(
       {
         ...withStarts({ ready: 5, started: 0, minutesAgo: 0 }),
         lock: lockOf({ max: 2 }),
       },
-      { KODOR_BOARD_TOKEN: "ghp_secret_github", KODOR_MAX_PER_HOUR: "20" },
+      {
+        LUNAMILL_BOARD_TOKEN: "ghp_secret_github",
+        LUNAMILL_MAX_PER_HOUR: "20",
+      },
     );
 
     await hosted(d, state);
@@ -809,11 +815,11 @@ describe("the poller you host", () => {
   it.each([
     [
       { ready: "Approved" },
-      'board 1, ready column "Approved", label "kodor", 20 builds an hour',
+      'board 1, ready column "Approved", label "lunamill", 20 builds an hour',
     ],
     [
       { board: "7" },
-      'board 7, ready column "Ready", label "kodor", 20 builds an hour',
+      'board 7, ready column "Ready", label "lunamill", 20 builds an hour',
     ],
     [
       { label: "built" },
@@ -821,7 +827,7 @@ describe("the poller you host", () => {
     ],
     [
       { max: 5 },
-      'board 1, ready column "Ready", label "kodor", 5 builds an hour',
+      'board 1, ready column "Ready", label "lunamill", 5 builds an hour',
     ],
   ])("logs the settings again when %o changes", async (change, read) => {
     const { d, state, logs, answers } = host();
@@ -832,30 +838,30 @@ describe("the poller you host", () => {
 
     expect(logs.filter((l) => l.startsWith("settings from"))).toEqual([
       SETTINGS_LINE,
-      `settings from .claude/kodor.lock on trunk: ${read}`,
+      `settings from .claude/lunamill.lock on trunk: ${read}`,
     ]);
   });
 
   it.each([
     [
-      { KODOR_LABEL: "kodor" },
-      "KODOR_LABEL is no longer read: the settings on trunk are. Take it out of the poller's environment.",
+      { LUNAMILL_LABEL: "lunamill" },
+      "LUNAMILL_LABEL is no longer read: the settings on trunk are. Take it out of the poller's environment.",
     ],
     [
       {
-        KODOR_MAX_PER_HOUR: "20",
-        KODOR_BOARD_OWNER: "acme",
-        KODOR_READY_COLUMN: "Ready",
-        KODOR_BOARD_NUMBER: " ",
+        LUNAMILL_MAX_PER_HOUR: "20",
+        LUNAMILL_BOARD_OWNER: "acme",
+        LUNAMILL_READY_COLUMN: "Ready",
+        LUNAMILL_BOARD_NUMBER: " ",
       },
-      "KODOR_BOARD_OWNER, KODOR_READY_COLUMN, KODOR_MAX_PER_HOUR are no longer read: the settings on trunk are. Take them out of the poller's environment.",
+      "LUNAMILL_BOARD_OWNER, LUNAMILL_READY_COLUMN, LUNAMILL_MAX_PER_HOUR are no longer read: the settings on trunk are. Take them out of the poller's environment.",
     ],
   ])(
     "names the variables it no longer reads, once, before the settings",
     async (old, line) => {
       const { d, state, logs } = host(
         {},
-        { KODOR_BOARD_TOKEN: "ghp_secret_github", ...old },
+        { LUNAMILL_BOARD_TOKEN: "ghp_secret_github", ...old },
       );
 
       await hosted(d, state);
@@ -878,7 +884,7 @@ describe("the poller you host", () => {
     [
       "no lock on the default branch",
       { lock: { status: 404, body: { message: "Not Found" } } },
-      "no .claude/kodor.lock on trunk yet. Merge the pull request that sets kodor up.",
+      "no .claude/lunamill.lock on trunk yet. Merge the pull request that sets lunamill up.",
     ],
     [
       "a manual trigger",
@@ -898,22 +904,22 @@ describe("the poller you host", () => {
     [
       "a cap it can't read, from its own release",
       { lock: lockOf({ max: 0 }) },
-      ".claude/kodor.lock on trunk: builds.max-per-hour: must be a whole number, 1 or more",
+      ".claude/lunamill.lock on trunk: builds.max-per-hour: must be a whole number, 1 or more",
     ],
     [
       "a cap it can't read, from another release",
       { lock: lockOf({ max: 0, version: "0.3.0" }) },
-      ".claude/kodor.lock on trunk: builds.max-per-hour: must be a whole number, 1 or more (written by kodor 0.3.0, and this poller is 0.2.0: run ghcr.io/kodor-ai/kodor-poller:0.3.0)",
+      ".claude/lunamill.lock on trunk: builds.max-per-hour: must be a whole number, 1 or more (written by lunamill 0.3.0, and this poller is 0.2.0: run ghcr.io/lunamill-ai/lunamill-poller:0.3.0)",
     ],
     [
       "a ready column of none",
       { lock: lockOf({ ready: "none" }) },
-      ".claude/kodor.lock on trunk: tickets.columns.ready: no column shows ready, so nothing would start a build: name one, or set builds.trigger to manual",
+      ".claude/lunamill.lock on trunk: tickets.columns.ready: no column shows ready, so nothing would start a build: name one, or set builds.trigger to manual",
     ],
     [
       "a lock with no settings",
       { lock: "version: 0.1.0\npresets: []\n" },
-      ".claude/kodor.lock on trunk: is from an earlier version of kodor. Run: kodor sync (written by kodor 0.1.0, and this poller is 0.2.0: run ghcr.io/kodor-ai/kodor-poller:0.1.0)",
+      ".claude/lunamill.lock on trunk: is from an earlier version of lunamill. Run: lunamill sync (written by lunamill 0.1.0, and this poller is 0.2.0: run ghcr.io/lunamill-ai/lunamill-poller:0.1.0)",
     ],
   ])("starts nothing with %s, and says why", async (_, answers, reason) => {
     const { d, state, logs, comments, dispatches } = host(answers);
@@ -934,7 +940,7 @@ describe("the poller you host", () => {
 
     expect(dispatches()).toEqual([]);
     expect(logs).toEqual([
-      "not polling: .claude/kodor.lock on trunk: tickets.columns.ready: no column shows ready, so nothing would start a build: name one, or set builds.trigger to manual",
+      "not polling: .claude/lunamill.lock on trunk: tickets.columns.ready: no column shows ready, so nothing would start a build: name one, or set builds.trigger to manual",
     ]);
   });
 
@@ -958,11 +964,13 @@ describe("the poller you host", () => {
 
     expect(dispatches()).toEqual([]);
     expect(logs).toHaveLength(1);
-    expect(logs[0]).toMatch(/^not polling: \.claude\/kodor\.lock on trunk: \S/);
+    expect(logs[0]).toMatch(
+      /^not polling: \.claude\/lunamill\.lock on trunk: \S/,
+    );
     expect(logs[0]).not.toContain("\n");
   });
 
-  it("names kodor's own version when the test gives none", async () => {
+  it("names lunamill's own version when the test gives none", async () => {
     const own = JSON.parse(readFileSync("package.json", "utf8")).version;
     const { d, state, logs } = host({
       lock: lockOf({ max: 0, version: "9.9.9" }),
@@ -1012,7 +1020,7 @@ describe("the poller you host", () => {
     await hosted(d, state);
 
     expect(logs).toEqual([
-      "not polling: no .claude/kodor.lock on trunk yet. Merge the pull request that sets kodor up.",
+      "not polling: no .claude/lunamill.lock on trunk yet. Merge the pull request that sets lunamill up.",
       MANUAL,
     ]);
   });
@@ -1075,7 +1083,7 @@ describe("the poller you host", () => {
     expect(dispatches()).toEqual([]);
   });
 
-  it.each([{}, { KODOR_BOARD_TOKEN: "  " }])(
+  it.each([{}, { LUNAMILL_BOARD_TOKEN: "  " }])(
     "polls nothing without a token, and counts it",
     async (env) => {
       const { d, state, calls, logs } = host({}, env);
@@ -1083,7 +1091,7 @@ describe("the poller you host", () => {
       await hosted(d, state);
 
       expect(calls).toEqual([]);
-      expect(logs).toEqual(["not polling: KODOR_BOARD_TOKEN not set"]);
+      expect(logs).toEqual(["not polling: LUNAMILL_BOARD_TOKEN not set"]);
       expect(state.failuresInARow).toBe(1);
     },
   );
@@ -1095,7 +1103,7 @@ describe("the poller you host", () => {
 
     expect(logs).toEqual([
       "ready-poller started for acme/widgets",
-      "not polling: KODOR_BOARD_TOKEN not set",
+      "not polling: LUNAMILL_BOARD_TOKEN not set",
     ]);
   });
 
@@ -1134,10 +1142,10 @@ describe("onceSettings", () => {
     );
 
   it("takes the board and the Ready column from the settings", () => {
-    expect(read({ tickets: { board: 7, columns: KODOR_COLUMNS } })).toEqual({
+    expect(read({ tickets: { board: 7, columns: LUNAMILL_COLUMNS } })).toEqual({
       board: 7,
       ready: "Ready",
-      kodor: "kodor",
+      lunamill: "lunamill",
       maxPerHour: 20,
       ticketSystem: { type: "github", options: {}, own: true },
     });
@@ -1154,7 +1162,7 @@ describe("onceSettings", () => {
           type: "fake",
           site: "acme.example",
           board: 7,
-          columns: KODOR_COLUMNS,
+          columns: LUNAMILL_COLUMNS,
         },
       },
       () => true,
@@ -1172,7 +1180,7 @@ describe("onceSettings", () => {
       read({
         tickets: {
           board: 7,
-          columns: { ...KODOR_COLUMNS, ready: "Ready for dev" },
+          columns: { ...LUNAMILL_COLUMNS, ready: "Ready for dev" },
         },
       }),
     ).toMatchObject({
@@ -1188,7 +1196,7 @@ describe("onceSettings", () => {
   it("has no Ready column when the settings set it to none", () => {
     expect(
       read({
-        tickets: { board: 7, columns: { ...KODOR_COLUMNS, ready: "none" } },
+        tickets: { board: 7, columns: { ...LUNAMILL_COLUMNS, ready: "none" } },
         builds: { trigger: "manual" },
       }).ready,
     ).toBeNull();
@@ -1267,18 +1275,18 @@ describe("the ticket system the poller opens", () => {
       state,
     );
     expect(logs).toEqual([
-      "read failed (1 in a row): No Fake Tickets credential for acme.example. Set FAKE_TICKETS_EMAIL and FAKE_TICKETS_TOKEN, or run: kodor init",
+      "read failed (1 in a row): No Fake Tickets credential for acme.example. Set FAKE_TICKETS_EMAIL and FAKE_TICKETS_TOKEN, or run: lunamill init",
     ]);
     expect(state.failuresInARow).toBe(1);
   });
 });
 
 describe("once", () => {
-  const TOKEN = { KODOR_BOARD_TOKEN: ENV.KODOR_BOARD_TOKEN };
+  const TOKEN = { LUNAMILL_BOARD_TOKEN: ENV.LUNAMILL_BOARD_TOKEN };
   const settings = {
     board: 1,
     ready: "Ready",
-    kodor: "kodor",
+    lunamill: "lunamill",
   };
 
   it("starts each Ready ticket and returns 0", async () => {
@@ -1317,28 +1325,28 @@ describe("once", () => {
     expect(logs[0]).toMatch(/^read failed/);
   });
 
-  it("returns 1, naming the token, when KODOR_BOARD_TOKEN is not set", async () => {
+  it("returns 1, naming the token, when LUNAMILL_BOARD_TOKEN is not set", async () => {
     const { d, logs } = setup({}, {});
 
     expect(await once(settings, d)).toBe(1);
-    expect(logs).toContain("not polling: KODOR_BOARD_TOKEN not set");
+    expect(logs).toContain("not polling: LUNAMILL_BOARD_TOKEN not set");
   });
 
   it.each([
     [
       { board: null, ready: "Ready" },
-      "No board to read: tickets.board is not set in .claude/kodor.yaml.",
+      "No board to read: tickets.board is not set in .claude/lunamill.yaml.",
     ],
     [
       { board: 1, ready: null },
-      "No card can start a build: the Ready column is none in .claude/kodor.yaml.",
+      "No card can start a build: the Ready column is none in .claude/lunamill.yaml.",
     ],
   ])(
     "returns 1 and reads nothing when the settings give it nothing to poll",
     async (given, said) => {
       const { d, calls, logs } = setup({}, TOKEN);
 
-      expect(await once({ ...given, kodor: "kodor" }, d)).toBe(1);
+      expect(await once({ ...given, lunamill: "lunamill" }, d)).toBe(1);
       expect(calls).toEqual([]);
       expect(logs).toEqual([said]);
     },
@@ -1358,9 +1366,9 @@ describe("a line the poller prints", () => {
 });
 
 describe("the poller's start", () => {
-  it("exits with a message naming KODOR_REPOSITORY when it is not set", () => {
+  it("exits with a message naming LUNAMILL_REPOSITORY when it is not set", () => {
     const env = { ...process.env };
-    delete env.KODOR_REPOSITORY;
+    delete env.LUNAMILL_REPOSITORY;
     const r = spawnSync("node", ["src/poller.mts"], {
       env,
       encoding: "utf8",
@@ -1368,7 +1376,7 @@ describe("the poller's start", () => {
     });
 
     expect(r.status).toBe(1);
-    expect(r.stdout + r.stderr).toContain("KODOR_REPOSITORY is not set");
+    expect(r.stdout + r.stderr).toContain("LUNAMILL_REPOSITORY is not set");
   });
 });
 
@@ -1376,7 +1384,7 @@ describe("poller.Dockerfile", () => {
   const file = readFileSync("poller.Dockerfile", "utf8");
   const name = JSON.parse(readFileSync("package.json", "utf8")).name as string;
 
-  it("installs kodor's published version the build names, without its dev tools", () => {
+  it("installs lunamill's published version the build names, without its dev tools", () => {
     expect(file).toMatch(/^ARG VERSION$/m);
     expect(file).toContain(`npm install --omit=dev`);
     expect(file).toContain(`"${name}@\${VERSION}"`);
@@ -1384,7 +1392,7 @@ describe("poller.Dockerfile", () => {
 
   it("names this repository as its source, so Dependabot can read its versions", () => {
     expect(file).toMatch(
-      /^LABEL org\.opencontainers\.image\.source="https:\/\/github\.com\/kodor-ai\/kodor"$/m,
+      /^LABEL org\.opencontainers\.image\.source="https:\/\/github\.com\/lunamill-ai\/lunamill"$/m,
     );
   });
 
@@ -1392,15 +1400,15 @@ describe("poller.Dockerfile", () => {
     expect(file).toMatch(/^USER node$/m);
     expect(file).toMatch(
       new RegExp(
-        `^CMD \\["node", "node_modules/${name.replace("/", "\\/")}/bin/kodor\\.js", "poller"\\]$`,
+        `^CMD \\["node", "node_modules/${name.replace("/", "\\/")}/bin/lunamill\\.js", "poller"\\]$`,
         "m",
       ),
     );
   });
 });
 
-describe("tickets without the kodor label", () => {
-  /** The recorded pages with the kodor label taken off ticket 12. */
+describe("tickets without the lunamill label", () => {
+  /** The recorded pages with the lunamill label taken off ticket 12. */
   const unlabeled = () => {
     const page = structuredClone(repoPages[0]) as {
       data: {
@@ -1413,7 +1421,9 @@ describe("tickets without the kodor label", () => {
     };
     for (const node of page.data.repository.open.nodes)
       if (node.number === 12)
-        node.labels.nodes = node.labels.nodes.filter((l) => l.name !== "kodor");
+        node.labels.nodes = node.labels.nodes.filter(
+          (l) => l.name !== "lunamill",
+        );
     return page;
   };
 
@@ -1429,16 +1439,16 @@ describe("tickets without the kodor label", () => {
     expect(logs.filter((l) => l.includes("#12"))).toEqual([]);
   });
 
-  it("finds the label by the name KODOR_LABEL gives it", async () => {
+  it("finds the label by the name LUNAMILL_LABEL gives it", async () => {
     const renamed = JSON.parse(
       JSON.stringify(repoPages[0]).replaceAll(
-        '{"name":"kodor"}',
+        '{"name":"lunamill"}',
         '{"name":"built-by-factory"}',
       ),
     );
     const { d, state, dispatches } = setup(
       { repoPage: renamed },
-      { ...ENV, KODOR_LABEL: "built-by-factory" },
+      { ...ENV, LUNAMILL_LABEL: "built-by-factory" },
     );
 
     await tick(d, state);
@@ -1450,10 +1460,10 @@ describe("tickets without the kodor label", () => {
 });
 
 describe("the hourly cap's setting", () => {
-  it("starts no more than KODOR_MAX_PER_HOUR says", async () => {
+  it("starts no more than LUNAMILL_MAX_PER_HOUR says", async () => {
     const { d, state, dispatches, logs } = setup(
       withStarts({ ready: 5, started: 0, minutesAgo: 0 }),
-      { ...ENV, KODOR_MAX_PER_HOUR: "2" },
+      { ...ENV, LUNAMILL_MAX_PER_HOUR: "2" },
     );
 
     await tick(d, state);
@@ -1467,13 +1477,13 @@ describe("the hourly cap's setting", () => {
   });
 
   it.each(["0", "two", "1.5"])(
-    "polls nothing with KODOR_MAX_PER_HOUR %s, and says why",
+    "polls nothing with LUNAMILL_MAX_PER_HOUR %s, and says why",
     async (max) => {
       const { d, state, calls, logs } = setup(
         {},
         {
           ...ENV,
-          KODOR_MAX_PER_HOUR: max,
+          LUNAMILL_MAX_PER_HOUR: max,
         },
       );
 
@@ -1481,7 +1491,7 @@ describe("the hourly cap's setting", () => {
 
       expect(calls).toEqual([]);
       expect(logs).toEqual([
-        "not polling: KODOR_MAX_PER_HOUR must be a whole number, 1 or more",
+        "not polling: LUNAMILL_MAX_PER_HOUR must be a whole number, 1 or more",
       ]);
     },
   );
@@ -1489,14 +1499,14 @@ describe("the hourly cap's setting", () => {
   it("passes builds.max-per-hour to a scheduled pass", async () => {
     const { d, dispatches } = setup(
       withStarts({ ready: 5, started: 0, minutesAgo: 0 }),
-      { KODOR_BOARD_TOKEN: ENV.KODOR_BOARD_TOKEN },
+      { LUNAMILL_BOARD_TOKEN: ENV.LUNAMILL_BOARD_TOKEN },
     );
 
     await once(
       {
         board: 1,
         ready: "Ready",
-        kodor: "kodor",
+        lunamill: "lunamill",
         maxPerHour: 3,
       },
       d,
@@ -1547,7 +1557,7 @@ describe("the board's order", () => {
   });
 });
 
-/** The preset `kodor init --org` writes for acme. */
+/** The preset `lunamill init --org` writes for acme. */
 const PRESET = [
   "# The preset for every acme repository.",
   "version: 1",
@@ -1569,13 +1579,17 @@ const PRESET = [
 
 describe("an organization's preset, as its one poller reads it", () => {
   const read = (lines: string[]) =>
-    presetSettings(lines.join("\n"), "kodor-preset.yaml", "acme/kodor-config");
+    presetSettings(
+      lines.join("\n"),
+      "lunamill-preset.yaml",
+      "acme/lunamill-config",
+    );
 
   it("takes the ticket system, the board, the Ready column, the labels, and the hourly cap", async () => {
     expect(await read(PRESET)).toEqual({
       board: 12,
       ready: "Ready",
-      kodor: "kodor",
+      lunamill: "lunamill",
       maxPerHour: 20,
       ticketSystem: { type: "github", options: {}, own: true },
     });
@@ -1590,11 +1604,11 @@ describe("an organization's preset, as its one poller reads it", () => {
         "plugins:",
         "  build:",
         "    reviewers:",
-        "      - agent: kodor-ui-reviewer",
+        "      - agent: lunamill-ui-reviewer",
         "        files: [src/**]",
         "  test:",
         "    reviewers:",
-        "      - agent: kodor-e2e-reviewer",
+        "      - agent: lunamill-e2e-reviewer",
         "        files: [e2e/**]",
         "site:",
         "  accessibility: wcag22aa",
@@ -1615,11 +1629,11 @@ describe("an organization's preset, as its one poller reads it", () => {
       lines.indexOf("pr-review: true"),
       0,
       "  labels:",
-      "    kodor: built-by-factory",
+      "    lunamill: built-by-factory",
     );
     expect(await read([...lines, "  max-per-hour: 3"])).toMatchObject({
       ready: "Ready for dev",
-      kodor: "built-by-factory",
+      lunamill: "built-by-factory",
       maxPerHour: 3,
     });
   });
@@ -1627,13 +1641,13 @@ describe("an organization's preset, as its one poller reads it", () => {
   it.each([
     [
       [...PRESET, "repository: acme/web"],
-      "kodor-preset.yaml: repository: a preset can't set this",
+      "lunamill-preset.yaml: repository: a preset can't set this",
     ],
     [
       PRESET.map((l) => (l === "  board: 12" ? "  board: twelve" : l)),
-      "kodor-preset.yaml: tickets.board: must be a whole number above zero, or none",
+      "lunamill-preset.yaml: tickets.board: must be a whole number above zero, or none",
     ],
-    [["version: 1", "tickets: ["], /^kodor-preset\.yaml: /],
+    [["version: 1", "tickets: ["], /^lunamill-preset\.yaml: /],
   ])(
     "refuses a preset no repository could follow, naming the file",
     async (lines, said) => {
@@ -1647,7 +1661,7 @@ describe("one pass for every repository on an organization's board", () => {
   const SETTINGS = {
     board: 12,
     ready: "Ready",
-    kodor: "kodor",
+    lunamill: "lunamill",
   };
   const answer = (status: number, body: unknown = {}, statusText = "") =>
     new Response(status === 204 ? null : JSON.stringify(body), {
@@ -1672,10 +1686,10 @@ describe("one pass for every repository on an organization's board", () => {
     dispatch?: Record<string, Response>;
     /** The repositories the token cannot read. */
     unreachable?: string[];
-    /** Each repository's own `.claude/kodor.yaml` on its default branch,
+    /** Each repository's own `.claude/lunamill.yaml` on its default branch,
      * or what GitHub answers in place of it; it has none unless given. */
     own?: Record<string, string | Response>;
-    /** Each repository's `.claude/kodor.lock` the same way. */
+    /** Each repository's `.claude/lunamill.lock` the same way. */
     lock?: Record<string, string | Response>;
     pages?: { repoPage: unknown; boardPage: unknown };
     settings?: Partial<Parameters<typeof onceEach>[0]>;
@@ -1728,8 +1742,13 @@ describe("one pass for every repository on an organization's board", () => {
           : answer(200, o.pages?.repoPage ?? repoPages[0]);
       }
       const path = /\/contents\/(.+)$/.exec(url)?.[1];
-      if (path === ".claude/kodor.yaml" || path === ".claude/kodor.lock") {
-        const file = (path === ".claude/kodor.yaml" ? o.own : o.lock)?.[repo];
+      if (
+        path === ".claude/lunamill.yaml" ||
+        path === ".claude/lunamill.lock"
+      ) {
+        const file = (path === ".claude/lunamill.yaml" ? o.own : o.lock)?.[
+          repo
+        ];
         if (file instanceof Response) return file.clone();
         return file === undefined
           ? answer(404, { message: "Not Found" }, "Not Found")
@@ -1747,10 +1766,10 @@ describe("one pass for every repository on an organization's board", () => {
     }) as typeof fetch;
     const logs: string[] = [];
     const d: Deps = {
-      repository: "acme/kodor-config",
+      repository: "acme/lunamill-config",
       fetch: fake,
       env: {
-        ...(o.token === null ? {} : { KODOR_BOARD_TOKEN: o.token ?? TOKEN }),
+        ...(o.token === null ? {} : { LUNAMILL_BOARD_TOKEN: o.token ?? TOKEN }),
         ...o.env,
       },
       now: () => NOW,
@@ -1767,7 +1786,7 @@ describe("one pass for every repository on an organization's board", () => {
     return {
       d,
       run: () =>
-        onceEach({ ...SETTINGS, ...o.settings }, d, "kodor-preset.yaml"),
+        onceEach({ ...SETTINGS, ...o.settings }, d, "lunamill-preset.yaml"),
       logs,
       calls,
       dispatches: () => sent("/dispatches"),
@@ -1812,8 +1831,8 @@ describe("one pass for every repository on an organization's board", () => {
       ["acme/api", build("main")],
     ]);
     expect(o.logs).toEqual([
-      "acme/web: #12 started st_0123456789ab: dispatched kodor.yml",
-      "acme/api: #12 started st_0123456789ab: dispatched kodor.yml",
+      "acme/web: #12 started st_0123456789ab: dispatched lunamill.yml",
+      "acme/api: #12 started st_0123456789ab: dispatched lunamill.yml",
     ]);
   });
 
@@ -1835,7 +1854,7 @@ describe("one pass for every repository on an organization's board", () => {
     expect(o.calls).toHaveLength(1);
   });
 
-  it("comments that the build could not start in a repository with no kodor.yml, and goes on to the next", async () => {
+  it("comments that the build could not start in a repository with no lunamill.yml, and goes on to the next", async () => {
     const o = org({
       ready: ["acme/web", "acme/api"],
       dispatch: { "acme/web": answer(404, {}, "Not Found") },
@@ -1865,7 +1884,7 @@ describe("one pass for every repository on an organization's board", () => {
     expect(await o.run()).toBe(0);
     expect(o.logs).toEqual([
       "acme/web: read failed (1 in a row): Error: GitHub graphql: Could not resolve to a Repository with the name 'acme/web'.",
-      "acme/api: #12 started st_0123456789ab: dispatched kodor.yml",
+      "acme/api: #12 started st_0123456789ab: dispatched lunamill.yml",
     ]);
     expect(o.dispatches()).toEqual([["acme/api", build("main")]]);
   });
@@ -1880,11 +1899,11 @@ describe("one pass for every repository on an organization's board", () => {
     expect(await o.run()).toBe(0);
     expect(o.logs).toEqual([
       "::warning::acme/web: read failed (1 in a row): Error: GitHub graphql: Could not resolve to a Repository with the name 'acme/web'.",
-      "acme/api: #12 started st_0123456789ab: dispatched kodor.yml",
+      "acme/api: #12 started st_0123456789ab: dispatched lunamill.yml",
     ]);
   });
 
-  const OWN = (trigger: string | null, presets = ["acme/kodor-config"]) =>
+  const OWN = (trigger: string | null, presets = ["acme/lunamill-config"]) =>
     [
       "version: 1",
       "repository: acme/web",
@@ -1894,7 +1913,7 @@ describe("one pass for every repository on an organization's board", () => {
       ...(trigger === null ? [] : ["builds:", `  trigger: ${trigger}`]),
       "",
     ].join("\n");
-  /** A lock as `kodor sync` writes it, pinning `presets` and recording
+  /** A lock as `lunamill sync` writes it, pinning `presets` and recording
    * the settings in effect, or, with a null trigger, none, as a lock from
    * an earlier release does. */
   const LOCK = (presets: string[], trigger: string | null) =>
@@ -1916,7 +1935,7 @@ describe("one pass for every repository on an organization's board", () => {
       "",
     ].join("\n");
   const STARTED_API =
-    "acme/api: #12 started st_0123456789ab: dispatched kodor.yml";
+    "acme/api: #12 started st_0123456789ab: dispatched lunamill.yml";
 
   describe("a repository whose own settings file sets builds.trigger", () => {
     it.each(["manual", "own-server"])(
@@ -1960,34 +1979,34 @@ describe("one pass for every repository on an organization's board", () => {
       const o = org({
         ready: ["acme/web"],
         own: file === undefined ? {} : { "acme/web": file },
-        lock: { "acme/web": LOCK(["acme/kodor-config"], "manual") },
+        lock: { "acme/web": LOCK(["acme/lunamill-config"], "manual") },
       });
 
       expect(await o.run()).toBe(0);
-      expect(o.ownReads()).toEqual([["acme/web", ".claude/kodor.yaml"]]);
+      expect(o.ownReads()).toEqual([["acme/web", ".claude/lunamill.yaml"]]);
       expect(o.dispatches()).toEqual([["acme/web", build("trunk")]]);
       expect(o.calls.map((c) => c.url)).not.toContainEqual(
-        expect.stringContaining("kodor-config/contents"),
+        expect.stringContaining("lunamill-config/contents"),
       );
     });
   });
 
   describe("a repository whose own settings file sets no builds.trigger", () => {
     const READS = [
-      ["acme/web", ".claude/kodor.yaml"],
-      ["acme/web", ".claude/kodor.lock"],
+      ["acme/web", ".claude/lunamill.yaml"],
+      ["acme/web", ".claude/lunamill.lock"],
     ];
 
     it.each<[string, string[], string]>([
-      ["a preset it follows says manual", ["acme/kodor-config"], "manual"],
+      ["a preset it follows says manual", ["acme/lunamill-config"], "manual"],
       [
         "a preset it follows says own-server",
-        ["acme/kodor-config"],
+        ["acme/lunamill-config"],
         "own-server",
       ],
       [
         "two presets disagree and the choice it recorded says own-server",
-        ["acme/kodor-config", "acme/kodor-config//node"],
+        ["acme/lunamill-config", "acme/lunamill-config//node"],
         "own-server",
       ],
     ])(
@@ -2030,7 +2049,7 @@ describe("one pass for every repository on an organization's board", () => {
       const o = org({
         ready: ["acme/web"],
         own: { "acme/web": OWN(null) },
-        lock: { "acme/web": LOCK(["acme/kodor-config"], "github-action") },
+        lock: { "acme/web": LOCK(["acme/lunamill-config"], "github-action") },
       });
 
       expect(await o.run()).toBe(0);
@@ -2044,7 +2063,7 @@ describe("one pass for every repository on an organization's board", () => {
       ["the lock is not YAML", "settings: ["],
       [
         "the lock is from a release that recorded no settings",
-        LOCK(["acme/kodor-config"], null),
+        LOCK(["acme/lunamill-config"], null),
       ],
       ["the lock does not pin a preset the file lists", LOCK([], "manual")],
     ])("is polled when %s", async (_, lock) => {
@@ -2083,22 +2102,22 @@ describe("one pass for every repository on an organization's board", () => {
     expect(o.logs[0]).toMatch(/^read failed: /);
   });
 
-  it("returns 1, naming the token, when KODOR_BOARD_TOKEN is not set", async () => {
+  it("returns 1, naming the token, when LUNAMILL_BOARD_TOKEN is not set", async () => {
     const o = org({ ready: ["acme/web"], token: null });
 
     expect(await o.run()).toBe(1);
-    expect(o.logs).toEqual(["not polling: KODOR_BOARD_TOKEN not set"]);
+    expect(o.logs).toEqual(["not polling: LUNAMILL_BOARD_TOKEN not set"]);
     expect(o.calls).toEqual([]);
   });
 
   it.each([
     [
       { board: null },
-      "No board to read: tickets.board is not set in kodor-preset.yaml.",
+      "No board to read: tickets.board is not set in lunamill-preset.yaml.",
     ],
     [
       { ready: null },
-      "No card can start a build: the Ready column is none in kodor-preset.yaml.",
+      "No card can start a build: the Ready column is none in lunamill-preset.yaml.",
     ],
   ])(
     "returns 1 and reads nothing when the preset gives it nothing to poll",
@@ -2111,7 +2130,7 @@ describe("one pass for every repository on an organization's board", () => {
     },
   );
 
-  describe("kodor poller --once --preset FILE", () => {
+  describe("lunamill poller --once --preset FILE", () => {
     const from = (
       o: ReturnType<typeof org>,
       env: Record<string, string>,
@@ -2119,12 +2138,12 @@ describe("one pass for every repository on an organization's board", () => {
     ) => {
       const { repository: _, ...rest } = o.d;
       return oncePreset(
-        "kodor-preset.yaml",
+        "lunamill-preset.yaml",
         { ...rest, env: { ...rest.env, ...env } },
         read,
       );
     };
-    const RUN = { GITHUB_REPOSITORY: "acme/kodor-config" };
+    const RUN = { GITHUB_REPOSITORY: "acme/lunamill-config" };
 
     it("reads the board the file names, owned by GITHUB_REPOSITORY's owner, and starts its repositories' tickets", async () => {
       const o = org({ ready: ["acme/web"] });
@@ -2141,7 +2160,7 @@ describe("one pass for every repository on an organization's board", () => {
 
       expect(await from(o, {})).toBe(1);
       expect(o.logs).toEqual([
-        "GITHUB_REPOSITORY is not set, so no owner's board can be read. Run this in a workflow of the repository that holds kodor-preset.yaml.",
+        "GITHUB_REPOSITORY is not set, so no owner's board can be read. Run this in a workflow of the repository that holds lunamill-preset.yaml.",
       ]);
       expect(o.calls).toEqual([]);
     });
@@ -2156,8 +2175,8 @@ describe("one pass for every repository on an organization's board", () => {
         }),
       ).toBe(1);
       expect(o.logs).toEqual([
-        "kodor-preset.yaml: version: must be 1: this file is version 2, see https://github.com/kodor-ai/kodor/blob/main/docs/maintain/upgrade-notes.md#moving-to-kodor",
-        "kodor-preset.yaml could not be read: ENOENT: no such file or directory",
+        "lunamill-preset.yaml: version: must be 1: this file is version 2, see https://github.com/lunamill-ai/lunamill/blob/main/docs/maintain/upgrade-notes.md#moving-to-lunamill",
+        "lunamill-preset.yaml could not be read: ENOENT: no such file or directory",
       ]);
       expect(o.calls).toEqual([]);
     });

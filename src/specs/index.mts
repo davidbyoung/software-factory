@@ -1,4 +1,4 @@
-// The spec tools kodor has built, by the name `specs` gives each.
+// The spec tools lunamill has built, by the name `specs` gives each.
 import { spawnSync } from "node:child_process";
 import { openspec } from "./openspec.mts";
 import type { Run, SpecTool } from "./types.mts";

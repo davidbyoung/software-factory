@@ -1,6 +1,6 @@
-// kodor's optional parts: which a repository has on, which secrets
-// they read, and which turn another on. `kodor init` and
-// `kodor doctor` share these rules; the secrets each tool reads come from
+// lunamill's optional parts: which a repository has on, which secrets
+// they read, and which turn another on. `lunamill init` and
+// `lunamill doctor` share these rules; the secrets each tool reads come from
 // its steps (`setup.mts`).
 import type { Settings } from "./config.mts";
 import type { Need } from "./setup.mts";
@@ -38,20 +38,20 @@ export const PART_TEXT: Record<Part, { name: string; gives: string }> = {
     gives: "changes to files you list as safe do not wait for you",
   },
   signing: {
-    name: "Signed commits on kodor's updates",
-    gives: "the pull requests that update kodor show as verified",
+    name: "Signed commits on lunamill's updates",
+    gives: "the pull requests that update lunamill show as verified",
   },
 };
 
 export const AGENT_TOKEN = "CLAUDE_CODE_OAUTH_TOKEN";
 export const AGENT_KEY = "ANTHROPIC_API_KEY";
-export const BOARD_TOKEN = "KODOR_BOARD_TOKEN";
-export const BUILD_TOKEN = "KODOR_BUILD_TOKEN";
-export const AUTOMERGE_TOKEN = "KODOR_AUTOMERGE_TOKEN";
-export const SIGNING_KEY = "KODOR_SIGNING_KEY";
+export const BOARD_TOKEN = "LUNAMILL_BOARD_TOKEN";
+export const BUILD_TOKEN = "LUNAMILL_BUILD_TOKEN";
+export const AUTOMERGE_TOKEN = "LUNAMILL_AUTOMERGE_TOKEN";
+export const SIGNING_KEY = "LUNAMILL_SIGNING_KEY";
 /** The key of an organization's app, which stands in for each token above
  * wherever the organization shares it. */
-export const APP_KEY = "KODOR_APP_PRIVATE_KEY";
+export const APP_KEY = "LUNAMILL_APP_PRIVATE_KEY";
 
 /** The parts on: those with a setting, from the settings; cloud builds,
  * when every secret the tools read for them is set; and signing, from its
@@ -113,11 +113,11 @@ export function resolveParts(
   return { parts, notes };
 }
 
-/** A secret read, by the tool whose step reads it, or kodor's own. */
+/** A secret read, by the tool whose step reads it, or lunamill's own. */
 export type Needed = Need & { tool: string };
 
 /** The secrets read for the parts on, from the tools' secret steps, with
- * the signing key, which is kodor's own. Each is met by any one of
+ * the signing key, which is lunamill's own. Each is met by any one of
  * its names. */
 export function neededSecrets(
   parts: ReadonlySet<Part>,
@@ -129,6 +129,6 @@ export function neededSecrets(
       .map((n) => ({ ...n, tool })),
   );
   if (parts.has("signing"))
-    out.push({ part: "signing", anyOf: [SIGNING_KEY], tool: "kodor" });
+    out.push({ part: "signing", anyOf: [SIGNING_KEY], tool: "lunamill" });
   return out;
 }

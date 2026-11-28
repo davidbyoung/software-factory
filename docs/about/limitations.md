@@ -1,9 +1,9 @@
 # Limitations
 
-What kodor does not do, what it assumes that nobody has tested, and
+What lunamill does not do, what it assumes that nobody has tested, and
 the risks that come with it. Read this before relying on it.
 
-The limits that come from today's tools rather than from kodor, such
+The limits that come from today's tools rather than from lunamill, such
 as a code host's billing or what its workflows can see, and what nobody
 has tested about one tool, are on that tool's page:
 [GitHub](../integrations/github.md#limits-that-come-from-github),
@@ -17,7 +17,7 @@ has tested about one tool, are on that tool's page:
 
 ## What it does not do
 
-- **One tool of each kind.** kodor reaches the code host, the ticket
+- **One tool of each kind.** lunamill reaches the code host, the ticket
   system, the board, and the cloud runner each through one interface, and
   the settings name which one you use
   ([`code-host.type`](../reference/settings/code-host.md#code-host),
@@ -34,28 +34,28 @@ has tested about one tool, are on that tool's page:
   ([A repository that is not JavaScript](../customize/any-language.md#a-repository-that-is-not-javascript)).
 - **A session your coding agent's vendor hosts is a machine too.** One
   such as [Claude Code on the web](../integrations/claude-code.md#limits-that-come-from-claude-code), which is
-  not kodor's session in the cloud, starts without kodor, and kodor's hooks stop its commands until it is there. Put the install
+  not lunamill's session in the cloud, starts without lunamill, and lunamill's hooks stop its commands until it is there. Put the install
   line in the setup of the environment the session runs in:
-  `npm install -g @kodor-ai/kodor`. The hooks then run,
+  `npm install -g @lunamill-ai/lunamill`. The hooks then run,
   and the commands that read only the repository work. What still does not
   work there is under
   [GitHub Actions](../integrations/github-actions.md#limits-that-come-from-github).
-- **A preset names no versions of kodor.** A preset has no version
-  of its own, and says nowhere which version of kodor it was written for. One
+- **A preset names no versions of lunamill.** A preset has no version
+  of its own, and says nowhere which version of lunamill it was written for. One
   that uses a setting your version does not know stops
-  `kodor preset add`, and fails the check on its update's pull
+  `lunamill preset add`, and fails the check on its update's pull
   request, with that setting's name
   ([Writing a preset](../customize/writing-a-preset.md#making-the-repository)).
 - **An organization cannot be set up on a self-hosted code host server,**
   only on the code host's own public service
   ([GitHub organizations](../integrations/github-organizations.md#limits-that-come-from-github)
-  says why). `kodor init --org` refuses any other address.
-- **Your own account gets no app.** `kodor init --org` is for an
+  says why). `lunamill init --org` refuses any other address.
+- **Your own account gets no app.** `lunamill init --org` is for an
   organization. On your own account, builds act with one access
   token of yours, since a board a person owns refuses an app's token
   ([Tokens and secrets](../security/credentials.md#who-handles-a-token)).
 - **An organization's poller runs only on a schedule,** in its
-  `kodor-config` repository. Nobody can host one for a whole
+  `lunamill-config` repository. Nobody can host one for a whole
   organization. A repository in an organization that is set up keeps its
   tickets from that poller by setting `builds.trigger: manual` in its
   own settings.
@@ -65,7 +65,7 @@ has tested about one tool, are on that tool's page:
   has the steps, and
   [Taking an organization's setup out](../maintain/removing.md#taking-an-organizations-setup-out)
   lists what an owner deletes.
-- **`kodor doctor` does not check the two tokens `kodor init` keeps
+- **`lunamill doctor` does not check the two tokens `lunamill init` keeps
   on your machine** on your own account, the code host's access token
   and the coding agent's
   ([The file on your machine](../security/credentials.md#the-file-on-your-machine)).
@@ -76,7 +76,7 @@ has tested about one tool, are on that tool's page:
   can't reach it
   ([GitHub Packages](../integrations/private-npm.md#github-packages)).
 - **A dependency bot's pull requests do not merge themselves under an
-  organization's app, as set up.** `kodor init --org` stores the app's
+  organization's app, as set up.** `lunamill init --org` stores the app's
   key only where the workflows read it, and the job that turns auto-merge
   on for one of the bot's pull requests reads the bot's own secrets.
   [GitHub organizations](../integrations/github-organizations.md#limits-that-come-from-github)
@@ -97,12 +97,12 @@ has tested about one tool, are on that tool's page:
 - **One repository's CI doesn't run against another's unmerged change.**
   Where it can only pass once the other is deployed, its pull request waits.
 - **With the automated review off, the order of a ticket's pull requests is
-  information only.** Nothing kodor posts is required there, so
+  information only.** Nothing lunamill posts is required there, so
   nothing holds the merge.
 - **Review by teams is your code host's to enforce.** A session obeys
   anyone who can write to the repository. Required reviewers for a
   folder, and a number of approvals before a merge, are rules you set on
-  the code host, and kodor's pull requests are held by them like
+  the code host, and lunamill's pull requests are held by them like
   any other.
 - **The order of the workflow is fixed.** A [plugin](../customize/plugins.md) of
   yours can replace how a ticket is refined, how a ticket with one of your
@@ -112,18 +112,18 @@ has tested about one tool, are on that tool's page:
   order still cannot change: you cannot add a state, leave one out, or
   reorder them ([why](design.md#the-order-of-the-workflow-is-fixed)).
 - **A build needs a gate you wrote.** With nothing under
-  [`commands.gate`](../reference/settings/commands.md#commandsgate), `kodor gate` fails
-  and a build stops there. kodor cannot guess how your repository is
+  [`commands.gate`](../reference/settings/commands.md#commandsgate), `lunamill gate` fails
+  and a build stops there. lunamill cannot guess how your repository is
   checked.
 - **A renamed default branch is read under its old name** until
   `git remote set-head origin --auto` runs in the checkout, which keeps
   the name in `origin/HEAD`. Where the remote whose address is your
   `repository` line's has another name, such as `upstream`, write that
-  name in place of `origin`. kodor reads the name there before it
+  name in place of `origin`. lunamill reads the name there before it
   asks the code host, so a stale one gives a stale answer: the commit hook
   then guards the old branch and not the new one. After the rename, run
-  that command in each checkout, then `kodor sync`, which writes the
-  name into `.github/workflows/kodor.yml`.
+  that command in each checkout, then `lunamill sync`, which writes the
+  name into `.github/workflows/lunamill.yml`.
 - **One lock file is rebuilt for you after a conflict,** the one
   [`commands.relock`](../reference/settings/commands.md#commandsrelock) rebuilds, npm's by
   default. A second, such as another package manager's beside npm's,
@@ -147,13 +147,13 @@ has tested about one tool, are on that tool's page:
 - **Nothing retries on its own.** A build that stops waits for you.
 - **A cloud session's commits are never signed,** on your own account or
   in an organization. No job that runs a session holds a signing key. The
-  pull requests that update kodor can be signed, on your own account
-  ([Set up a repository](../setup/repository.md#run-kodor-init)). Verified
+  pull requests that update lunamill can be signed, on your own account
+  ([Set up a repository](../setup/repository.md#run-lunamill-init)). Verified
   commits under an app are _[Planned](../developing.md#what-is-built)_, as
   ticket 77. A repository whose rules require signed commits on every
   branch cannot use cloud builds.
 - **Under an organization's app, `{user}` in a branch name is the app's
-  name,** such as `kodor-acme`, not a person's: an app's
+  name,** such as `lunamill-acme`, not a person's: an app's
   token names no user
   ([`code-host`](../reference/settings/code-host.md#code-host)).
 - **A cloud build cannot be steered.** You can read its log as it runs, and
@@ -219,16 +219,16 @@ has tested about one tool, are on that tool's page:
   [preset](../customize/presets.md) the repository follows, and for seven days, what it
   left. Keep builds in the cloud off in a public repository whose tickets
   are kept somewhere private, or that follows a private preset: leave
-  "Builds in the cloud" unchecked in `kodor init`. Nothing checks this
+  "Builds in the cloud" unchecked in `lunamill init`. Nothing checks this
   for you.
 
 ## What nobody has tested
 
 - **A board owned by an organization.** It is read the same way as a
-  person's, and `kodor init --org` has given one its columns, but the
+  person's, and `lunamill init --org` has given one its columns, but the
   board sync and the poller have only run against a person's.
 - **A cloud run on a ticket of any size.** Each of the five kinds has run
-  with a real session and kodor's own skills, in a small scratch
+  with a real session and lunamill's own skills, in a small scratch
   repository of an organization.
 - **A cloud run of hours,** such as one that waits out a token.
 - **A determined attacker.** Known ways to steal the agent's credential and
@@ -242,30 +242,30 @@ has tested about one tool, are on that tool's page:
   [`commands.build-setup`](../reference/settings/commands.md#commandsbuild-setup) says.
 - **Parts of an organization's setup, against a real one.** These have
   run on the code host, once each, in an organization on its free plan:
-  `kodor init --org` from start to finish; a job making a token from
+  `lunamill init --org` from start to finish; a job making a token from
   the app, with that job's own permissions; signing the code host's
   command-line tool in with such a token, and a push and a pull request
-  made through that sign-in; and `kodor enroll`, with the
+  made through that sign-in; and `lunamill enroll`, with the
   organization's property and without it. These have not: the
   organization-wide rule, which needs a paid plan
   ([GitHub organizations](../integrations/github-organizations.md#limits-that-come-from-github)
-  names it); and the poller in `kodor-config`, which needs a release of
-  kodor to call.
+  names it); and the poller in `lunamill-config`, which needs a release of
+  lunamill to call.
 - **Your board's own automations,** such as moving a closed ticket to Done.
   They may fight the board sync.
-- **A kodor update reaching a repository through the update job.**
+- **A lunamill update reaching a repository through the update job.**
 - **Glob patterns standing in for today's regular expressions** in the
   merge policy. They could match differently. The switch compares the old and new
   decision on recent pull requests.
 - **A scheduled job as the poller,** including what it costs.
 - **A default branch not called `main`.** The name is read, never assumed,
   and the tests run with a branch called `develop`, but no repository with
-  one has run kodor.
+  one has run lunamill.
 - **A refiner, a prover, or a resolver of your own.** The settings accept
   each and the skills call them, but no repository has run one.
 - **Windows.** The tool and its hooks need only Node, but nothing here has
   been run on Windows.
-- **Adding kodor's columns to a board you already have.**
+- **Adding lunamill's columns to a board you already have.**
 - **Whether your coding agent's plan permits automated builds this way.**
   The automated review runs on a subscription token in the one repository
   that uses it. Check your plan's terms.

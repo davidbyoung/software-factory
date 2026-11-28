@@ -1,12 +1,12 @@
 // GitHub Issues as the ticket system: the board check, and the fields
-// removing kodor leaves on the board. Its token is the code host's.
+// removing lunamill leaves on the board. Its token is the code host's.
 import { boardConfigOf, inspectBoard } from "../board.mts";
 import { fieldNamesOf } from "../config.mts";
 import { listed } from "../lib/listed.mts";
 import { TICKET_LABELS } from "../labels.mts";
 import type { ToolSetup } from "../setup.mts";
 
-const INIT = "Run kodor init";
+const INIT = "Run lunamill init";
 
 export const githubTicketsSetup: ToolSetup = {
   checks: async (c) => {
@@ -47,7 +47,7 @@ export const githubTicketsSetup: ToolSetup = {
     const s = c.settings;
     const labels = s?.tickets.labels ?? TICKET_LABELS;
     const lines = [
-      `Delete whichever of the labels ${listed([labels.spec, labels.kodor])} exist, if you do not want their history: deleting one takes it off every ticket`,
+      `Delete whichever of the labels ${listed([labels.spec, labels.lunamill])} exist, if you do not want their history: deleting one takes it off every ticket`,
     ];
     if (s === null || s.tickets.board === null) return lines;
     const fields = Object.values(fieldNamesOf(s)).filter(

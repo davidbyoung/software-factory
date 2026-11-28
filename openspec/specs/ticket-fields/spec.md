@@ -2,22 +2,22 @@
 
 ## Purpose
 
-What `tickets.fields`' ticket-side keys mean: `kodor ticket view` joins a ticket's description and its ticket fields into one document, `edit` splits it, and the settings and doctor check the fields named.
+What `tickets.fields`' ticket-side keys mean: `lunamill ticket view` joins a ticket's description and its ticket fields into one document, `edit` splits it, and the settings and doctor check the fields named.
 
 ## Requirements
 
 ### Requirement: View joins the ticket fields
 
-kodor SHALL behave as this line says: When `tickets.fields` names a ticket field for a ticket-side key, `kodor ticket view N`, with or without `--field body`, prints the description with that field's text under the key's heading. The scenario gives the whole behavior.
+lunamill SHALL behave as this line says: When `tickets.fields` names a ticket field for a ticket-side key, `lunamill ticket view N`, with or without `--field body`, prints the description with that field's text under the key's heading. The scenario gives the whole behavior.
 
 #### Scenario: View joins the ticket fields
 
 - **WHEN** `tickets.fields` names a ticket field for a ticket-side key
-- **THEN** `kodor ticket view N`, with or without `--field body`, prints the description with that field's text under the key's heading. Each such section goes before the description's first level-two heading that comes later in this order, or at the end when none does: the repository's own keys in settings order, Decisions, Spec, Acceptance criteria, Mockups, For the builder. A ticket field with no text adds nothing.
+- **THEN** `lunamill ticket view N`, with or without `--field body`, prints the description with that field's text under the key's heading. Each such section goes before the description's first level-two heading that comes later in this order, or at the end when none does: the repository's own keys in settings order, Decisions, Spec, Acceptance criteria, Mockups, For the builder. A ticket field with no text adds nothing.
 
 ### Requirement: A field Spec and Acceptance criteria share
 
-kodor SHALL behave as this line says: When `spec` and `acceptance-criteria` name the same ticket field, `view` puts its text under `## Spec` on a ticket with the `spec` label when it is read, and under `## Acceptance criteria` otherwise.
+lunamill SHALL behave as this line says: When `spec` and `acceptance-criteria` name the same ticket field, `view` puts its text under `## Spec` on a ticket with the `spec` label when it is read, and under `## Acceptance criteria` otherwise.
 
 #### Scenario: A field Spec and Acceptance criteria share
 
@@ -26,52 +26,52 @@ kodor SHALL behave as this line says: When `spec` and `acceptance-criteria` name
 
 ### Requirement: Edit splits into ticket fields
 
-kodor SHALL behave as this line says: When `kodor ticket edit N --body-file FILE` writes a ticket, each level-two section whose heading matches a ticket-side key that names a field goes into that field without its heading, and the description holds the rest. The scenario gives the whole behavior.
+lunamill SHALL behave as this line says: When `lunamill ticket edit N --body-file FILE` writes a ticket, each level-two section whose heading matches a ticket-side key that names a field goes into that field without its heading, and the description holds the rest. The scenario gives the whole behavior.
 
 #### Scenario: Edit splits into ticket fields
 
-- **WHEN** `kodor ticket edit N --body-file FILE` writes a ticket
-- **THEN** Each level-two section whose heading matches a ticket-side key that names a field goes into that field without its heading, and the description holds the rest. A section runs from its heading to the next level-two heading that is a kodor field's, `## Mockups`, or a named key's, outside fenced code, or to the end. A ticket field is cleared when no key that names it has a section in the file, so a field Spec and Acceptance criteria share keeps the one section the file has. `edit` makes every check of lines 18, 19, 25, and 27 before writing anything, then writes the ticket fields, and writes the description last. A heading matches a key when it is the key with hyphens read as spaces, ignoring capitals.
+- **WHEN** `lunamill ticket edit N --body-file FILE` writes a ticket
+- **THEN** Each level-two section whose heading matches a ticket-side key that names a field goes into that field without its heading, and the description holds the rest. A section runs from its heading to the next level-two heading that is a lunamill field's, `## Mockups`, or a named key's, outside fenced code, or to the end. A ticket field is cleared when no key that names it has a section in the file, so a field Spec and Acceptance criteria share keeps the one section the file has. `edit` makes every check of lines 18, 19, 25, and 27 before writing anything, then writes the ticket fields, and writes the description last. A heading matches a key when it is the key with hyphens read as spaces, ignoring capitals.
 
 ### Requirement: Commands read the joined ticket
 
-kodor SHALL behave as this line says: Every command that reads one ticket reads it as `view` prints it, so `kodor ticket refined N` passes a ticket whose Decisions, Spec, or For the builder sit in ticket fields.
+lunamill SHALL behave as this line says: Every command that reads one ticket reads it as `view` prints it, so `lunamill ticket refined N` passes a ticket whose Decisions, Spec, or For the builder sit in ticket fields.
 
 #### Scenario: Commands read the joined ticket
 
 - **WHEN** a command reads one ticket whose factory fields sit in ticket fields
-- **THEN** Every command that reads one ticket reads it as `view` prints it, so `kodor ticket refined N` passes a ticket whose Decisions, Spec, or For the builder sit in ticket fields.
+- **THEN** Every command that reads one ticket reads it as `view` prints it, so `lunamill ticket refined N` passes a ticket whose Decisions, Spec, or For the builder sit in ticket fields.
 
 ### Requirement: A named ticket field that doesn't exist
 
-kodor SHALL behave as this line says: When a ticket field that `tickets.fields` names doesn't exist, `kodor ticket edit` prints `<repository>'s tickets have no field called <field>, which tickets.fields.<key> names.` and exits 1, writing nothing.
+lunamill SHALL behave as this line says: When a ticket field that `tickets.fields` names doesn't exist, `lunamill ticket edit` prints `<repository>'s tickets have no field called <field>, which tickets.fields.<key> names.` and exits 1, writing nothing.
 
 #### Scenario: A named ticket field that doesn't exist
 
 - **WHEN** a ticket field that `tickets.fields` names doesn't exist
-- **THEN** `kodor ticket edit` prints `<repository>'s tickets have no field called <field>, which tickets.fields.<key> names.` and exits 1, writing nothing.
+- **THEN** `lunamill ticket edit` prints `<repository>'s tickets have no field called <field>, which tickets.fields.<key> names.` and exits 1, writing nothing.
 
 ### Requirement: A named ticket field that doesn't hold text
 
-kodor SHALL behave as this line says: When a ticket field that `tickets.fields` names doesn't hold text, `kodor ticket edit` prints `<field>, which tickets.fields.<key> names, doesn't hold text.` and exits 1, writing nothing.
+lunamill SHALL behave as this line says: When a ticket field that `tickets.fields` names doesn't hold text, `lunamill ticket edit` prints `<field>, which tickets.fields.<key> names, doesn't hold text.` and exits 1, writing nothing.
 
 #### Scenario: A named ticket field that doesn't hold text
 
 - **WHEN** a ticket field that `tickets.fields` names doesn't hold text
-- **THEN** `kodor ticket edit` prints `<field>, which tickets.fields.<key> names, doesn't hold text.` and exits 1, writing nothing.
+- **THEN** `lunamill ticket edit` prints `<field>, which tickets.fields.<key> names, doesn't hold text.` and exits 1, writing nothing.
 
 ### Requirement: Two keys name one ticket field
 
-kodor SHALL behave as this line says: When two ticket-side keys name the same ticket field, other than `spec` and `acceptance-criteria`, `kodor config check` fails with `.claude/kodor.yaml: tickets.fields.<key>: names the same field as <other key>`.
+lunamill SHALL behave as this line says: When two ticket-side keys name the same ticket field, other than `spec` and `acceptance-criteria`, `lunamill config check` fails with `.claude/lunamill.yaml: tickets.fields.<key>: names the same field as <other key>`.
 
 #### Scenario: Two keys name one ticket field
 
 - **WHEN** two ticket-side keys name the same ticket field, other than `spec` and `acceptance-criteria`
-- **THEN** `kodor config check` fails with `.claude/kodor.yaml: tickets.fields.<key>: names the same field as <other key>`.
+- **THEN** `lunamill config check` fails with `.claude/lunamill.yaml: tickets.fields.<key>: names the same field as <other key>`.
 
 ### Requirement: Ticket-side keys need no board
 
-kodor SHALL behave as this line says: The ticket-side keys are valid without `tickets.board`. `session`, `runs-in`, and `cost` still fail without it, as today.
+lunamill SHALL behave as this line says: The ticket-side keys are valid without `tickets.board`. `session`, `runs-in`, and `cost` still fail without it, as today.
 
 #### Scenario: Ticket-side keys need no board
 
@@ -80,52 +80,52 @@ kodor SHALL behave as this line says: The ticket-side keys are valid without `ti
 
 ### Requirement: A key of the repository's own heading
 
-kodor SHALL behave as this line says: A key under `tickets.fields` other than the eight kodor knows is the repository's own heading. When it isn't lowercase words joined by hyphens, `kodor config check` fails with `.claude/kodor.yaml: tickets.fields.<key>: must be a heading in lowercase, with hyphens for spaces`.
+lunamill SHALL behave as this line says: A key under `tickets.fields` other than the eight lunamill knows is the repository's own heading. When it isn't lowercase words joined by hyphens, `lunamill config check` fails with `.claude/lunamill.yaml: tickets.fields.<key>: must be a heading in lowercase, with hyphens for spaces`.
 
 #### Scenario: A key of the repository's own heading
 
-- **WHEN** `tickets.fields` has a key other than the eight kodor knows
-- **THEN** A key under `tickets.fields` other than the eight kodor knows is the repository's own heading. When it isn't lowercase words joined by hyphens, `kodor config check` fails with `.claude/kodor.yaml: tickets.fields.<key>: must be a heading in lowercase, with hyphens for spaces`.
+- **WHEN** `tickets.fields` has a key other than the eight lunamill knows
+- **THEN** A key under `tickets.fields` other than the eight lunamill knows is the repository's own heading. When it isn't lowercase words joined by hyphens, `lunamill config check` fails with `.claude/lunamill.yaml: tickets.fields.<key>: must be a heading in lowercase, with hyphens for spaces`.
 
 ### Requirement: Doctor checks the ticket fields
 
-kodor SHALL behave as this line says: When the settings name at least one ticket field, `kodor doctor` and init's closing checks print `✓ <repository>'s tickets have every field the settings name` when each exists and holds text. The scenario gives the whole behavior.
+lunamill SHALL behave as this line says: When the settings name at least one ticket field, `lunamill doctor` and init's closing checks print `✓ <repository>'s tickets have every field the settings name` when each exists and holds text. The scenario gives the whole behavior.
 
 #### Scenario: Doctor checks the ticket fields
 
 - **WHEN** the settings name at least one ticket field
-- **THEN** `kodor doctor` and init's closing checks print `✓ <repository>'s tickets have every field the settings name` when each exists and holds text. Otherwise they print a `✗` line for each that fails: `<repository>'s tickets have no field called <field>, which tickets.fields.<key> names`, or `<field>, which tickets.fields.<key> names, doesn't hold text`. With none named, neither prints a line about ticket fields.
+- **THEN** `lunamill doctor` and init's closing checks print `✓ <repository>'s tickets have every field the settings name` when each exists and holds text. Otherwise they print a `✗` line for each that fails: `<repository>'s tickets have no field called <field>, which tickets.fields.<key> names`, or `<field>, which tickets.fields.<key> names, doesn't hold text`. With none named, neither prints a line about ticket fields.
 
 ### Requirement: GitHub Issues has ticket fields
 
-kodor SHALL behave as this line says: `kodor ticket supports fields` prints `yes` with GitHub Issues. Its ticket fields are the repository's issue fields of the text type; a board's fields are never offered or written as ticket fields.
+lunamill SHALL behave as this line says: `lunamill ticket supports fields` prints `yes` with GitHub Issues. Its ticket fields are the repository's issue fields of the text type; a board's fields are never offered or written as ticket fields.
 
 #### Scenario: GitHub Issues has ticket fields
 
-- **WHEN** `kodor ticket supports fields` runs with GitHub Issues
-- **THEN** `kodor ticket supports fields` prints `yes` with GitHub Issues. Its ticket fields are the repository's issue fields of the text type; a board's fields are never offered or written as ticket fields.
+- **WHEN** `lunamill ticket supports fields` runs with GitHub Issues
+- **THEN** `lunamill ticket supports fields` prints `yes` with GitHub Issues. Its ticket fields are the repository's issue fields of the text type; a board's fields are never offered or written as ticket fields.
 
 ### Requirement: Ticket fields named without the fields group
 
-kodor SHALL behave as this line says: When `tickets.fields` names a ticket field and the ticket system lacks the `fields` group, `kodor ticket view` and `edit` exit 1 with the message a command gives for a group its ticket system lacks, naming `fields`, and write nothing. `kodor doctor` prints `✗ <ticket system's label> has no ticket fields, which tickets.fields names`.
+lunamill SHALL behave as this line says: When `tickets.fields` names a ticket field and the ticket system lacks the `fields` group, `lunamill ticket view` and `edit` exit 1 with the message a command gives for a group its ticket system lacks, naming `fields`, and write nothing. `lunamill doctor` prints `✗ <ticket system's label> has no ticket fields, which tickets.fields names`.
 
 #### Scenario: Ticket fields named without the fields group
 
 - **WHEN** `tickets.fields` names a ticket field and the ticket system lacks the `fields` group
-- **THEN** `kodor ticket view` and `edit` exit 1 with the message a command gives for a group its ticket system lacks, naming `fields`, and write nothing. `kodor doctor` prints `✗ <ticket system's label> has no ticket fields, which tickets.fields names`.
+- **THEN** `lunamill ticket view` and `edit` exit 1 with the message a command gives for a group its ticket system lacks, naming `fields`, and write nothing. `lunamill doctor` prints `✗ <ticket system's label> has no ticket fields, which tickets.fields names`.
 
 ### Requirement: Reading or writing ticket fields fails
 
-kodor SHALL behave as this line says: When reading or writing a ticket's fields fails, `kodor ticket view` and `edit` print the ticket system's error and exit 1. `edit` leaves the description as it was; a ticket field written before the failure keeps its new text, and running `edit` again writes the rest. `kodor doctor` prints a `✗` line with the error's first line in place of line 23's.
+lunamill SHALL behave as this line says: When reading or writing a ticket's fields fails, `lunamill ticket view` and `edit` print the ticket system's error and exit 1. `edit` leaves the description as it was; a ticket field written before the failure keeps its new text, and running `edit` again writes the rest. `lunamill doctor` prints a `✗` line with the error's first line in place of line 23's.
 
 #### Scenario: Reading or writing ticket fields fails
 
 - **WHEN** reading or writing a ticket's fields fails
-- **THEN** `kodor ticket view` and `edit` print the ticket system's error and exit 1. `edit` leaves the description as it was; a ticket field written before the failure keeps its new text, and running `edit` again writes the rest. `kodor doctor` prints a `✗` line with the error's first line in place of line 23's.
+- **THEN** `lunamill ticket view` and `edit` print the ticket system's error and exit 1. `edit` leaves the description as it was; a ticket field written before the failure keeps its new text, and running `edit` again writes the rest. `lunamill doctor` prints a `✗` line with the error's first line in place of line 23's.
 
 ### Requirement: Spec and Acceptance criteria both in a shared field
 
-kodor SHALL behave as this line says: When `spec` and `acceptance-criteria` name the same ticket field and the file `edit` writes has both a `## Spec` and an `## Acceptance criteria` section, `edit` prints `Spec and Acceptance criteria both go in <field>, and the file has both: keep one.` and exits 1, writing nothing.
+lunamill SHALL behave as this line says: When `spec` and `acceptance-criteria` name the same ticket field and the file `edit` writes has both a `## Spec` and an `## Acceptance criteria` section, `edit` prints `Spec and Acceptance criteria both go in <field>, and the file has both: keep one.` and exits 1, writing nothing.
 
 #### Scenario: Spec and Acceptance criteria both in a shared field
 
@@ -134,9 +134,9 @@ kodor SHALL behave as this line says: When `spec` and `acceptance-criteria` name
 
 ### Requirement: The repositories field
 
-kodor SHALL behave as this line says: When `tickets.fields.repositories` names a ticket field, the section's text is kept there, as for `decisions`. Its default is `none`, the lock holds the key, and it is the eighth key kodor knows, so no longer a heading of the repository's own.
+lunamill SHALL behave as this line says: When `tickets.fields.repositories` names a ticket field, the section's text is kept there, as for `decisions`. Its default is `none`, the lock holds the key, and it is the eighth key lunamill knows, so no longer a heading of the repository's own.
 
 #### Scenario: The repositories field
 
 - **WHEN** `tickets.fields.repositories` names a ticket field
-- **THEN** the section's text is kept there, as for `decisions`. Its default is `none`, the lock holds the key, and it is the eighth key kodor knows, so no longer a heading of the repository's own.
+- **THEN** the section's text is kept there, as for `decisions`. Its default is `none`, the lock holds the key, and it is the eighth key lunamill knows, so no longer a heading of the repository's own.

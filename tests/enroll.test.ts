@@ -15,7 +15,7 @@ import {
 } from "./memory-code-host.ts";
 
 const NOT_REQUIRED =
-  '? "Review verdict" is not required before a merge to main, and this run\'s token cannot require it. An admin of acme/web runs: kodor init';
+  '? "Review verdict" is not required before a merge to main, and this run\'s token cannot require it. An admin of acme/web runs: lunamill init';
 const WRITES = ["setProperty", "requireCheck"];
 
 /** A repository as the code host has it, and the command's lines once
@@ -41,7 +41,7 @@ function run(
 }
 
 describe("under the organization's app", () => {
-  const RULE = [{ check: "Review verdict", property: "kodor", value: "on" }];
+  const RULE = [{ check: "Review verdict", property: "lunamill", value: "on" }];
 
   it.each<[string, string | null]>([
     ["off", "off"],
@@ -50,14 +50,14 @@ describe("under the organization's app", () => {
     "turns the property on for a repository where it is %s, and says what that does",
     async (_, value) => {
       const { lines, host } = run("app", {
-        properties: { kodor: value },
+        properties: { lunamill: value },
         ownerRules: RULE,
       });
 
       expect(await lines()).toEqual([
-        '✓ Set kodor to "on" for acme/web, so acme\'s rule requires "Review verdict" here.',
+        '✓ Set lunamill to "on" for acme/web, so acme\'s rule requires "Review verdict" here.',
       ]);
-      expect(host.settings.properties["kodor"]).toBe("on");
+      expect(host.settings.properties["lunamill"]).toBe("on");
       expect(await host.codeHost.requiresStatus("main", "Review verdict")).toBe(
         true,
       );
@@ -68,14 +68,14 @@ describe("under the organization's app", () => {
     const { lines, host } = run("app", { properties: {}, ownerRules: RULE });
 
     expect(await lines()).toEqual([
-      '✓ Set kodor to "on" for acme/web, so acme\'s rule requires "Review verdict" here.',
+      '✓ Set lunamill to "on" for acme/web, so acme\'s rule requires "Review verdict" here.',
     ]);
-    expect(host.settings.properties["kodor"]).toBe("on");
+    expect(host.settings.properties["lunamill"]).toBe("on");
   });
 
   it("prints nothing, and sets nothing, where the property is already on", async () => {
     const { lines, wrote } = run("app", {
-      properties: { kodor: "on" },
+      properties: { lunamill: "on" },
       ownerRules: RULE,
     });
 
@@ -103,21 +103,21 @@ describe("under the organization's app", () => {
 
   it("prints nothing where there is no such property and the repository's own rule already requires the verdict", async () => {
     const { lines, host } = run("app", undefinedProperty(404));
-    await host.codeHost.requireCheck("kodor", "Review verdict");
+    await host.codeHost.requireCheck("lunamill", "Review verdict");
 
     expect(await lines()).toEqual([]);
   });
 
   it("gives the code host's reason, and who sets it by hand, when the value is refused", async () => {
     const { lines, host } = run("app", {
-      properties: { kodor: "off" },
+      properties: { lunamill: "off" },
       propertyRefused: "403 Resource not accessible by integration",
     });
 
     expect(await lines()).toEqual([
-      '? Could not set kodor to "on" for acme/web: 403 Resource not accessible by integration. An owner of acme sets it under the organization\'s Settings, Custom properties.',
+      '? Could not set lunamill to "on" for acme/web: 403 Resource not accessible by integration. An owner of acme sets it under the organization\'s Settings, Custom properties.',
     ]);
-    expect(host.settings.properties["kodor"]).toBe("off");
+    expect(host.settings.properties["lunamill"]).toBe("off");
   });
 
   it("gives the reason for a refusal with any other status too, such as a token that may not set it", async () => {
@@ -127,7 +127,7 @@ describe("under the organization's app", () => {
     });
 
     expect(await lines()).toEqual([
-      '? Could not set kodor to "on" for acme/web: Resource not accessible by integration (HTTP 403). An owner of acme sets it under the organization\'s Settings, Custom properties.',
+      '? Could not set lunamill to "on" for acme/web: Resource not accessible by integration (HTTP 403). An owner of acme sets it under the organization\'s Settings, Custom properties.',
     ]);
   });
 
@@ -137,9 +137,9 @@ describe("under the organization's app", () => {
     });
 
     expect(await lines()).toEqual([
-      '✓ Set kodor to "on" for acme/web, so acme\'s rule requires "Review verdict" here.',
+      '✓ Set lunamill to "on" for acme/web, so acme\'s rule requires "Review verdict" here.',
     ]);
-    expect(host.settings.properties["kodor"]).toBe("on");
+    expect(host.settings.properties["lunamill"]).toBe("on");
   });
 });
 
@@ -148,10 +148,10 @@ describe("with a person's build token", () => {
     const { lines, host } = run("person");
 
     expect(await lines()).toEqual([
-      '✓ Required "Review verdict" before a merge to main, as the rule "kodor".',
+      '✓ Required "Review verdict" before a merge to main, as the rule "lunamill".',
     ]);
     expect(host.settings.rules).toEqual([
-      { name: "kodor", check: "Review verdict", source: "runner" },
+      { name: "lunamill", check: "Review verdict", source: "runner" },
     ]);
   });
 
@@ -181,7 +181,7 @@ describe("with a person's build token", () => {
     );
 
     expect(await lines()).toEqual([
-      '✓ Required "Review verdict" before a merge to trunk, as the rule "kodor".',
+      '✓ Required "Review verdict" before a merge to trunk, as the rule "lunamill".',
     ]);
   });
 });
@@ -190,19 +190,19 @@ describe("with no token of either kind", () => {
   it("says an admin of the repository runs init, and changes nothing", async () => {
     const { lines, wrote } = run(
       null,
-      { properties: { kodor: "off" } },
+      { properties: { lunamill: "off" } },
       { repository: "sam/api" },
     );
 
     expect(await lines()).toEqual([
-      '? "Review verdict" is not required before a merge to main, and this run\'s token cannot require it. An admin of sam/api runs: kodor init',
+      '? "Review verdict" is not required before a merge to main, and this run\'s token cannot require it. An admin of sam/api runs: lunamill init',
     ]);
     expect(wrote()).toEqual([]);
   });
 
   it("prints nothing where the verdict is already required", async () => {
     const { lines, host } = run(null);
-    await host.codeHost.requireCheck("kodor", "Review verdict");
+    await host.codeHost.requireCheck("lunamill", "Review verdict");
 
     expect(await lines()).toEqual([]);
   });
@@ -252,7 +252,7 @@ describe("with the review off", () => {
     async (as) => {
       const { lines, host } = run(
         as,
-        { properties: { kodor: "off" } },
+        { properties: { lunamill: "off" } },
         { reviewOn: false },
       );
 
@@ -264,8 +264,8 @@ describe("with the review off", () => {
 
 // The command itself, in a repository whose settings leave the review off:
 // it stops before it asks the code host anything, so it runs with no
-// network. KODOR_VERSION keeps the launcher on this checkout.
-describe("kodor enroll, as the workflow's step runs it", () => {
+// network. LUNAMILL_VERSION keeps the launcher on this checkout.
+describe("lunamill enroll, as the workflow's step runs it", () => {
   const ROOT = join(import.meta.dirname, "..");
   const { version } = JSON.parse(
     readFileSync(join(ROOT, "package.json"), "utf8"),
@@ -278,13 +278,13 @@ describe("kodor enroll, as the workflow's step runs it", () => {
       dir,
       `version: 1\nrepository: sam/api\ntickets:\n  type: github\n${CODE_HOST_YAML}\napproval-policies:\n  - name: credentials\n    off: true\n`,
     );
-    const r = spawnSync("node", [join(ROOT, "bin/kodor.js"), "enroll"], {
+    const r = spawnSync("node", [join(ROOT, "bin/lunamill.js"), "enroll"], {
       cwd: dir,
       encoding: "utf8",
       env: {
         ...process.env,
-        KODOR_VERSION: version,
-        KODOR_BUILD_TOKEN_SET: "true",
+        LUNAMILL_VERSION: version,
+        LUNAMILL_BUILD_TOKEN_SET: "true",
         GH_TOKEN: "",
       },
     });
@@ -301,15 +301,18 @@ describe("kodor enroll, as the workflow's step runs it", () => {
 describe("which token the run holds, as its workflow's step says", () => {
   it("is the app's when one was made, whatever else is set", () => {
     expect(
-      holds({ KODOR_APP_TOKEN_SET: "true", KODOR_BUILD_TOKEN_SET: "true" }),
+      holds({
+        LUNAMILL_APP_TOKEN_SET: "true",
+        LUNAMILL_BUILD_TOKEN_SET: "true",
+      }),
     ).toBe("app");
   });
 
   it("is a person's when only the build token is set", () => {
     expect(
       holds({
-        KODOR_APP_TOKEN_SET: "false",
-        KODOR_BUILD_TOKEN_SET: "true",
+        LUNAMILL_APP_TOKEN_SET: "false",
+        LUNAMILL_BUILD_TOKEN_SET: "true",
       }),
     ).toBe("person");
   });
@@ -317,8 +320,8 @@ describe("which token the run holds, as its workflow's step says", () => {
   it("is neither when the step names none", () => {
     expect(
       holds({
-        KODOR_APP_TOKEN_SET: "false",
-        KODOR_BUILD_TOKEN_SET: "false",
+        LUNAMILL_APP_TOKEN_SET: "false",
+        LUNAMILL_BUILD_TOKEN_SET: "false",
       }),
     ).toBeNull();
     expect(holds({})).toBeNull();
@@ -327,7 +330,7 @@ describe("which token the run holds, as its workflow's step says", () => {
 
 describe("the approval policies' status", () => {
   const APPROVAL_NOT_REQUIRED =
-    '? "Approval policies" is not required before a merge to main, and this run\'s token cannot require it. An admin of acme/web runs: kodor init';
+    '? "Approval policies" is not required before a merge to main, and this run\'s token cannot require it. An admin of acme/web runs: lunamill init';
 
   it("is required beside the verdict with a person's token, whether or not the review is on", async () => {
     const { lines, host } = run(
@@ -336,7 +339,7 @@ describe("the approval policies' status", () => {
       { reviewOn: false, policiesOn: true },
     );
     expect(await lines()).toEqual([
-      '✓ Required "Approval policies" before a merge to main, as the rule "kodor".',
+      '✓ Required "Approval policies" before a merge to main, as the rule "lunamill".',
     ]);
     expect(host.settings.rules.map((r) => r.check)).toEqual([
       "Approval policies",

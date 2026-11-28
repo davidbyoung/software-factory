@@ -14,9 +14,9 @@ merge its pull requests.
 
 ## What you need
 
-- **Each repository set up** with [`kodor init`](../get-started/quick-start.md). The
+- **Each repository set up** with [`lunamill init`](../get-started/quick-start.md). The
   first step below prints which ones are not, and which are on a version of
-  kodor too old for this.
+  lunamill too old for this.
 - **The same owner for all of them.** A ticket can't span two accounts or
   two organizations.
 - **A board or builds in the cloud, set up in each one**
@@ -35,7 +35,7 @@ merge its pull requests.
 In your coding agent, in a checkout of `acme/api`:
 
 ```text
-/kodor-refine 12
+/lunamill-refine 12
 ```
 
 When the agent finds that the ticket touches another repository, or the
@@ -59,19 +59,19 @@ Either way, this is printed:
 ```text
 #12 repositories
   ✓ acme/api   set up
-  ✗ acme/web   not set up: run kodor init in acme/web before building
+  ✗ acme/web   not set up: run lunamill init in acme/web before building
 Recorded on #12. acme/web merges after acme/api.
 ```
 
-A repository on a version of kodor too old for this shows its own fix:
+A repository on a version of lunamill too old for this shows its own fix:
 
 ```text
-  ✗ acme/web   on kodor 0.9.0, which can't build a ticket from another repository: run kodor update in acme/web
+  ✗ acme/web   on lunamill 0.9.0, which can't build a ticket from another repository: run lunamill update in acme/web
 ```
 
 Refinement goes on past a ✗. A build refuses to start until you have done
 what the line says: run the command it names in that repository, and merge
-the pull request it opens there. Then run `kodor ticket repositories 12`
+the pull request it opens there. Then run `lunamill ticket repositories 12`
 to check again.
 
 **It worked when** every line shows ✓, and the ticket's description has
@@ -86,11 +86,11 @@ this section:
 
 ### Changing the list
 
-| What you want to do            | Command                                                                          |
-| ------------------------------ | -------------------------------------------------------------------------------- |
-| See the list                   | `kodor ticket repositories 12`                                                   |
-| Replace the list and its order | `kodor ticket repositories 12 --set acme/api acme/web --after acme/web=acme/api` |
-| Add a repository               | `kodor ticket repositories 12 --add acme/mobile --after acme/mobile=acme/api`    |
+| What you want to do            | Command                                                                             |
+| ------------------------------ | ----------------------------------------------------------------------------------- |
+| See the list                   | `lunamill ticket repositories 12`                                                   |
+| Replace the list and its order | `lunamill ticket repositories 12 --set acme/api acme/web --after acme/web=acme/api` |
+| Add a repository               | `lunamill ticket repositories 12 --add acme/mobile --after acme/mobile=acme/api`    |
 
 `--after acme/web=acme/api` means that `acme/web` merges after `acme/api`.
 Give it once for each pair, or leave it out where the order doesn't matter.
@@ -104,7 +104,7 @@ the description, or made by someone who can't write to one of them, stops a
 build with this, until someone who can runs the command it names:
 
 ```text
-✗ #12's repositories were not confirmed by someone who can write to acme/web: run kodor ticket repositories 12 --set acme/api acme/web --after acme/web=acme/api
+✗ #12's repositories were not confirmed by someone who can write to acme/web: run lunamill ticket repositories 12 --set acme/api acme/web --after acme/web=acme/api
 ```
 
 ## Build it on your machine
@@ -112,33 +112,33 @@ build with this, until someone who can runs the command it names:
 In your coding agent, in a checkout of a repository the ticket names:
 
 ```text
-/kodor-build 12
+/lunamill-build 12
 ```
 
 A bare number is always the ticket of the repository you are in. From a
-checkout of `acme/web`, write `/kodor-build acme/api#12`.
+checkout of `acme/web`, write `/lunamill-build acme/api#12`.
 
 It stops before it starts when a repository isn't ready:
 
 ```text
-✗ #12 names acme/web, which is not set up: run kodor init in acme/web
+✗ #12 names acme/web, which is not set up: run lunamill init in acme/web
 ```
 
 One session builds every repository, one after another in the order they
 merge, whichever one you opened it in. It clones the ones you are not in
-under `~/.local/share/kodor/work/`, and says where. Each gets its
+under `~/.local/share/lunamill/work/`, and says where. Each gets its
 own rules, gate, and reviewers, and its own pull request.
 
 **It worked when** the session's report names a pull request in each
-repository, and `kodor status` lists them all
+repository, and `lunamill status` lists them all
 ([When it's done](#when-its-done)).
 
 The session deletes the clones once their pull requests merge or close. It
 keeps one with commits that were never pushed. Once the ticket is closed,
-`kodor status` ends with a line for each clone still there:
+`lunamill status` ends with a line for each clone still there:
 
 ```text
-? acme/web is still cloned for acme/api#12: /home/dev/.local/share/kodor/work/acme/api-12/web. Run: kodor workspace acme/api#12 --remove
+? acme/web is still cloned for acme/api#12: /home/dev/.local/share/lunamill/work/acme/api-12/web. Run: lunamill workspace acme/api#12 --remove
 ```
 
 ## Build it in the cloud
@@ -146,11 +146,11 @@ keeps one with commits that were never pushed. Once the ticket is closed,
 In a checkout of the ticket's own repository:
 
 ```bash
-kodor build 12
+lunamill build 12
 ```
 
 From a checkout of another of its repositories, run
-`kodor build acme/api#12`. Where
+`lunamill build acme/api#12`. Where
 [`builds.trigger`](../reference/settings/builds.md#builds) in the ticket's own repository
 is `own-server` or `github-action`, moving the ticket to Ready does the
 same. Where it is `manual`, the default, that starts nothing.
@@ -161,7 +161,7 @@ in its own repository, with that repository's secrets and setup. When one
 opens its pull request, it starts the next, which is given a copy of the
 earlier ones' code to read.
 
-Nothing waits for you until the last one ends. `kodor status` shows which
+Nothing waits for you until the last one ends. `lunamill status` shows which
 is running. **It worked when** the ticket has a comment like this for each
 repository but the last, and the last has a pull request:
 
@@ -215,7 +215,7 @@ The ticket is [In review](README.md#the-six-states) once every repository
 has a pull request open or merged. It closes when the last one merges.
 
 ```console
-$ kodor status
+$ lunamill status
 In review  1
   #12  Add gift cards to checkout              2h   $3.10   local 502d66cf
        ↳ Pull request acme/api#88 · ready for review · checks passing · no open threads

@@ -1,6 +1,6 @@
-// `kodor remove`: takes kodor out of a repository. It shows every
+// `lunamill remove`: takes lunamill out of a repository. It shows every
 // file it will delete or change, and once told to go ahead deletes the
-// kodor's files, takes its part out of the files it shares with the
+// lunamill's files, takes its part out of the files it shares with the
 // coding agent, and prints what is left outside the repository for you to
 // remove by hand. It commits nothing.
 import {
@@ -60,8 +60,8 @@ async function presetFiles(root: string): Promise<string[]> {
   }
   const files = new Set<string>();
   for (const f of lock.files) {
-    const agent = /^\.claude\/agents\/(?!kodor-)[^/]+\.md$/.test(f);
-    const skill = /^\.claude\/skills\/(?!kodor-)([^/]+)\//.exec(f);
+    const agent = /^\.claude\/agents\/(?!lunamill-)[^/]+\.md$/.test(f);
+    const skill = /^\.claude\/skills\/(?!lunamill-)([^/]+)\//.exec(f);
     if (agent) files.add(f);
     else if (skill) files.add(`.claude/skills/${skill[1]}`);
   }
@@ -96,7 +96,7 @@ function credentialLeftovers(
   return lines;
 }
 
-/** kodor's own files and folders, each a path from the root. */
+/** lunamill's own files and folders, each a path from the root. */
 function factoryFiles(root: string): string[] {
   const named = (dir: string, match: RegExp) =>
     existsSync(join(root, dir))
@@ -109,12 +109,12 @@ function factoryFiles(root: string): string[] {
     SETTINGS_FILE,
     LOCK,
     CHOICES_FILE,
-    ".claude/kodor",
-    ...named(".claude/skills", /^kodor-/),
-    ...named(".claude/agents", /^kodor-.*\.md$/),
-    ...named(".github/workflows", /^kodor(-.*)?\.yml$/),
-    ".github/kodor-review.md",
-    ...named(".github/actions", /^kodor-/),
+    ".claude/lunamill",
+    ...named(".claude/skills", /^lunamill-/),
+    ...named(".claude/agents", /^lunamill-.*\.md$/),
+    ...named(".github/workflows", /^lunamill(-.*)?\.yml$/),
+    ".github/lunamill-review.md",
+    ...named(".github/actions", /^lunamill-/),
   ].filter((p) => existsSync(join(root, p)));
 }
 
@@ -168,7 +168,7 @@ export async function main(_argv: string[], d: RemoveDeps): Promise<number> {
     (t) => t.setup.unconfigure?.(context) ?? [],
   );
   if (deletes.length === 0 && changes.length === 0) {
-    d.out(say.text("Nothing of kodor's is here."));
+    d.out(say.text("Nothing of lunamill's is here."));
     return 0;
   }
   if (unread !== null)

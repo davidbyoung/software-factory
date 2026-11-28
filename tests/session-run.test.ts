@@ -140,7 +140,7 @@ describe("a session in the cloud", () => {
     );
   });
 
-  it("cannot write what it was handed, where it starts, or kodor", async () => {
+  it("cannot write what it was handed, where it starts, or lunamill", async () => {
     const w = world(() => {});
     await runSession(w.d);
     expect(w.started[0].readOnly).toEqual([
@@ -266,7 +266,7 @@ describe("its environment", () => {
         GITHUB_ENV: "x",
         ACTIONS_RUNTIME_TOKEN: "x",
         RUNNER_TEMP: "x",
-        KODOR_APP_PRIVATE_KEY: "x",
+        LUNAMILL_APP_PRIVATE_KEY: "x",
         NPM_TOKEN: "the repository's own",
       },
       run,

@@ -3,7 +3,7 @@
 The ticket system: where your tickets live, with their labels, their
 comments, and which one waits on another.
 
-## What kodor uses it for
+## What lunamill uses it for
 
 A ticket is an issue. Refinement writes the spec into its body, a session
 comments on it as it works, and the pull request that resolves it closes
@@ -16,48 +16,48 @@ Features, check "Issues".
 
 ## Set it up
 
-`kodor init` needs nothing more for tickets. It reads issues through the
+`lunamill init` needs nothing more for tickets. It reads issues through the
 GitHub CLI you signed in with
 ([Set up a repository](../setup/repository.md#what-you-need)).
 
-Optionally, a kodor field can live in a field of the ticket rather
-than in its description. A kodor field is a section refinement writes,
+Optionally, a lunamill field can live in a field of the ticket rather
+than in its description. A lunamill field is a section refinement writes,
 such as the Spec or the Decisions, and
 [`tickets.fields`](../reference/settings/tickets.md#ticketsfields) says
 which ticket field holds each. Here a ticket field is an
 [issue field](https://docs.github.com/en/issues/tracking-your-work-with-issues/using-issues/managing-issue-fields-in-your-organization),
 shown beside the issue. You create it in your account's or your
 organization's settings, under Issue fields. Create it before you run
-`kodor init`, which offers only the fields that exist
+`lunamill init`, which offers only the fields that exist
 ([Your tickets already have fields](../features/board.md#your-tickets-already-have-fields)).
-Without one, each kodor field stays in the description.
+Without one, each lunamill field stays in the description.
 
 ## What setup adds
 
-The labels kodor uses. Setup makes `policy-override` when you turn
-on an approval policy, and kodor makes each of the others the first
-time it needs it, such as `kodor` on each ticket it works on and `spec`
+The labels lunamill uses. Setup makes `policy-override` when you turn
+on an approval policy, and lunamill makes each of the others the first
+time it needs it, such as `lunamill` on each ticket it works on and `spec`
 on a change your users will see. [Labels, statuses, and checks](../reference/labels-and-statuses.md)
 lists them, and [`tickets.labels`](../reference/settings/tickets.md#ticketslabels)
 renames them.
 
 ## Tokens and secrets
 
-None of its own: on your machine kodor reaches issues with the same
+None of its own: on your machine lunamill reaches issues with the same
 sign-in it uses for the repository, and in the cloud with the same token
 or App as the rest of the run ([GitHub](github.md)).
 
-## What kodor can and cannot do there
+## What lunamill can and cannot do there
 
 - **It records that one ticket waits on another** as a "blocked by"
   relationship, which shows in each issue's sidebar
   ([Write a ticket](../workflow/tickets.md#tickets-that-wait-on-another)).
 - **It closes a ticket through its pull request,** whose body starts with
-  the line `kodor ticket link 12` prints, such as `Closes #12`.
+  the line `lunamill ticket link 12` prints, such as `Closes #12`.
 - **It works only on issues with its label**
-  ([Write a ticket](../workflow/tickets.md#which-tickets-are-kodors)).
+  ([Write a ticket](../workflow/tickets.md#which-tickets-are-lunamills)).
 - **A ticket's key is its issue number,** such as `12`, which is what the
-  `kodor ticket` commands take as N.
+  `lunamill ticket` commands take as N.
 - **What it records on a ticket is a comment on the issue:** the note
   the [poller](../features/builds-from-the-board.md#the-poller) leaves
   before it starts a build, saying a build is starting, and what a
@@ -77,13 +77,13 @@ ticket across repositories closes when the last of its pull requests
 merges ([A ticket across repositories](../workflow/across-repositories.md)).
 
 An issue field shows its text as typed, without Markdown formatting, so a
-kodor field written into one, such as a Spec, reads as written: a list
+lunamill field written into one, such as a Spec, reads as written: a list
 keeps its numbers and dashes, and a table shows its `|` marks.
 
 ## When something goes wrong
 
 A ticket that does not close when its pull request merges: check that
-`kodor pr closes 15` prints the ticket's number. If it prints nothing,
+`lunamill pr closes 15` prints the ticket's number. If it prints nothing,
 the pull request's first line does not link it.
 
 ## By hand

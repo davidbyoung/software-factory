@@ -16,7 +16,7 @@
 // answer, nothing is assumed: the caller stops with the line `cannotTell`
 // gives.
 //
-//   kodor default-branch   # prints the name, or exits 1 with the fix
+//   lunamill default-branch   # prints the name, or exits 1 with the fix
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -50,7 +50,7 @@ export type Deps = {
    * have none, or that has no settings. */
   repository: () => Promise<string | null>;
   /** The repository a remote's address names, or null for an address on
-   * no code host kodor supports. */
+   * no code host lunamill supports. */
   repositoryOf: (address: string) => Promise<string | null>;
 };
 
@@ -74,7 +74,7 @@ export class NoDefaultBranch extends Error {
 export class NoRemote extends NoDefaultBranch {}
 
 /** A remote, and the repository its address names, null for an address on
- * no code host kodor supports. */
+ * no code host lunamill supports. */
 export type Remote = { name: string; repository: string | null };
 
 const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
@@ -101,7 +101,7 @@ export function remoteFor(
  * remotes has, naming `origin`'s repository when there is an `origin`. */
 export function noRemoteLine(repository: string, remotes: Remote[]): string {
   const origin = remotes.find((r) => r.name === "origin")?.repository;
-  return `✗ repository: .claude/kodor.yaml says ${repository}, and no remote here is ${repository}. ${origin ? `origin is ${origin}. ` : ""}Add the remote, or change the line and run kodor sync.`;
+  return `✗ repository: .claude/lunamill.yaml says ${repository}, and no remote here is ${repository}. ${origin ? `origin is ${origin}. ` : ""}Add the remote, or change the line and run lunamill sync.`;
 }
 
 /** The checkout's remotes, each by the address it fetches from. */
@@ -221,7 +221,7 @@ export const branchDeps = (
     let text: string;
     try {
       text = readFileSync(
-        env.KODOR_SETTINGS || join(root, ".claude/kodor.yaml"),
+        env.LUNAMILL_SETTINGS || join(root, ".claude/lunamill.yaml"),
         "utf8",
       );
     } catch {
@@ -252,7 +252,7 @@ export async function main(
   err: say.Out,
 ): Promise<number> {
   if (argv.length > 0) {
-    err(say.text("Usage: kodor default-branch"));
+    err(say.text("Usage: lunamill default-branch"));
     return 2;
   }
   try {
@@ -265,7 +265,7 @@ export async function main(
   }
 }
 
-/** `kodor default-branch`. */
+/** `lunamill default-branch`. */
 export async function run(argv: string[]): Promise<number> {
   const { repoRoot } = await import("../config.mts");
   const { out, err } = say.printersFor("default-branch");

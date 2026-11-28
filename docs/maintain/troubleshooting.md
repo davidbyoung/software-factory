@@ -1,14 +1,14 @@
 # Troubleshooting
 
-For anyone whom kodor surprised. Start with
-`kodor doctor`, run in your repository's checkout. If its output does not settle it, find what you saw
+For anyone whom lunamill surprised. Start with
+`lunamill doctor`, run in your repository's checkout. If its output does not settle it, find what you saw
 among the headings below: each says what to do, or which page owns the
 fix.
 
-## Reading `kodor doctor`
+## Reading `lunamill doctor`
 
 ```bash
-kodor doctor
+lunamill doctor
 ```
 
 It prints its checks under headings: `Settings and files`, then each
@@ -19,7 +19,7 @@ check fails, and changes nothing
 ([Commands](../reference/cli.md#setting-up)).
 
 In the steps below, 12 stands for your ticket's number and 15 for its pull
-request's. A `/kodor-...` command is typed in a
+request's. A `/lunamill-...` command is typed in a
 [session](../reference/glossary.md#the-words) of your coding agent.
 
 ## A test or a check fails during a build
@@ -30,33 +30,33 @@ again.
 ## The session stops and says it needs you
 
 It says why, in the session and on the ticket. Answer, then run
-`/kodor-build 12` again.
+`/lunamill-build 12` again.
 
 ## The build stops on `commands.gate is not set`
 
 Your settings do not say how to check a change. Add your test and lint
 commands ([Your commands](../customize/commands.md)), then run
-`/kodor-build 12` again.
+`/lunamill-build 12` again.
 
 ## The session was closed or crashed partway
 
-Run `/kodor-build 12` in a new session. It picks up the branch it made.
+Run `/lunamill-build 12` in a new session. It picks up the branch it made.
 
 ## You want to change what was decided
 
-Run `/kodor-refine 12` again, or edit the ticket.
+Run `/lunamill-refine 12` again, or edit the ticket.
 
 ## CI fails on the pull request
 
-Run `/kodor-address-review 15`. It reads the failure and fixes it.
+Run `/lunamill-address-review 15`. It reads the failure and fixes it.
 
-## The session does not know kodor's skills
+## The session does not know lunamill's skills
 
 The setup is not merged, or the session started before it was. Merge
 the setup's pull request, bring your default branch up to date, and start
 a new session ([Quick start](../get-started/quick-start.md#3-merge-the-setup)).
 
-## `kodor init` stops on the organization's secrets
+## `lunamill init` stops on the organization's secrets
 
 The organization is set up, but its secrets do not reach your repository,
 or its plan keeps them from a private one.
@@ -69,7 +69,7 @@ The coding agent's token is usually the cause: it lasts a year.
 [Claude Code](../integrations/claude-code.md#when-the-claude-tokens-year-is-up)
 says how to tell, and how to replace it.
 
-## `kodor status` says a token stops working soon
+## `lunamill status` says a token stops working soon
 
 On your own account, the code host's access token expires on the day
 you chose when you made it
@@ -80,7 +80,7 @@ The coding agent's token lasts a year
 ## Moving a ticket to Ready starts nothing
 
 Where [`builds.trigger`](../reference/settings/builds.md#builds) is `manual`, nothing starts a build from the
-board: tell a session to build it, or run `kodor build 12`. Otherwise
+board: tell a session to build it, or run `lunamill build 12`. Otherwise
 the poller is not running:
 [When the schedule fails](../features/builds-from-the-board.md#when-the-schedule-fails),
 or, for a poller you host,
@@ -98,5 +98,5 @@ says how to read it and decide.
 
 ## Anything else
 
-Run `kodor doctor`, as above. It says what is wrong, and what to do
+Run `lunamill doctor`, as above. It says what is wrong, and what to do
 about it.

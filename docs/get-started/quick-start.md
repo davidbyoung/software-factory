@@ -1,7 +1,7 @@
 # Quick start
 
-For someone with a repository and a coding agent who has never used kodor. At the end you have a pull request built from one of your
-tickets. You run a few commands, answer the questions `kodor init`
+For someone with a repository and a coding agent who has never used lunamill. At the end you have a pull request built from one of your
+tickets. You run a few commands, answer the questions `lunamill init`
 asks as it sets your repository up, which step 2 lists, write one
 ticket, and settle the decisions your coding agent asks you about it. It
 needs no board, no secrets, and nothing to host.
@@ -17,8 +17,8 @@ A word you do not know is in the [glossary](../reference/glossary.md).
 
 - A repository on a supported code host, cloned on your machine, with the
   code host's command-line tool signed in. It can be new and empty:
-  `kodor init` then offers to push a first commit.
-- A supported coding agent, signed in. `kodor init` stops without one.
+  `lunamill init` then offers to push a first commit.
+- A supported coding agent, signed in. `lunamill init` stops without one.
 - Node 22.18 or later.
 
 Today the code host is [GitHub](../integrations/github.md) and the
@@ -33,16 +33,16 @@ says what that takes.
 Once on your machine, for every repository you use it in:
 
 ```bash
-npm install -g @kodor-ai/kodor
+npm install -g @lunamill-ai/lunamill
 ```
 
 Nothing is installed in your repository, unless you choose a spec tool
 that npm installs in step 2 ([`specs`](../reference/settings/specs.md#specs) says
 what). Once it is set up, it names the
-version of kodor it uses, and `kodor` runs that version there
+version of lunamill it uses, and `lunamill` runs that version there
 ([Updating](../maintain/updating.md#what-happens)).
 
-**It worked when** `kodor`, run in your repository, prints the list of
+**It worked when** `lunamill`, run in your repository, prints the list of
 its commands.
 
 ## 2. Set it up
@@ -50,7 +50,7 @@ its commands.
 On your default branch, in your repository:
 
 ```bash
-kodor init
+lunamill init
 ```
 
 It shows what it found, then asks two things first: how a build names
@@ -63,7 +63,7 @@ cloud". For this first ticket, uncheck those three:
 each needs a token or a secret you set up later, and this page needs
 none. Keep them checked instead if you want the full setup now. If
 your repository belongs to an organization, and one of its owners has
-already run kodor's setup for the whole organization, init asks
+already run lunamill's setup for the whole organization, init asks
 less, and for no token:
 [In an organization](../setup/repository.md#in-an-organization) shows what you
 see.
@@ -76,7 +76,7 @@ Then it asks how a change is checked:
 
 Type the command that tests your project. A build runs it before it
 opens its pull request, and cannot finish without one. Init saves it in
-your settings file, `.claude/kodor.yaml`, under
+your settings file, `.claude/lunamill.yaml`, under
 [`commands.gate`](../reference/settings/commands.md#commandsgate). To have a build run
 more than one command, in order, add the others there afterward, with
 your own in place of these:
@@ -97,25 +97,25 @@ Last, it lists everything it will do and asks "Go ahead?". Type `y`:
 Enter alone answers no, and nothing changes. It then writes your
 settings file and the instructions and checks your coding agent follows,
 runs the command you gave, commits what it wrote on a new branch,
-`set-up-kodor`, pushes it, and opens a pull request:
+`set-up-lunamill`, pushes it, and opens a pull request:
 
 ```text
 ✓ npm test passes here.
-✓ Opened your-name/your-repo#1, "Set up kodor".
+✓ Opened your-name/your-repo#1, "Set up lunamill".
 Merge it to finish. Nothing else is left to do.
 ```
 
 When the command fails, init says so and commits nothing. Fix what
-failed, or change the command in `.claude/kodor.yaml`, and run
-`kodor init` again. On a public repository init also adds a policy
-that lets kodor's workflow run, which needs admin rights on the
+failed, or change the command in `.claude/lunamill.yaml`, and run
+`lunamill init` again. On a public repository init also adds a policy
+that lets lunamill's workflow run, which needs admin rights on the
 repository ([A public repository](../integrations/github.md#a-public-repository)).
 [What it changes](../maintain/removing.md) lists every file.
 
 **It worked when** init prints `✓ Opened` with the pull request's
 number, and the checks it prints last all show ✓, or `-` for a part you
-left off. `kodor doctor` runs them again at any time, and
-`kodor gate` runs your command, ending with
+left off. `lunamill doctor` runs them again at any time, and
+`lunamill gate` runs your command, ending with
 `✓ Every gate command passed.`
 
 ## 3. Merge the setup
@@ -127,16 +127,16 @@ pull request's line, `init` printed what comes next:
 After it merges:
   1. Come back to main and bring it up to date:
        git switch main && git pull
-  2. Start a new session of your coding agent here. It loads kodor from the files now in your repository.
-  3. Refine a ticket with /kodor-refine N, then build it with /kodor-build N.
+  2. Start a new session of your coding agent here. It loads lunamill from the files now in your repository.
+  3. Refine a ticket with /lunamill-refine N, then build it with /lunamill-build N.
 ```
 
 Do the first two now. Your checkout is left on the branch
-`set-up-kodor`, and the first step names your own default branch. The
+`set-up-lunamill`, and the first step names your own default branch. The
 third is steps 5 and 6 of this page, once you have a ticket.
 
-**It worked when** typing `/kodor` in the new session lists
-`kodor-refine` and `kodor-build`.
+**It worked when** typing `/lunamill` in the new session lists
+`lunamill-refine` and `lunamill-build`.
 
 ## 4. Open a ticket
 
@@ -159,10 +159,10 @@ Done when: every page's footer shows the same hours the contact page does.
 In the session, type:
 
 ```text
-/kodor-refine 12
+/lunamill-refine 12
 ```
 
-That runs the `kodor-refine` skill on ticket 12.
+That runs the `lunamill-refine` skill on ticket 12.
 [Skills and agents](../reference/skills.md#at-a-glance) lists the other commands.
 
 The session reads the ticket and the code it touches, then asks you the
@@ -182,10 +182,10 @@ of exactly what "done" means, and the session says it is ready to build.
 In the same session, or a new one:
 
 ```text
-/kodor-build 12
+/lunamill-build 12
 ```
 
-Running `kodor-build` on a ticket is how you approve it. The session
+Running `lunamill-build` on a ticket is how you approve it. The session
 makes a branch, writes a test and then the change, and opens a pull
 request that closes the ticket. Expect minutes, not seconds.
 [The workflow](../workflow/README.md#from-a-ticket-to-a-merge) has each step.
@@ -204,7 +204,7 @@ To ask for changes, comment on the pull request, then have a session
 answer your comments:
 
 ```text
-/kodor-address-review 15
+/lunamill-address-review 15
 ```
 
 **It worked when** the pull request is merged and ticket 12 is closed.
@@ -220,13 +220,13 @@ optional, stands alone, and can come later.
 
 - **An automated review, a board, builds in the cloud, builds that start
   from the board, and pull requests that merge themselves.** Run
-  `kodor init` again and check the parts you want. It asks for a token
+  `lunamill init` again and check the parts you want. It asks for a token
   or two, sets everything else up, and opens a pull request titled
-  "Change kodor's settings" with the files it changed,
+  "Change lunamill's settings" with the files it changed,
   and says how to bring your default branch up to date once it merges. In
-  an organization whose owner has run kodor's setup for it, init
+  an organization whose owner has run lunamill's setup for it, init
   asks for no token.
-  [Set up a repository](../setup/repository.md#run-kodor-init) says what each
+  [Set up a repository](../setup/repository.md#run-lunamill-init) says what each
   part gives you and what it asks.
 - **A command before every commit a session makes,** such as your linter:
   a few lines under

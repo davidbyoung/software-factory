@@ -8,7 +8,7 @@ import {
   TRIGGERS,
   parseSettings,
 } from "../src/config.mts";
-import { KODOR_COLUMNS } from "./kodor-columns";
+import { LUNAMILL_COLUMNS } from "./lunamill-columns";
 import { CODE_HOST } from "./settings-fixture";
 
 type Block = { properties: Record<string, unknown>; enum?: string[] };
@@ -160,7 +160,7 @@ describe("the schema and parseSettings agree on whole files", () => {
       tickets: {
         board: 3,
         columns: {
-          ...KODOR_COLUMNS,
+          ...LUNAMILL_COLUMNS,
           backlog: "Todo",
           review: ["Code review", "QA"],
         },

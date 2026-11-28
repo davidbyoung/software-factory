@@ -2,22 +2,22 @@
 
 ## Purpose
 
-`kodor init`'s column step: the coding agent suggests which of an existing board's columns shows each state, and you accept, change, or refuse the suggestion before anything changes. Also the ready column init asks for when builds from the board turn on without one.
+`lunamill init`'s column step: the coding agent suggests which of an existing board's columns shows each state, and you accept, change, or refuse the suggestion before anything changes. Also the ready column init asks for when builds from the board turn on without one.
 
 ## Requirements
 
 ### Requirement: Init names the board's columns
 
-kodor SHALL behave as this line says: When `kodor init` will use an existing board that lacks a column for one of the six states, and neither the settings nor a preset has `tickets.columns`, init names the board's columns in board order and suggests a column for each state, after the poller question and before the plan.
+lunamill SHALL behave as this line says: When `lunamill init` will use an existing board that lacks a column for one of the six states, and neither the settings nor a preset has `tickets.columns`, init names the board's columns in board order and suggests a column for each state, after the poller question and before the plan.
 
 #### Scenario: Init names the board's columns
 
-- **WHEN** `kodor init` will use a board that already exists, the board has at least one column, its Status field lacks a column for at least one of the six states, matched by kodor's own names ignoring capitals, and neither `.claude/kodor.yaml` nor a preset the repository follows has `tickets.columns`
+- **WHEN** `lunamill init` will use a board that already exists, the board has at least one column, its Status field lacks a column for at least one of the six states, matched by lunamill's own names ignoring capitals, and neither `.claude/lunamill.yaml` nor a preset the repository follows has `tickets.columns`
 - **THEN** init prints `Board N has the columns A, B, C, and D.`, with the names in board order. Then it suggests a column for each state. This comes after the question of where the poller runs and before the plan.
 
 ### Requirement: No column question otherwise
 
-kodor SHALL behave as this line says: When the settings have every state under `tickets.columns`, or when init creates the board, init asks nothing about columns.
+lunamill SHALL behave as this line says: When the settings have every state under `tickets.columns`, or when init creates the board, init asks nothing about columns.
 
 #### Scenario: No column question otherwise
 
@@ -26,16 +26,16 @@ kodor SHALL behave as this line says: When the settings have every state under `
 
 ### Requirement: Init asks the agent once
 
-kodor SHALL behave as this line says: When the coding agent's command is installed, init prints `Asking <label> which of them shows each of kodor's six states...` and asks the agent once. It sends only the board's column names, each state's key and meaning, and whether builds start from the board.
+lunamill SHALL behave as this line says: When the coding agent's command is installed, init prints `Asking <label> which of them shows each of lunamill's six states...` and asks the agent once. It sends only the board's column names, each state's key and meaning, and whether builds start from the board.
 
 #### Scenario: Init asks the agent once
 
 - **WHEN** the coding agent's command is installed
-- **THEN** init prints `Asking <label> which of them shows each of kodor's six states...` and asks the agent once. It sends only the board's column names, each state's key and meaning, and whether builds start from the board.
+- **THEN** init prints `Asking <label> which of them shows each of lunamill's six states...` and asks the agent once. It sends only the board's column names, each state's key and meaning, and whether builds start from the board.
 
 ### Requirement: The suggestion's table
 
-kodor SHALL behave as this line says: When the agent's answer is usable, init prints a table headed `State      Column`, with one row per state in the order backlog, refining, ready, building, review, done. Each row shows the board's column, as the board spells it; `<factory name>, which init adds`; or, for no column, what `kodor board check` prints: `none, shows in <column>`, or for ready, `none`.
+lunamill SHALL behave as this line says: When the agent's answer is usable, init prints a table headed `State      Column`, with one row per state in the order backlog, refining, ready, building, review, done. Each row shows the board's column, as the board spells it; `<factory name>, which init adds`; or, for no column, what `lunamill board check` prints: `none, shows in <column>`, or for ready, `none`.
 
 #### Scenario: The suggestion's table
 
@@ -43,11 +43,11 @@ kodor SHALL behave as this line says: When the agent's answer is usable, init pr
 - **THEN** init prints a table headed `State      Column`, with one row per state in the order backlog, refining, ready, building, review, done. Each row shows one of these:
   - the board's column, as the board spells it;
   - `<factory name>, which init adds`;
-  - for no column, what `kodor board check` prints: `none, shows in <column>`, or for ready, `none`.
+  - for no column, what `lunamill board check` prints: `none, shows in <column>`, or for ready, `none`.
 
 ### Requirement: An answer that can't be used
 
-kodor SHALL behave as this line says: When the answer can't be used, init does not stop: it prints `<label>'s answer could not be used: <reason>.` and `Choose the column for each state yourself.`, asks which column shows each of the six states in turn, and shows the table to accept or change. Nothing is written, and the board is unchanged, until the plan is approved.
+lunamill SHALL behave as this line says: When the answer can't be used, init does not stop: it prints `<label>'s answer could not be used: <reason>.` and `Choose the column for each state yourself.`, asks which column shows each of the six states in turn, and shows the table to accept or change. Nothing is written, and the board is unchanged, until the plan is approved.
 
 #### Scenario: An answer that can't be used
 
@@ -58,7 +58,7 @@ kodor SHALL behave as this line says: When the answer can't be used, init does n
 
 ### Requirement: Each reason has its own wording
 
-kodor SHALL behave as this line says: Each reason an answer can't be used has its own wording, and when several apply, the first in the scenario's list is printed. A command that exits non-zero gives what its answer says went wrong, and its error output only when the answer says nothing.
+lunamill SHALL behave as this line says: Each reason an answer can't be used has its own wording, and when several apply, the first in the scenario's list is printed. A command that exits non-zero gives what its answer says went wrong, and its error output only when the answer says nothing.
 
 #### Scenario: Each reason has its own wording
 
@@ -80,16 +80,16 @@ kodor SHALL behave as this line says: Each reason an answer can't be used has it
 
 ### Requirement: Use these columns
 
-kodor SHALL behave as this line says: After the table, init asks `Use these columns?` with `Yes`, `Change some`, and `No: add kodor's columns instead`. `Yes` is selected first.
+lunamill SHALL behave as this line says: After the table, init asks `Use these columns?` with `Yes`, `Change some`, and `No: add lunamill's columns instead`. `Yes` is selected first.
 
 #### Scenario: Use these columns
 
 - **WHEN** init has printed the table
-- **THEN** it asks `Use these columns?` with `Yes`, `Change some`, and `No: add kodor's columns instead`. `Yes` is selected first.
+- **THEN** it asks `Use these columns?` with `Yes`, `Change some`, and `No: add lunamill's columns instead`. `Yes` is selected first.
 
 ### Requirement: Change some
 
-kodor SHALL behave as this line says: When you choose `Change some`, init asks `Which states do you want to change?`, listing each state as `<key>: <its column, as the table shows it>`. Then, for each state picked, in table order, it asks `Which column shows <key>?`, with the current choice selected, offering the board's columns, a "No column" choice, and an "Add a column" choice, as the scenario lists. Then it shows the table and asks `Use these columns?` again.
+lunamill SHALL behave as this line says: When you choose `Change some`, init asks `Which states do you want to change?`, listing each state as `<key>: <its column, as the table shows it>`. Then, for each state picked, in table order, it asks `Which column shows <key>?`, with the current choice selected, offering the board's columns, a "No column" choice, and an "Add a column" choice, as the scenario lists. Then it shows the table and asks `Use these columns?` again.
 
 #### Scenario: Change some
 
@@ -103,25 +103,25 @@ kodor SHALL behave as this line says: When you choose `Change some`, init asks `
 
 ### Requirement: One column for two states
 
-kodor SHALL behave as this line says: When a column picked for a state already shows another state in the table as it stands, init prints `<column> already shows <other>. Pick another column for <key>.`. It keeps that state's earlier column and the columns picked for the states before it in the same pass. Then it asks `Which states do you want to change?` again, with every state still picked, so you can move the other state first.
+lunamill SHALL behave as this line says: When a column picked for a state already shows another state in the table as it stands, init prints `<column> already shows <other>. Pick another column for <key>.`. It keeps that state's earlier column and the columns picked for the states before it in the same pass. Then it asks `Which states do you want to change?` again, with every state still picked, so you can move the other state first.
 
 #### Scenario: One column for two states
 
 - **WHEN** a column picked for a state already shows another state in the table as it stands
 - **THEN** init prints `<column> already shows <other>. Pick another column for <key>.`. It keeps that state's earlier column and the columns picked for the states before it in the same pass. Then it asks `Which states do you want to change?` again, with every state still picked, so you can move the other state first.
 
-### Requirement: No adds kodor's columns
+### Requirement: No adds lunamill's columns
 
-kodor SHALL behave as this line says: When you choose `No: add kodor's columns instead`, init writes all six states with kodor's names, and the board gains each of those columns it lacks.
+lunamill SHALL behave as this line says: When you choose `No: add lunamill's columns instead`, init writes all six states with lunamill's names, and the board gains each of those columns it lacks.
 
-#### Scenario: No adds kodor's columns
+#### Scenario: No adds lunamill's columns
 
-- **WHEN** you choose `No: add kodor's columns instead`
-- **THEN** init writes all six states with kodor's names, and the board gains each of those columns it lacks.
+- **WHEN** you choose `No: add lunamill's columns instead`
+- **THEN** init writes all six states with lunamill's names, and the board gains each of those columns it lacks.
 
 ### Requirement: Only the columns the mapping needs are added
 
-kodor SHALL behave as this line says: After `Go ahead?`, the board gains only the columns the chosen mapping needs and lacks, and no others. With `backlog: Todo`, no Backlog column is added. `Added to board N:` lists them with the fields added.
+lunamill SHALL behave as this line says: After `Go ahead?`, the board gains only the columns the chosen mapping needs and lacks, and no others. With `backlog: Todo`, no Backlog column is added. `Added to board N:` lists them with the fields added.
 
 #### Scenario: Only the columns the mapping needs are added
 
@@ -130,7 +130,7 @@ kodor SHALL behave as this line says: After `Go ahead?`, the board gains only th
 
 ### Requirement: Lines name the agent by its label
 
-kodor SHALL behave as this line says: Every line of the column step names the agent by its registered label. With the test registry's Fake Agent, no line contains "Claude Code".
+lunamill SHALL behave as this line says: Every line of the column step names the agent by its registered label. With the test registry's Fake Agent, no line contains "Claude Code".
 
 #### Scenario: Lines name the agent by its label
 
@@ -139,43 +139,43 @@ kodor SHALL behave as this line says: Every line of the column step names the ag
 
 ### Requirement: A ready column when builds from the board turn on
 
-kodor SHALL behave as this line says: When a re-run of `kodor init` turns on builds from the board, and the settings have `tickets.columns.ready: none`, init says so and asks which column shows ready, without asking the agent and without offering "No column". When a re-run that turns on builds from the board answers `Which column shows ready?` with `Add a column called "Ready"`, init writes `ready: Ready`, and adds the column.
+lunamill SHALL behave as this line says: When a re-run of `lunamill init` turns on builds from the board, and the settings have `tickets.columns.ready: none`, init says so and asks which column shows ready, without asking the agent and without offering "No column". When a re-run that turns on builds from the board answers `Which column shows ready?` with `Add a column called "Ready"`, init writes `ready: Ready`, and adds the column.
 
 #### Scenario: A ready column when builds from the board turn on
 
-- **WHEN** a re-run of `kodor init` turns on "Builds that start when you move a card to Ready", and the settings have `tickets.columns.ready: none`
+- **WHEN** a re-run of `lunamill init` turns on "Builds that start when you move a card to Ready", and the settings have `tickets.columns.ready: none`
 - **THEN** init prints `Builds from the board start when a ticket moves to the ready column,` and `and your settings give ready no column.`, after the question of where the poller runs. Then it asks `Which column shows ready?`, without asking the agent. It offers the board's columns in board order and, when the board has no Ready column, `Add a column called "Ready"`, but no "No column". A column that already shows another state gets line 11's message, and the question is asked again. Add writes `ready: Ready`, and init adds the column. A board column writes `ready: <its name>`.
 
 ### Requirement: Init writes a created board's columns
 
-kodor SHALL behave as this line says: When `kodor init` creates the board, it writes all six states under `tickets.columns`, each with kodor's name: `backlog: Backlog`, `refining: In refinement`, `ready: Ready`, `building: In progress`, `review: In review`, `done: Done`.
+lunamill SHALL behave as this line says: When `lunamill init` creates the board, it writes all six states under `tickets.columns`, each with lunamill's name: `backlog: Backlog`, `refining: In refinement`, `ready: Ready`, `building: In progress`, `review: In review`, `done: Done`.
 
 #### Scenario: Init writes a created board's columns
 
-- **WHEN** `kodor init` creates the board
-- **THEN** it writes all six states under `tickets.columns`, each with kodor's name: `backlog: Backlog`, `refining: In refinement`, `ready: Ready`, `building: In progress`, `review: In review`, `done: Done`.
+- **WHEN** `lunamill init` creates the board
+- **THEN** it writes all six states under `tickets.columns`, each with lunamill's name: `backlog: Backlog`, `refining: In refinement`, `ready: Ready`, `building: In progress`, `review: In review`, `done: Done`.
 
 ### Requirement: Init saves a board that has every column
 
-kodor SHALL behave as this line says: When init will use an existing board whose Status field has a column of each of kodor's six names, ignoring capitals, and the settings have no `tickets.columns`, init asks nothing about columns. It prints `Board N has a column for each of kodor's six states:`, a blank line, and the `State      Column` table with a row per state, in the board's spelling, and writes all six states under `tickets.columns` in the board's spelling.
+lunamill SHALL behave as this line says: When init will use an existing board whose Status field has a column of each of lunamill's six names, ignoring capitals, and the settings have no `tickets.columns`, init asks nothing about columns. It prints `Board N has a column for each of lunamill's six states:`, a blank line, and the `State      Column` table with a row per state, in the board's spelling, and writes all six states under `tickets.columns` in the board's spelling.
 
 #### Scenario: Init saves a board that has every column
 
-- **WHEN** init will use an existing board whose Status field has a column of each of kodor's six names, ignoring capitals, and the settings have no `tickets.columns`
-- **THEN** init asks nothing about columns. It prints `Board N has a column for each of kodor's six states:`, a blank line, and the `State      Column` table with a row per state, in the board's spelling, and writes all six states under `tickets.columns` in the board's spelling.
+- **WHEN** init will use an existing board whose Status field has a column of each of lunamill's six names, ignoring capitals, and the settings have no `tickets.columns`
+- **THEN** init asks nothing about columns. It prints `Board N has a column for each of lunamill's six states:`, a blank line, and the `State      Column` table with a row per state, in the board's spelling, and writes all six states under `tickets.columns` in the board's spelling.
 
 ### Requirement: Yes writes all six states
 
-kodor SHALL behave as this line says: When you choose `Yes`, init writes all six states under `tickets.columns`: the board's column as the board spells it, `none`, or for a column init adds, kodor's name.
+lunamill SHALL behave as this line says: When you choose `Yes`, init writes all six states under `tickets.columns`: the board's column as the board spells it, `none`, or for a column init adds, lunamill's name.
 
 #### Scenario: Yes writes all six states
 
 - **WHEN** you choose `Yes`
-- **THEN** init writes all six states under `tickets.columns`: the board's column as the board spells it, `none`, or for a column init adds, kodor's name.
+- **THEN** init writes all six states under `tickets.columns`: the board's column as the board spells it, `none`, or for a column init adds, lunamill's name.
 
 ### Requirement: Change some writes all six states
 
-kodor SHALL behave as this line says: When you choose `Change some` and then `Yes`, init writes all six states the same way.
+lunamill SHALL behave as this line says: When you choose `Change some` and then `Yes`, init writes all six states the same way.
 
 #### Scenario: Change some writes all six states
 
@@ -184,54 +184,54 @@ kodor SHALL behave as this line says: When you choose `Change some` and then `Ye
 
 ### Requirement: Init reads a file missing only states
 
-kodor SHALL behave as this line says: When `.claude/kodor.yaml` fails only by lines 1 to 3, `kodor init` reads it rather than stopping with `Fix it, then run init again.`. A file with any other fault still stops it so.
+lunamill SHALL behave as this line says: When `.claude/lunamill.yaml` fails only by lines 1 to 3, `lunamill init` reads it rather than stopping with `Fix it, then run init again.`. A file with any other fault still stops it so.
 
 #### Scenario: Init reads a file missing only states
 
-- **WHEN** `.claude/kodor.yaml` fails only by lines 1 to 3
-- **THEN** `kodor init` reads it rather than stopping with `Fix it, then run init again.`. A file with any other fault still stops it so.
+- **WHEN** `.claude/lunamill.yaml` fails only by lines 1 to 3
+- **THEN** `lunamill init` reads it rather than stopping with `Fix it, then run init again.`. A file with any other fault still stops it so.
 
 ### Requirement: A re-run keeps written states and fills the rest
 
-kodor SHALL behave as this line says: When a re-run finds `tickets.columns` written but leaving out states, init keeps each state written as it is, and fills in each missing state whose column of kodor's name the board has, ignoring capitals, without asking, unless a written state already names that column: such a state is asked for, as line 16 says. This comes after the question of where the poller runs and before the plan, where the column step is today.
+lunamill SHALL behave as this line says: When a re-run finds `tickets.columns` written but leaving out states, init keeps each state written as it is, and fills in each missing state whose column of lunamill's name the board has, ignoring capitals, without asking, unless a written state already names that column: such a state is asked for, as line 16 says. This comes after the question of where the poller runs and before the plan, where the column step is today.
 
 #### Scenario: A re-run keeps written states and fills the rest
 
 - **WHEN** a re-run finds `tickets.columns` written but leaving out states
-- **THEN** init keeps each state written as it is, and fills in each missing state whose column of kodor's name the board has, ignoring capitals, without asking, unless a written state already names that column: such a state is asked for, as line 16 says. This comes after the question of where the poller runs and before the plan, where the column step is today.
+- **THEN** init keeps each state written as it is, and fills in each missing state whose column of lunamill's name the board has, ignoring capitals, without asking, unless a written state already names that column: such a state is asked for, as line 16 says. This comes after the question of where the poller runs and before the plan, where the column step is today.
 
 ### Requirement: A re-run that asks nothing
 
-kodor SHALL behave as this line says: When line 14 fills in every missing state, init asks nothing. It prints `Your settings give no column to STATES.`, STATES joined as in line 2 but with `or` (`building or done`), then `Board N has a column of kodor's name for each:`, a blank line, and the `State      Column` table of all six states as they will be written, and writes them.
+lunamill SHALL behave as this line says: When line 14 fills in every missing state, init asks nothing. It prints `Your settings give no column to STATES.`, STATES joined as in line 2 but with `or` (`building or done`), then `Board N has a column of lunamill's name for each:`, a blank line, and the `State      Column` table of all six states as they will be written, and writes them.
 
 #### Scenario: A re-run that asks nothing
 
 - **WHEN** line 14 fills in every missing state
-- **THEN** init asks nothing. It prints `Your settings give no column to STATES.`, STATES joined as in line 2 but with `or` (`building or done`), then `Board N has a column of kodor's name for each:`, a blank line, and the `State      Column` table of all six states as they will be written, and writes them.
+- **THEN** init asks nothing. It prints `Your settings give no column to STATES.`, STATES joined as in line 2 but with `or` (`building or done`), then `Board N has a column of lunamill's name for each:`, a blank line, and the `State      Column` table of all six states as they will be written, and writes them.
 
 ### Requirement: A re-run asks for a state it cannot fill
 
-kodor SHALL behave as this line says: When a missing state has no column of kodor's name on the board, or one a written state already names, init says why and asks which column shows it, as `Change some` does, then confirms the table, as the scenario gives it.
+lunamill SHALL behave as this line says: When a missing state has no column of lunamill's name on the board, or one a written state already names, init says why and asks which column shows it, as `Change some` does, then confirms the table, as the scenario gives it.
 
 #### Scenario: A re-run asks for a state it cannot fill
 
-- **WHEN** a missing state has no column of kodor's name on the board
+- **WHEN** a missing state has no column of lunamill's name on the board
 - **THEN** init prints `Your settings give no column to STATE, and board N has no NAME column.`; when the board has it but a written state names it, `Your settings give no column to STATE, and NAME already shows OTHER.`. Either way it asks `Which column shows STATE?`, offering what `Change some` offers for that state, with the same rule for one column for two states. It does so once for each such state, in table order, and prints no line for the missing states line 14 filled in. Then it shows the table of all six states and asks `Use these columns?`, as after `Change some`.
 
 ### Requirement: A re-run with no block suggests
 
-kodor SHALL behave as this line says: When a re-run finds no `tickets.columns` and the board has some columns but lacks one of kodor's names, init runs the suggestion as on a first setup.
+lunamill SHALL behave as this line says: When a re-run finds no `tickets.columns` and the board has some columns but lacks one of lunamill's names, init runs the suggestion as on a first setup.
 
 #### Scenario: A re-run with no block suggests
 
-- **WHEN** a re-run finds no `tickets.columns` and the board has some columns but lacks one of kodor's names
+- **WHEN** a re-run finds no `tickets.columns` and the board has some columns but lacks one of lunamill's names
 - **THEN** init runs the suggestion as on a first setup.
 
-### Requirement: A board with no columns gets kodor's
+### Requirement: A board with no columns gets lunamill's
 
-kodor SHALL behave as this line says: When init will use an existing board with no columns at all and the settings have no `tickets.columns`, init asks nothing about columns, as today, writes all six states with kodor's names, and the board gains those columns.
+lunamill SHALL behave as this line says: When init will use an existing board with no columns at all and the settings have no `tickets.columns`, init asks nothing about columns, as today, writes all six states with lunamill's names, and the board gains those columns.
 
-#### Scenario: A board with no columns gets kodor's
+#### Scenario: A board with no columns gets lunamill's
 
 - **WHEN** init will use an existing board with no columns at all and the settings have no `tickets.columns`
-- **THEN** init asks nothing about columns, as today, writes all six states with kodor's names, and the board gains those columns.
+- **THEN** init asks nothing about columns, as today, writes all six states with lunamill's names, and the board gains those columns.

@@ -6,7 +6,7 @@ export const CODE_HOST = { type: "github", "branch-name": "{ticket}" } as const;
 export const CODE_HOST_YAML =
   'code-host:\n  type: github\n  branch-name: "{ticket}"';
 
-/** `policies` with kodor's own `credentials` policy turned off, for
+/** `policies` with lunamill's own `credentials` policy turned off, for
  * a test about something else, which every repository would otherwise
  * have on. */
 export const withoutCredentials = (policies: unknown[] = []) =>

@@ -2,22 +2,22 @@
 
 ## Purpose
 
-What `kodor config explain` prints: the settings as the file would read with every default written out, each default marked.
+What `lunamill config explain` prints: the settings as the file would read with every default written out, each default marked.
 
 ## Requirements
 
 ### Requirement: Explain prints the settings filled in
 
-kodor SHALL behave as this line says: When `kodor config explain` runs, it prints the settings as YAML, in `.claude/kodor.yaml`'s key order, with every default filled in, and exits 0.
+lunamill SHALL behave as this line says: When `lunamill config explain` runs, it prints the settings as YAML, in `.claude/lunamill.yaml`'s key order, with every default filled in, and exits 0.
 
 #### Scenario: Explain prints the settings filled in
 
-- **WHEN** `kodor config explain` runs
-- **THEN** it prints the settings as YAML, in `.claude/kodor.yaml`'s key order, with every default filled in, and exits 0.
+- **WHEN** `lunamill config explain` runs
+- **THEN** it prints the settings as YAML, in `.claude/lunamill.yaml`'s key order, with every default filled in, and exits 0.
 
 ### Requirement: Defaults are marked
 
-kodor SHALL behave as this line says: A line whose value the settings do not set ends with `# default`; a line they set has no comment.
+lunamill SHALL behave as this line says: A line whose value the settings do not set ends with `# default`; a line they set has no comment.
 
 #### Scenario: Defaults are marked
 
@@ -26,61 +26,61 @@ kodor SHALL behave as this line says: A line whose value the settings do not set
 
 ### Requirement: Parts that are off and empty defaults print as comments
 
-kodor SHALL behave as this line says: When an optional part is off, or a setting's default is no value, it prints a comment line in its place, such as `# pr-review: off` or `# board: none (default)`. The scenario lists each one.
+lunamill SHALL behave as this line says: When an optional part is off, or a setting's default is no value, it prints a comment line in its place, such as `# pr-review: off` or `# board: none (default)`. The scenario lists each one.
 
 #### Scenario: Parts that are off and empty defaults print as comments
 
 - **WHEN** an optional part is off (`pr-review` or `site`), or a setting's default is no value (`tickets.board`, `site.pages`, `site.design-guide`, `commands.test-one`, `commands.end-to-end`, `commands.coverage`, or a mockups plugin where there is none)
-- **THEN** it prints a comment line in its place: `# pr-review: off`, `# board: none (default)`, `# pages: found by kodor (default)`, `# design-guide: none (default)`, `# test-one: none (default)`, `# end-to-end: none (default)`, `# coverage: none (default)`, or `# mockups: none (default)`.
+- **THEN** it prints a comment line in its place: `# pr-review: off`, `# board: none (default)`, `# pages: found by lunamill (default)`, `# design-guide: none (default)`, `# test-one: none (default)`, `# end-to-end: none (default)`, `# coverage: none (default)`, or `# mockups: none (default)`.
 
 ### Requirement: The output is a valid settings file
 
-kodor SHALL behave as this line says: When `kodor config explain` prints plain text and every comment is taken out, the output passes `kodor config check` and reads as the same settings.
+lunamill SHALL behave as this line says: When `lunamill config explain` prints plain text and every comment is taken out, the output passes `lunamill config check` and reads as the same settings.
 
 #### Scenario: The output is a valid settings file
 
-- **WHEN** `kodor config explain` prints plain text and every comment is taken out
-- **THEN** the output passes `kodor config check` and reads as the same settings.
+- **WHEN** `lunamill config explain` prints plain text and every comment is taken out
+- **THEN** the output passes `lunamill config check` and reads as the same settings.
 
 ### Requirement: Unreadable settings fail as config check does
 
-kodor SHALL behave as this line says: When the settings cannot be read, or kodor's dependencies are not installed, it prints what `kodor config check` prints, and exits 1.
+lunamill SHALL behave as this line says: When the settings cannot be read, or lunamill's dependencies are not installed, it prints what `lunamill config check` prints, and exits 1.
 
 #### Scenario: Unreadable settings fail as config check does
 
-- **WHEN** the settings cannot be read, or kodor's dependencies are not installed
-- **THEN** it prints what `kodor config check` prints, and exits 1.
+- **WHEN** the settings cannot be read, or lunamill's dependencies are not installed
+- **THEN** it prints what `lunamill config check` prints, and exits 1.
 
 ### Requirement: Explain prints commands
 
-kodor SHALL behave as this line says: When `kodor config explain` runs, it prints a `commands` block holding `build-setup`, `before-commit`, `gate`, and `relock`, and a comment line in place of each of `test-one`, `end-to-end`, and `coverage` that is not set: `# test-one: none (default)`, `# end-to-end: none (default)`, `# coverage: none (default)`.
+lunamill SHALL behave as this line says: When `lunamill config explain` runs, it prints a `commands` block holding `build-setup`, `before-commit`, `gate`, and `relock`, and a comment line in place of each of `test-one`, `end-to-end`, and `coverage` that is not set: `# test-one: none (default)`, `# end-to-end: none (default)`, `# coverage: none (default)`.
 
 #### Scenario: Explain prints commands
 
-- **WHEN** `kodor config explain` runs
+- **WHEN** `lunamill config explain` runs
 - **THEN** it prints a `commands` block holding `build-setup`, `before-commit`, `gate`, and `relock`, and a comment line in place of each of `test-one`, `end-to-end`, and `coverage` that is not set: `# test-one: none (default)`, `# end-to-end: none (default)`, `# coverage: none (default)`.
 
 ### Requirement: Explain prints specs
 
-kodor SHALL behave as this line says: When `specs.type` is `openspec`, `kodor config explain` prints `specs` as a block with `type` and `check`; otherwise it prints `specs: none`.
+lunamill SHALL behave as this line says: When `specs.type` is `openspec`, `lunamill config explain` prints `specs` as a block with `type` and `check`; otherwise it prints `specs: none`.
 
 #### Scenario: Explain prints specs
 
 - **WHEN** `specs.type` is `openspec`
-- **THEN** `kodor config explain` prints `specs` as a block with `type` and `check`; otherwise it prints `specs: none`.
+- **THEN** `lunamill config explain` prints `specs` as a block with `type` and `check`; otherwise it prints `specs: none`.
 
 ### Requirement: Explain prints plugins by phase
 
-kodor SHALL behave as this line says: When `kodor config explain` runs, it prints `plugins` grouped by phase, with `refiner`, `prover`, `mockups`, and `test.reviewers` filled in with what `kodor plugins` prints for the role and marked `# default` when the settings do not set them, an empty list for `builders`, `build.reviewers`, and `resolvers` that are not set, and the comment `# mockups: none (default)` where there is no mockups plugin.
+lunamill SHALL behave as this line says: When `lunamill config explain` runs, it prints `plugins` grouped by phase, with `refiner`, `prover`, `mockups`, and `test.reviewers` filled in with what `lunamill plugins` prints for the role and marked `# default` when the settings do not set them, an empty list for `builders`, `build.reviewers`, and `resolvers` that are not set, and the comment `# mockups: none (default)` where there is no mockups plugin.
 
 #### Scenario: Explain prints plugins by phase
 
-- **WHEN** `kodor config explain` runs
-- **THEN** it prints `plugins` grouped by phase, with `refiner`, `prover`, `mockups`, and `test.reviewers` filled in with what `kodor plugins` prints for the role and marked `# default` when the settings do not set them, an empty list for `builders`, `build.reviewers`, and `resolvers` that are not set, and the comment `# mockups: none (default)` where there is no mockups plugin.
+- **WHEN** `lunamill config explain` runs
+- **THEN** it prints `plugins` grouped by phase, with `refiner`, `prover`, `mockups`, and `test.reviewers` filled in with what `lunamill plugins` prints for the role and marked `# default` when the settings do not set them, an empty list for `builders`, `build.reviewers`, and `resolvers` that are not set, and the comment `# mockups: none (default)` where there is no mockups plugin.
 
 ### Requirement: A value from a preset is marked
 
-kodor SHALL behave as this line says: When a value comes from a preset, its line ends with `# NAME`. When a choice picked it over another preset's, `# NAME, chosen over OTHER`. When two presets disagree and nothing is chosen, `# NAME, not chosen yet`.
+lunamill SHALL behave as this line says: When a value comes from a preset, its line ends with `# NAME`. When a choice picked it over another preset's, `# NAME, chosen over OTHER`. When two presets disagree and nothing is chosen, `# NAME, not chosen yet`.
 
 #### Scenario: A value from a preset is marked
 
@@ -89,16 +89,16 @@ kodor SHALL behave as this line says: When a value comes from a preset, its line
 
 ### Requirement: A value that replaces a preset's is marked
 
-kodor SHALL behave as this line says: When a value in `.claude/kodor.yaml` replaces a preset's, its line ends with `# over NAME`. A value only `.claude/kodor.yaml` sets has no comment, as today.
+lunamill SHALL behave as this line says: When a value in `.claude/lunamill.yaml` replaces a preset's, its line ends with `# over NAME`. A value only `.claude/lunamill.yaml` sets has no comment, as today.
 
 #### Scenario: A value that replaces a preset's is marked
 
-- **WHEN** a value in `.claude/kodor.yaml` replaces a preset's
-- **THEN** its line ends with `# over NAME`. A value only `.claude/kodor.yaml` sets has no comment, as today.
+- **WHEN** a value in `.claude/lunamill.yaml` replaces a preset's
+- **THEN** its line ends with `# over NAME`. A value only `.claude/lunamill.yaml` sets has no comment, as today.
 
 ### Requirement: Each list item is marked
 
-kodor SHALL behave as this line says: When a list adds up across layers, each item's line carries the mark of the layer it came from, by lines 62 and 63.
+lunamill SHALL behave as this line says: When a list adds up across layers, each item's line carries the mark of the layer it came from, by lines 62 and 63.
 
 #### Scenario: Each list item is marked
 
@@ -107,54 +107,54 @@ kodor SHALL behave as this line says: When a list adds up across layers, each it
 
 ### Requirement: Explain prints the lock's settings
 
-kodor SHALL behave as this line says: When `kodor config explain` prints plain text, every line after its first two is a line of the lock's `settings`, in order.
+lunamill SHALL behave as this line says: When `lunamill config explain` prints plain text, every line after its first two is a line of the lock's `settings`, in order.
 
 #### Scenario: Explain prints the lock's settings
 
-- **WHEN** `kodor config explain` prints plain text
+- **WHEN** `lunamill config explain` prints plain text
 - **THEN** every line after its first two is a line of the lock's `settings`, in order.
 
 ### Requirement: Explain prints a list of columns as a list
 
-kodor SHALL behave as this line says: When a state under `tickets.columns` is a list, `kodor config explain` prints it as a YAML list. A single name prints as a string, as today.
+lunamill SHALL behave as this line says: When a state under `tickets.columns` is a list, `lunamill config explain` prints it as a YAML list. A single name prints as a string, as today.
 
 #### Scenario: Explain prints a list of columns as a list
 
 - **WHEN** a state under `tickets.columns` is a list
-- **THEN** `kodor config explain` prints it as a YAML list. A single name prints as a string, as today.
+- **THEN** `lunamill config explain` prints it as a YAML list. A single name prints as a string, as today.
 
 ### Requirement: Ticket-side fields print without a board
 
-kodor SHALL behave as this line says: `kodor config explain` prints the four ticket-side keys under `tickets.fields`, each as its ticket field or `none`, and any key of the repository's own heading as written, whether or not `tickets.board` is set. `tickets.columns`, and `tickets.fields`' `session`, `runs-in`, and `cost`, print only when `tickets.board` is set, as today.
+lunamill SHALL behave as this line says: `lunamill config explain` prints the four ticket-side keys under `tickets.fields`, each as its ticket field or `none`, and any key of the repository's own heading as written, whether or not `tickets.board` is set. `tickets.columns`, and `tickets.fields`' `session`, `runs-in`, and `cost`, print only when `tickets.board` is set, as today.
 
 #### Scenario: Ticket-side fields print without a board
 
-- **WHEN** `kodor config explain` runs, with or without `tickets.board`
-- **THEN** `kodor config explain` prints the four ticket-side keys under `tickets.fields`, each as its ticket field or `none`, and any key of the repository's own heading as written, whether or not `tickets.board` is set. `tickets.columns`, and `tickets.fields`' `session`, `runs-in`, and `cost`, print only when `tickets.board` is set, as today.
+- **WHEN** `lunamill config explain` runs, with or without `tickets.board`
+- **THEN** `lunamill config explain` prints the four ticket-side keys under `tickets.fields`, each as its ticket field or `none`, and any key of the repository's own heading as written, whether or not `tickets.board` is set. `tickets.columns`, and `tickets.fields`' `session`, `runs-in`, and `cost`, print only when `tickets.board` is set, as today.
 
 ### Requirement: Explain prints the branch name
 
-kodor SHALL behave as this line says: When `kodor config explain` runs, it prints `code-host` as a block with `type` and `branch-name`, never on one line, with `branch-name` in double quotes, unmarked when the file sets it and marked with the preset's name when a preset does.
+lunamill SHALL behave as this line says: When `lunamill config explain` runs, it prints `code-host` as a block with `type` and `branch-name`, never on one line, with `branch-name` in double quotes, unmarked when the file sets it and marked with the preset's name when a preset does.
 
 #### Scenario: Explain prints the branch name
 
-- **WHEN** `kodor config explain` runs
+- **WHEN** `lunamill config explain` runs
 - **THEN** it prints `code-host` as a block with `type` and `branch-name`, never on one line, with `branch-name` in double quotes, unmarked when the file sets it and marked with the preset's name when a preset does.
 
 ### Requirement: Explain writes items
 
-kodor SHALL behave as this line says: When a command setting has items, `kodor config explain` writes each as the item it is, with `in` and `files`, and writes `commands.ignore`, a list of sites, and a preset's `in`, as a valid settings file.
+lunamill SHALL behave as this line says: When a command setting has items, `lunamill config explain` writes each as the item it is, with `in` and `files`, and writes `commands.ignore`, a list of sites, and a preset's `in`, as a valid settings file.
 
 #### Scenario: Explain writes items
 
 - **WHEN** When a command setting has items
-- **THEN** `kodor config explain` writes each as the item it is, with `in` and `files`, and writes `commands.ignore`, a list of sites, and a preset's `in`, as a valid settings file.
+- **THEN** `lunamill config explain` writes each as the item it is, with `in` and `files`, and writes `commands.ignore`, a list of sites, and a preset's `in`, as a valid settings file.
 
 ### Requirement: Explain prints approval policies
 
-kodor SHALL behave as the scenario below says, in the Spec line's own words.
+lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Explain prints approval policies
 
 - **WHEN** the settings have `approval-policies`
-- **THEN** `kodor config explain` prints each policy, with each item's line marked with the layer it came from.
+- **THEN** `lunamill config explain` prints each policy, with each item's line marked with the layer it came from.

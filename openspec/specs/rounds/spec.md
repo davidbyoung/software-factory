@@ -8,7 +8,7 @@ Which run starts next on a pull request, and when a person is waited for.
 
 ### Requirement: The next answer
 
-kodor SHALL behave as the scenario below says, in the Spec line's own words.
+lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The next answer
 
@@ -17,7 +17,7 @@ kodor SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: A person's review
 
-kodor SHALL behave as the scenario below says, in the Spec line's own words.
+lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A person's review
 
@@ -26,7 +26,7 @@ kodor SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: Conflicts and Dependabot's pull requests
 
-kodor SHALL behave as the scenario below says, in the Spec line's own words.
+lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Conflicts and Dependabot's pull requests
 

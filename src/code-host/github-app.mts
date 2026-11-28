@@ -10,7 +10,7 @@ import type { NewApp } from "./types.mts";
 
 const API = "https://api.github.com";
 const SITE = "https://github.com";
-const FACTORY = `${SITE}/kodor-ai/kodor`;
+const FACTORY = `${SITE}/lunamill-ai/lunamill`;
 /** The longest name GitHub gives an app. */
 const NAME_LIMIT = 34;
 /** Where GitHub sends the browser back to, on the listener. */
@@ -21,7 +21,7 @@ export function appName(organization: string): {
   name: string;
   shortened: boolean;
 } {
-  const name = `kodor-${organization.toLowerCase()}`;
+  const name = `lunamill-${organization.toLowerCase()}`;
   return name.length <= NAME_LIMIT
     ? { name, shortened: false }
     : { name: name.slice(0, NAME_LIMIT).trimEnd(), shortened: true };
@@ -107,7 +107,7 @@ const escaped = (text: string) =>
 const page = (body: string): Reply => ({
   status: 200,
   headers: { "content-type": "text/html; charset=utf-8" },
-  body: `<!doctype html><meta charset="utf-8"><title>kodor</title>${body}`,
+  body: `<!doctype html><meta charset="utf-8"><title>lunamill</title>${body}`,
 });
 
 /** The page that sends the manifest to GitHub's form as soon as it opens. */
@@ -146,7 +146,7 @@ async function call<T>(
     method: o.method,
     headers: {
       Accept: "application/vnd.github+json",
-      "User-Agent": "kodor",
+      "User-Agent": "lunamill",
       ...(o.bearer ? { Authorization: `Bearer ${o.bearer}` } : {}),
       ...(o.body ? { "Content-Type": "application/json" } : {}),
     },
@@ -329,7 +329,7 @@ async function installationOf(
   }).catch((e) => {
     if (!(e instanceof HttpError) || e.status !== 404) throw e;
     throw new Error(
-      `kodor's app for ${owner} is not installed on ${repository}. An owner of ${owner} adds it: ${SITE}/organizations/${owner}/settings/installations`,
+      `lunamill's app for ${owner} is not installed on ${repository}. An owner of ${owner} adds it: ${SITE}/organizations/${owner}/settings/installations`,
     );
   });
 }

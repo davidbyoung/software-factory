@@ -1,14 +1,14 @@
 // The guard on the credentials file: a session's shell command or file
-// tool that reads it is refused, with the kodor command to run instead,
+// tool that reads it is refused, with the lunamill command to run instead,
 // and one that only mentions it goes through.
 import { describe, expect, it } from "vitest";
 import { guard } from "../src/guard.mts";
 
 const REASON =
-  "kodor's credentials file is not for sessions to read. Its commands read it themselves: run the kodor command you need, such as kodor ticket view.";
+  "lunamill's credentials file is not for sessions to read. Its commands read it themselves: run the lunamill command you need, such as lunamill ticket view.";
 
-/** A call to `tool` as the hook gets it: Bash through `kodor guard`, and
- * the file tools through `kodor guard credentials`. */
+/** A call to `tool` as the hook gets it: Bash through `lunamill guard`, and
+ * the file tools through `lunamill guard credentials`. */
 async function run(tool: string, toolInput: unknown) {
   const err: string[] = [];
   const code = await guard(
@@ -19,32 +19,32 @@ async function run(tool: string, toolInput: unknown) {
   return { code, err };
 }
 
-describe("kodor guard credentials", () => {
+describe("lunamill guard credentials", () => {
   it.each([
-    ["Bash", "Bash", { command: "cat ~/.config/kodor/credentials.yaml" }],
+    ["Bash", "Bash", { command: "cat ~/.config/lunamill/credentials.yaml" }],
     [
       "Bash, through $XDG_CONFIG_HOME",
       "Bash",
-      { command: 'less "$XDG_CONFIG_HOME/kodor/credentials.yaml"' },
+      { command: 'less "$XDG_CONFIG_HOME/lunamill/credentials.yaml"' },
     ],
     [
       "Read",
       "Read",
-      { file_path: "/home/dana/.config/kodor/credentials.yaml" },
+      { file_path: "/home/dana/.config/lunamill/credentials.yaml" },
     ],
     [
       "Grep",
       "Grep",
       {
         pattern: "TOKEN",
-        path: "/home/dana/.config/kodor/credentials.yaml",
+        path: "/home/dana/.config/lunamill/credentials.yaml",
       },
     ],
-    ["Glob", "Glob", { pattern: "**/kodor/credentials*" }],
+    ["Glob", "Glob", { pattern: "**/lunamill/credentials*" }],
     [
       "Bash, by a path relative to the config folder",
       "Bash",
-      { command: "cd ~/.config && cat kodor/credentials.yaml" },
+      { command: "cd ~/.config && cat lunamill/credentials.yaml" },
     ],
   ] as const)("refuses %s reading the file", async (_, tool, input) => {
     expect(await run(tool, input)).toEqual({ code: 2, err: [REASON] });
@@ -56,7 +56,7 @@ describe("kodor guard credentials", () => {
       "Bash",
       {
         command:
-          'kodor pr comment 67 --body "Say where ~/.config/kodor/credentials.yaml lives"',
+          'lunamill pr comment 67 --body "Say where ~/.config/lunamill/credentials.yaml lives"',
       },
     ],
     [
@@ -64,18 +64,18 @@ describe("kodor guard credentials", () => {
       "Bash",
       {
         command:
-          "cat > reply.md <<'EOF'\nThe file is ~/.config/kodor/credentials.yaml.\nEOF",
+          "cat > reply.md <<'EOF'\nThe file is ~/.config/lunamill/credentials.yaml.\nEOF",
       },
     ],
     [
       "a search for the words",
       "Bash",
-      { command: "grep -rn kodor/credentials docs" },
+      { command: "grep -rn lunamill/credentials docs" },
     ],
     [
       "Grep's pattern, searching elsewhere",
       "Grep",
-      { pattern: "~/.config/kodor/credentials.yaml", path: "docs" },
+      { pattern: "~/.config/lunamill/credentials.yaml", path: "docs" },
     ],
   ] as const)(
     "lets through %s that only mentions it",

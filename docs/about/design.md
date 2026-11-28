@@ -1,7 +1,7 @@
 # Why it works this way
 
 The reasons behind the choices a user runs into. You do not need this page
-to use kodor. Read it when something seems odd and you want to know
+to use lunamill. Read it when something seems odd and you want to know
 whether it is deliberate.
 
 ## Your agent writes the code; a person approves it
@@ -21,12 +21,12 @@ build cannot pass its own review. A cloud build's commits are not signed
 either way ([Limitations](limitations.md#what-it-does-not-do)).
 
 A session on your machine commits as you, since you are the one steering
-it. `kodor sync` turns the coding agent's attribution
+it. `lunamill sync` turns the coding agent's attribution
 lines off, unless your agent's settings already said otherwise, so a
 session's commits carry your name alone.
 
 Either way, a person is accountable for every change that merges: the one
-who merges it. kodor's job is to make that person's read of a pull
+who merges it. lunamill's job is to make that person's read of a pull
 request easy, and to hold anything risky for it. When builds act as your
 own account, the guard against a session approving its own work is a
 tripwire that catches accidents, not a wall against the account's owner.
@@ -47,7 +47,7 @@ change a workflow file, use Docker, or reach a host you did not list. In
 return, the key of an organization's app, which acts on every repository
 the app is installed on, is never where text could reach it.
 
-The skills are the same in the cloud as on your machine. Their `kodor`
+The skills are the same in the cloud as on your machine. Their `lunamill`
 commands read from what was handed over there, and keep what they would
 write.
 
@@ -56,7 +56,7 @@ write.
 No pull request merges itself until you list the files that may. A tool
 that merges on its own has to earn that one file pattern at a time.
 
-## kodor's files are copied into your repository
+## lunamill's files are copied into your repository
 
 The skills, agents, and rules are written into your repository and
 checked for drift, which is more machinery than loading them from the
@@ -76,9 +76,9 @@ that route stays open.
 ## The workflows are not copied
 
 The CI jobs are the one part that is not a copy. Your repository holds
-two short workflow files, `.github/workflows/kodor.yml` and
-`.github/workflows/kodor-review.yml`, and each has one job that calls
-a workflow in kodor's own repository, at the exact version your
+two short workflow files, `.github/workflows/lunamill.yml` and
+`.github/workflows/lunamill-review.yml`, and each has one job that calls
+a workflow in lunamill's own repository, at the exact version your
 repository names. The skills, agents, and rules have to be committed
 files, since those are what a session loads, in the cloud as on your
 machine. A workflow does not: the code host can run one from another
@@ -98,27 +98,27 @@ copied files and the jobs have to be the same version, so a release
 reaches your repository only as a pull request you merge
 ([Updating](../maintain/updating.md#what-happens)).
 
-## kodor is installed once on a machine
+## lunamill is installed once on a machine
 
-Your repository holds no `package.json` entry for kodor and no
-copy of its code. The `kodor` command on a machine reads the version a
-repository names in `.claude/kodor.lock` and runs that one, which it
+Your repository holds no `package.json` entry for lunamill and no
+copy of its code. The `lunamill` command on a machine reads the version a
+repository names in `.claude/lunamill.lock` and runs that one, which it
 downloads the first time. So a repository in any language carries
 nothing of Node's, everyone working in it runs the same version without
 installing anything after an update, and two repositories on one machine
 can be on different versions.
 
-## Skill names start with `kodor-`
+## Skill names start with `lunamill-`
 
 The prefix is part of each skill's name. It shows which skill files an
-update will overwrite and which are yours, and keeps kodor's names
+update will overwrite and which are yours, and keeps lunamill's names
 from colliding with your own.
 [Claude Code](../integrations/claude-code.md#skills-in-claude-code) says why the
 name is not written with a colon.
 
 ## The settings hold only what a script computes
 
-Every key in `.claude/kodor.yaml` is something the tool calculates with:
+Every key in `.claude/lunamill.yaml` is something the tool calculates with:
 a path pattern, a command, a number. Anything that needs judgment, such as
 when a reviewer applies, stays as prose in your instructions for the agent
 or in the agent's own description, where a session reads it.
@@ -147,7 +147,7 @@ more path each skill has to handle correctly, and a skill is instructions,
 which cannot be unit tested.
 
 Your coding agent suggests which of your board's columns shows each
-state once, when `kodor init` sets up your board
+state once, when `lunamill init` sets up your board
 ([You already have a board](../features/board.md#you-already-have-a-board)).
 After that it is an ordinary setting, read the same way every time.
 
@@ -155,19 +155,19 @@ A state can already take a list of column names.
 [_Planned_](../developing.md#what-is-built): other ticket systems, which
 name their states differently and fit the same setting.
 [Jira](../integrations/jira.md) lets each kind of ticket, such
-as a bug or a story, follow its own sequence of states; kodor
+as a bug or a story, follow its own sequence of states; lunamill
 would move a ticket to the first listed name that its own sequence has.
 Linear gives each team one sequence, which works as a board does. If a
 name ever had to mean different states for different kinds of ticket,
 an optional `columns-by-type` setting would hold only those exceptions,
 and every settings file written before it would read the same.
 
-Refinement writes each kodor field into a ticket field of yours, or
+Refinement writes each lunamill field into a ticket field of yours, or
 into the description, by the ticket field's name, with no setting for
 each kind of ticket. A ticket whose kind can't hold the ticket field
-keeps that kodor field in its description.
+keeps that lunamill field in its description.
 [_Planned_](../developing.md#what-is-built): on [Jira](../integrations/jira.md), where a kind of
-ticket can leave a field out, a kodor field could name a list of
+ticket can leave a field out, a lunamill field could name a list of
 ticket fields, `spec: [Acceptance criteria, AC]`, and go in the first
 the ticket can hold, as a state does with columns. A `fields-by-type`
 setting would hold only the exceptions, if one were ever needed.
@@ -183,17 +183,17 @@ at most keeps the list short.
 
 ## Three version numbers
 
-kodor, the settings file, and the comment markers each have a
+lunamill, the settings file, and the comment markers each have a
 version.
 
-| Number                          | Where it is                             | Changes when                         |
-| ------------------------------- | --------------------------------------- | ------------------------------------ |
-| kodor's, the one the lock names | `kodor.lock` and the two workflow files | Every release                        |
-| The settings file's             | `version:` at the top of `kodor.yaml`   | A key is renamed or moved            |
-| The comment markers'            | In the comments kodor posts on tickets  | The format of those comments changes |
+| Number                             | Where it is                                | Changes when                         |
+| ---------------------------------- | ------------------------------------------ | ------------------------------------ |
+| lunamill's, the one the lock names | `lunamill.lock` and the two workflow files | Every release                        |
+| The settings file's                | `version:` at the top of `lunamill.yaml`   | A key is renamed or moved            |
+| The comment markers'               | In the comments lunamill posts on tickets  | The format of those comments changes |
 
 - **Below `1.0.0`, a release may change anything**, and its notes say what.
-  `1.0.0` comes when a second repository has run on kodor for a while
+  `1.0.0` comes when a second repository has run on lunamill for a while
   and the settings have stopped moving.
 - **The settings file has its own version** so that a release which does not
   touch its shape never asks you to change it.
@@ -202,6 +202,6 @@ version.
 
 ## Secrets are named for what they do
 
-Everything kodor owns starts with `KODOR_` and says its purpose:
-`KODOR_BOARD_TOKEN`, not a name another tool might already use. You can
+Everything lunamill owns starts with `LUNAMILL_` and says its purpose:
+`LUNAMILL_BOARD_TOKEN`, not a name another tool might already use. You can
 tell which secrets it needs and which are safe to delete.

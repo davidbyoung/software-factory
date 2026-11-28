@@ -1,14 +1,14 @@
 // The three jobs of a run that starts a session in the cloud, and the start
 // of the next run, with the real code host, git, and agent:
 //
-//   kodor session prepare KIND ID
-//   kodor session run
-//   kodor session publish
-//   kodor session next PULL
-//   kodor session each conflict|dependency
+//   lunamill session prepare KIND ID
+//   lunamill session run
+//   lunamill session publish
+//   lunamill session next PULL
+//   lunamill session each conflict|dependency
 //
 // `session-prepare.mts`, `session-run.mts`, and `session-publish.mts` hold
-// what each does. KODOR_RUN names the folder a job works in.
+// what each does. LUNAMILL_RUN names the folder a job works in.
 import { randomBytes } from "node:crypto";
 import { spawn, spawnSync } from "node:child_process";
 import {
@@ -73,8 +73,8 @@ const out = say.plainPrinter();
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 function folder(env: Env): string {
-  if (!env.KODOR_RUN) throw new Error("KODOR_RUN names no folder.");
-  return env.KODOR_RUN;
+  if (!env.LUNAMILL_RUN) throw new Error("LUNAMILL_RUN names no folder.");
+  return env.LUNAMILL_RUN;
 }
 
 const need = (env: Env, name: string): string => {
@@ -134,7 +134,7 @@ async function runPrepare(argv: string[], env: Env): Promise<number> {
   const { load } = await import("js-yaml");
   const [kind, id] = argv;
   if (!KINDS.includes(kind as Kind) || !id)
-    throw new Error("Usage: kodor session prepare KIND ID");
+    throw new Error("Usage: lunamill session prepare KIND ID");
   const w = await world(env);
   const lines = async (
     run: (say: (line: string) => void) => Promise<number>,
@@ -150,7 +150,7 @@ async function runPrepare(argv: string[], env: Env): Promise<number> {
     reach: w.reach,
     startBuild: w.startBuild,
     archive,
-    underApp: Boolean(env.KODOR_APP_PRIVATE_KEY),
+    underApp: Boolean(env.LUNAMILL_APP_PRIVATE_KEY),
     columns: columnsOf(w.settings),
     ticket: (args, on) =>
       lines((say) =>
@@ -194,8 +194,8 @@ async function runPrepare(argv: string[], env: Env): Promise<number> {
     git: (args) => git(repoRoot(), args),
     claimOf: claimHere,
     committer: {
-      name: need(env, "KODOR_COMMITTER_NAME"),
-      email: need(env, "KODOR_COMMITTER_EMAIL"),
+      name: need(env, "LUNAMILL_COMMITTER_NAME"),
+      email: need(env, "LUNAMILL_COMMITTER_EMAIL"),
     },
     out,
   });
@@ -206,7 +206,7 @@ async function runPrepare(argv: string[], env: Env): Promise<number> {
 
 /** Has the runner take nothing this process prints as a command to it, since
  * what a session wrote is printed here. What it returns holds a line of the
- * kodor's own until commands resume, as the process exits. */
+ * lunamill's own until commands resume, as the process exits. */
 export function quietlyWith(o: {
   actions: boolean;
   token: string;
@@ -254,8 +254,8 @@ export function sessionError(
   if (at.credential !== AGENT_TOKEN) return refused;
   const who =
     at.ownerKind === "Organization"
-      ? `an owner of ${at.owner} runs kodor init --org`
-      : "run kodor init";
+      ? `an owner of ${at.owner} runs lunamill init --org`
+      : "run lunamill init";
   return `${refused} A Claude token lasts a year: ${who} to store a new one.`;
 }
 
@@ -346,7 +346,7 @@ async function runTheSession(env: Env): Promise<number> {
       const r = spawnSync("tar", ["-xf", file, "-C", to], { encoding: "utf8" });
       if (r.status !== 0) throw new Error(`tar: ${r.stderr.trim()}`);
     },
-    install: (env.KODOR_INSTALL ?? "").split(":").filter(Boolean),
+    install: (env.LUNAMILL_INSTALL ?? "").split(":").filter(Boolean),
     settings: sandboxSettings,
     command: sessionCommand,
     agent: ({ command, cwd, env: its, minutes, line }) =>
@@ -495,7 +495,7 @@ async function publishDeps(env: Env): Promise<PublishDeps> {
     now: Date.now,
     sleep,
     async signIn() {
-      if (!env.KODOR_APP_PRIVATE_KEY) return;
+      if (!env.LUNAMILL_APP_PRIVATE_KEY) return;
       const { run: token } = await import("./session-token.mts");
       if ((await token()) !== 0) throw new Error("Could not sign in again.");
     },
@@ -562,7 +562,7 @@ async function runPublish(env: Env): Promise<number> {
 async function runNext(argv: string[], env: Env): Promise<number> {
   const pull = Number(argv[0]);
   if (!Number.isInteger(pull) || pull <= 0)
-    throw new Error("Usage: kodor session next PULL");
+    throw new Error("Usage: lunamill session next PULL");
   const d = await publishDeps(env);
   await nextAnswer(d, pull);
   return 0;
@@ -573,7 +573,7 @@ async function runNext(argv: string[], env: Env): Promise<number> {
 async function runEach(argv: string[], env: Env): Promise<number> {
   const [kind] = argv;
   if (kind !== "conflict" && kind !== "dependency")
-    throw new Error("Usage: kodor session each conflict|dependency");
+    throw new Error("Usage: lunamill session each conflict|dependency");
   const { codeHost, runner } = await world(env);
   const pulls =
     kind === "conflict"
@@ -601,7 +601,7 @@ const JOBS: Record<string, (argv: string[], env: Env) => Promise<number>> = {
 export const isJob = (step: string | undefined): step is string =>
   step !== undefined && Object.hasOwn(JOBS, step);
 
-/** `kodor session prepare|run|publish|next|each`. */
+/** `lunamill session prepare|run|publish|next|each`. */
 export async function run(step: string, argv: string[]): Promise<number> {
   try {
     return await JOBS[step](argv, process.env);

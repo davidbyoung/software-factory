@@ -25,7 +25,7 @@ Three more things guard a merge:
   review of the newest commit said it is ready, or an approver overrode it
   with the `verdict-override` label. It goes by the review's own run, and
   by no comment, whoever posted it. Sessions never add that label.
-- **"Approval policies"** is a status, which `kodor init` requires
+- **"Approval policies"** is a status, which `lunamill init` requires
   beside it once your settings have an
   [approval policy](../features/approval-policies.md), that waits while a policy's
   check found something until a person who can write adds the

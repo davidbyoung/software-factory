@@ -80,15 +80,15 @@ describe("a kind of line", () => {
       "a row whose value holds a command",
       say.row(
         "Organization",
-        "acme, not set up: an owner runs kodor init --org https://github.com/acme",
+        "acme, not set up: an owner runs lunamill init --org https://github.com/acme",
         { width: 12 },
       ),
-      "  {name:Organization} acme, not set up: an owner runs {copy:kodor init --org https://github.com/acme}",
+      "  {name:Organization} acme, not set up: an owner runs {copy:lunamill init --org https://github.com/acme}",
     ],
     [
       "a step",
-      say.step(2, "Run kodor init there"),
-      "  {yourTurn:2.} Run {copy:kodor init} there",
+      say.step(2, "Run lunamill init there"),
+      "  {yourTurn:2.} Run {copy:lunamill init} there",
     ],
     [
       "an action",
@@ -105,8 +105,8 @@ describe("a kind of line", () => {
     ["a blank line", say.BLANK, ""],
     [
       "another tool's line, where nothing colors itself",
-      say.verbatim("✗ Run: kodor init at https://a.example"),
-      "✗ Run: kodor init at https://a.example",
+      say.verbatim("✗ Run: lunamill init at https://a.example"),
+      "✗ Run: lunamill init at https://a.example",
     ],
     [
       "a line dim from a place on",
@@ -115,8 +115,8 @@ describe("a kind of line", () => {
     ],
     [
       "a person's own words",
-      say.text(say.asIs("Have kodor doctor warn")),
-      "Have kodor doctor warn",
+      say.text(say.asIs("Have lunamill doctor warn")),
+      "Have lunamill doctor warn",
     ],
   ];
   it.each(cases)("%s", (_name, line, expected) => {
@@ -155,47 +155,50 @@ describe("what colors itself in a line", () => {
       "{bad:Could not tell the default branch}",
     ],
     ["It could not be read: no", "It could not be read: no"],
-    ["Run kodor init again.", "Run {copy:kodor init} again."],
+    ["Run lunamill init again.", "Run {copy:lunamill init} again."],
     [
-      "Run kodor sync and commit what it writes.",
-      "Run {copy:kodor sync} and commit what it writes.",
+      "Run lunamill sync and commit what it writes.",
+      "Run {copy:lunamill sync} and commit what it writes.",
     ],
-    ["or run kodor update", "or run {copy:kodor update}"],
+    ["or run lunamill update", "or run {copy:lunamill update}"],
     [
-      "first run kodor specs new 12 here",
-      "first run {copy:kodor specs new 12} here",
-    ],
-    [
-      "kodor preset add acme/config//node now",
-      "{copy:kodor preset add acme/config//node} now",
+      "first run lunamill specs new 12 here",
+      "first run {copy:lunamill specs new 12} here",
     ],
     [
-      "kodor preset choose KEY PRESET is it",
-      "{copy:kodor preset choose KEY PRESET} is it",
+      "lunamill preset add acme/config//node now",
+      "{copy:lunamill preset add acme/config//node} now",
     ],
     [
-      "Run kodor init --org https://github.com/acme again: on",
-      "Run {copy:kodor init --org https://github.com/acme} again: on",
-    ],
-    ["run kodor init, then wait", "run {copy:kodor init}, then wait"],
-    [
-      "Usage: kodor preset add NAME [--yes] [--dry-run]",
-      "Usage: {copy:kodor preset add NAME [--yes] [--dry-run]}",
-    ],
-    ["Setting up kodor for acme", "Setting up kodor for acme"],
-    [
-      "kodor is not installed on this machine",
-      "kodor is not installed on this machine",
+      "lunamill preset choose KEY PRESET is it",
+      "{copy:lunamill preset choose KEY PRESET} is it",
     ],
     [
-      "in .claude/skills/kodor-build/SKILL.md",
-      "in .claude/skills/kodor-build/SKILL.md",
+      "Run lunamill init --org https://github.com/acme again: on",
+      "Run {copy:lunamill init --org https://github.com/acme} again: on",
+    ],
+    ["run lunamill init, then wait", "run {copy:lunamill init}, then wait"],
+    [
+      "Usage: lunamill preset add NAME [--yes] [--dry-run]",
+      "Usage: {copy:lunamill preset add NAME [--yes] [--dry-run]}",
+    ],
+    ["Setting up lunamill for acme", "Setting up lunamill for acme"],
+    [
+      "lunamill is not installed on this machine",
+      "lunamill is not installed on this machine",
+    ],
+    [
+      "in .claude/skills/lunamill-build/SKILL.md",
+      "in .claude/skills/lunamill-build/SKILL.md",
     ],
     ["see https://a.example/b#c.", "see {copy:https://a.example/b#c}."],
     ["(https://a.example)", "({copy:https://a.example})"],
-    ["with /kodor-refine N, then", "with {copy:/kodor-refine N}, then"],
-    ["type /kodor-build 12 there", "type {copy:/kodor-build 12} there"],
-    ["type /kodor-build in a session", "type {copy:/kodor-build} in a session"],
+    ["with /lunamill-refine N, then", "with {copy:/lunamill-refine N}, then"],
+    ["type /lunamill-build 12 there", "type {copy:/lunamill-build 12} there"],
+    [
+      "type /lunamill-build in a session",
+      "type {copy:/lunamill-build} in a session",
+    ],
     [
       "It stopped. Run: gh auth refresh -s project",
       "It stopped. Run: {copy:gh auth refresh -s project}",
@@ -212,10 +215,10 @@ describe("what colors itself in a line", () => {
       "The workflows fail at npm ci until it is.",
       "The workflows fail at npm ci until it is.",
     ],
-    ["run `kodor sync` to fix it", "run `{copy:kodor sync}` to fix it"],
+    ["run `lunamill sync` to fix it", "run `{copy:lunamill sync}` to fix it"],
     [
-      "It stopped. Run: kodor init. Then go.",
-      "It stopped. Run: {copy:kodor init}. Then go.",
+      "It stopped. Run: lunamill init. Then go.",
+      "It stopped. Run: {copy:lunamill init}. Then go.",
     ],
   ])("%s", (given, expected) => {
     const line = say.text(given);

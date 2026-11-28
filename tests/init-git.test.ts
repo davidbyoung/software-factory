@@ -1,4 +1,4 @@
-// `kodor init` against the real git: a checkout cloned from a repository
+// `lunamill init` against the real git: a checkout cloned from a repository
 // in a temporary folder, with none of this machine's git settings, so the
 // commands the setup's commit is made with are run, not only listed.
 import { spawnSync } from "node:child_process";
@@ -135,7 +135,7 @@ describe("the checkout, against the default branch as fetched", () => {
     git(root, "commit", "--quiet", "--message", "Fix the cart");
     expect(checkedOut(io(), at())).toBe(1);
     expect(lines).toEqual([
-      "✗ This checkout is on the branch cart-fix, which has commits main does not. Switch to main, then run kodor init again.",
+      "✗ This checkout is on the branch cart-fix, which has commits main does not. Switch to main, then run lunamill init again.",
       "Nothing changed.",
     ]);
   });
@@ -147,7 +147,7 @@ describe("the checkout, against the default branch as fetched", () => {
     git(root, "commit", "--quiet", "--message", "Fix the cart");
     expect(checkedOut(io(), at())).toBe(1);
     expect(lines).toEqual([
-      "✗ This checkout has commits main does not. Switch to main, then run kodor init again.",
+      "✗ This checkout has commits main does not. Switch to main, then run lunamill init again.",
       "Nothing changed.",
     ]);
   });
@@ -231,16 +231,16 @@ describe("a fork's parent chosen, which is no remote yet", () => {
         { repository: "acme/web", remote: remote, base: "main" },
       ),
     ).toEqual({ sha: git(root, "rev-parse", "HEAD") });
-    git(root, "push", "--quiet", remote, "HEAD:set-up-kodor");
-    expect(freeBranch(d, remote)).toBe("set-up-kodor-2");
+    git(root, "push", "--quiet", remote, "HEAD:set-up-lunamill");
+    expect(freeBranch(d, remote)).toBe("set-up-lunamill-2");
     expect(remotes()).toEqual(["origin"]);
   });
 });
 
 describe("the setup's commit, against the real git", () => {
   const PATHS = [
-    ".claude/kodor.yaml",
-    ".claude/skills/kodor-build/SKILL.md",
+    ".claude/lunamill.yaml",
+    ".claude/skills/lunamill-build/SKILL.md",
     ".github/workflows/old.yml",
     ".claude/never-written.md",
   ];
@@ -253,9 +253,9 @@ describe("the setup's commit, against the real git", () => {
         repository: "acme/web",
         remote: "origin",
         base: "main",
-        branch: "set-up-kodor",
+        branch: "set-up-lunamill",
         paths: PATHS,
-        title: "Set up kodor",
+        title: "Set up lunamill",
         body: "",
         ...over,
       },
@@ -270,8 +270,8 @@ describe("the setup's commit, against the real git", () => {
     git(root, "commit", "--quiet", "--message", "Earlier work");
     git(root, "push", "--quiet", "origin", "HEAD:main");
     rmSync(join(root, ".github/workflows/old.yml"));
-    put(".claude/kodor.yaml", "version: 1\n");
-    put(".claude/skills/kodor-build/SKILL.md", "build\n");
+    put(".claude/lunamill.yaml", "version: 1\n");
+    put(".claude/skills/lunamill-build/SKILL.md", "build\n");
     put("staged.md", "staged, and changed\n");
     git(root, "add", "staged.md");
     put("README.md", "# web, edited\n");
@@ -280,13 +280,15 @@ describe("the setup's commit, against the real git", () => {
 
   it("commits the paths it wrote or deleted, and nothing else, on the new branch", async () => {
     expect(await pull()).toEqual({ state: "opened", number: 41 });
-    expect(git(root, "rev-parse", "--abbrev-ref", "HEAD")).toBe("set-up-kodor");
-    expect(git(root, "log", "-1", "--format=%s")).toBe("Set up kodor");
+    expect(git(root, "rev-parse", "--abbrev-ref", "HEAD")).toBe(
+      "set-up-lunamill",
+    );
+    expect(git(root, "log", "-1", "--format=%s")).toBe("Set up lunamill");
     expect(
       git(root, "show", "--name-status", "--format=", "HEAD").split("\n"),
     ).toEqual([
-      "A\t.claude/kodor.yaml",
-      "A\t.claude/skills/kodor-build/SKILL.md",
+      "A\t.claude/lunamill.yaml",
+      "A\t.claude/skills/lunamill-build/SKILL.md",
       "D\t.github/workflows/old.yml",
     ]);
   });
@@ -303,11 +305,11 @@ describe("the setup's commit, against the real git", () => {
   it("pushes the branch to the repository's remote, from the commit that was checked out", async () => {
     const before = git(root, "rev-parse", "HEAD");
     await pull();
-    expect(git(remote, "rev-parse", "set-up-kodor")).toBe(
+    expect(git(remote, "rev-parse", "set-up-lunamill")).toBe(
       git(root, "rev-parse", "HEAD"),
     );
     expect(git(root, "rev-parse", "HEAD~1")).toBe(before);
-    expect(lines).toEqual(['✓ Opened acme/web#41, "Set up kodor".']);
+    expect(lines).toEqual(['✓ Opened acme/web#41, "Set up lunamill".']);
   });
 
   it("makes no branch when none of its paths changed", async () => {
@@ -320,26 +322,28 @@ describe("the setup's commit, against the real git", () => {
 
   it("says git's own line, and leaves the commit here, when the remote refuses the push", async () => {
     expect(await pull({ remote: "nowhere" })).toEqual({ state: "failed" });
-    expect(lines[0]).toMatch(/^✗ Could not push set-up-kodor to acme\/web: /);
-    expect(lines[1]).toBe(
-      "The commit is on the branch set-up-kodor here. Push it and open a pull request.",
+    expect(lines[0]).toMatch(
+      /^✗ Could not push set-up-lunamill to acme\/web: /,
     );
-    expect(git(root, "log", "-1", "--format=%s")).toBe("Set up kodor");
+    expect(lines[1]).toBe(
+      "The commit is on the branch set-up-lunamill here. Push it and open a pull request.",
+    );
+    expect(git(root, "log", "-1", "--format=%s")).toBe("Set up lunamill");
   });
 
-  it("takes the next name when set-up-kodor is a branch here, or on the remote", async () => {
-    expect(freeBranch(d, "origin")).toBe("set-up-kodor");
-    git(root, "branch", "set-up-kodor");
-    expect(freeBranch(d, "origin")).toBe("set-up-kodor-2");
-    git(root, "push", "--quiet", "origin", "main:set-up-kodor-2");
-    expect(freeBranch(d, "origin")).toBe("set-up-kodor-3");
+  it("takes the next name when set-up-lunamill is a branch here, or on the remote", async () => {
+    expect(freeBranch(d, "origin")).toBe("set-up-lunamill");
+    git(root, "branch", "set-up-lunamill");
+    expect(freeBranch(d, "origin")).toBe("set-up-lunamill-2");
+    git(root, "push", "--quiet", "origin", "main:set-up-lunamill-2");
+    expect(freeBranch(d, "origin")).toBe("set-up-lunamill-3");
   });
 });
 
 describe("the files the sync writes, against the real sync and the real git", () => {
   const ADDRESS = "git@github.com:acme/web.git";
-  const STALE = ".github/workflows/kodor-poller.yml";
-  const RULES = ".claude/kodor/rules.md";
+  const STALE = ".github/workflows/lunamill-poller.yml";
+  const RULES = ".claude/lunamill/rules.md";
   const settings = (review: boolean) =>
     [
       "version: 1",
@@ -348,14 +352,14 @@ describe("the files the sync writes, against the real sync and the real git", ()
       "specs: none",
       "commands:",
       "  gate:",
-      "    - test -f .claude/kodor.lock",
+      "    - test -f .claude/lunamill.lock",
       ...(review ? ["pr-review: true"] : []),
       "",
     ].join("\n");
   const files = (text: string): Files => ({
     settings: text,
     choices: null,
-    lock: read(".claude/kodor.lock"),
+    lock: read(".claude/lunamill.lock"),
   });
   const read = (path: string) =>
     existsSync(join(root, path))
@@ -391,15 +395,18 @@ describe("the files the sync writes, against the real sync and the real git", ()
     vi.spyOn(console, "log").mockImplementation((l) => void printed.push(l));
     vi.spyOn(console, "error").mockImplementation((l) => void printed.push(l));
     // A repository set up by an earlier release, as its default branch
-    // has it: the review on, a workflow kodor no longer writes, which
+    // has it: the review on, a workflow lunamill no longer writes, which
     // the lock lists, and a rule file someone edited by hand.
-    put(".claude/kodor.yaml", settings(true));
+    put(".claude/lunamill.yaml", settings(true));
     expect(await d.sync(), printed.join("\n")).toBe(0);
     put(STALE, "on: schedule\n");
-    put(".claude/kodor.lock", `${read(".claude/kodor.lock")}  - ${STALE}\n`);
+    put(
+      ".claude/lunamill.lock",
+      `${read(".claude/lunamill.lock")}  - ${STALE}\n`,
+    );
     put(RULES, "# Edited by hand\n");
     git(root, "add", "--all");
-    git(root, "commit", "--quiet", "--message", "Set up kodor");
+    git(root, "commit", "--quiet", "--message", "Set up lunamill");
     git(root, "push", "--quiet", "origin", "HEAD:main");
   });
 
@@ -427,15 +434,15 @@ describe("the files the sync writes, against the real sync and the real git", ()
   it("names the paths for the settings as they will read, not as the file on disk has them", async () => {
     const next = settings(false);
     const paths = await d.syncChanges(files(next), async () => "main");
-    put(".claude/kodor.yaml", next);
+    put(".claude/lunamill.yaml", next);
     expect(await d.sync(), printed.join("\n")).toBe(0);
     expect(
       changed()
         .map((c) => c.path)
-        .filter((path) => path !== ".claude/kodor.yaml")
+        .filter((path) => path !== ".claude/lunamill.yaml")
         .sort(),
     ).toEqual([...paths].sort());
-    expect(paths).toContain(".github/workflows/kodor.yml");
+    expect(paths).toContain(".github/workflows/lunamill.yml");
   });
 
   it("commits, through the whole of init, the settings and what the sync wrote or deleted, and nothing the checkout held before", async () => {
@@ -463,30 +470,32 @@ describe("the files the sync writes, against the real sync and the real git", ()
       env: { XDG_CONFIG_HOME: join(world, "config") },
     });
     expect(code, [...out, ...printed].join("\n")).toBe(0);
-    expect(out).toContain('✓ Opened acme/web#1, "Change kodor\'s settings".');
+    expect(out).toContain(
+      '✓ Opened acme/web#1, "Change lunamill\'s settings".',
+    );
 
-    // The review was turned off, which the settings and kodor.yml
+    // The review was turned off, which the settings and lunamill.yml
     // show; the stale workflow went, and the hand edit with it.
     const committed = git(root, "show", "--name-status", "--format=", "HEAD")
       .split("\n")
       .sort();
     expect(committed).toEqual(
       [
-        "M\t.claude/kodor.yaml",
-        "M\t.claude/kodor.lock",
+        "M\t.claude/lunamill.yaml",
+        "M\t.claude/lunamill.lock",
         `M\t${RULES}`,
         `D\t${STALE}`,
-        "M\t.github/workflows/kodor.yml",
+        "M\t.github/workflows/lunamill.yml",
       ].sort(),
     );
     // Everything init and the sync changed is in the commit, so what
     // differs from it now is what differed before, as it was.
     expect(changed()).toEqual(before);
-    expect(git(remote, "rev-parse", "set-up-kodor")).toBe(
+    expect(git(remote, "rev-parse", "set-up-lunamill")).toBe(
       git(root, "rev-parse", "HEAD"),
     );
     expect(await host.codeHost.get(1)).toMatchObject({
-      head: { branch: "set-up-kodor" },
+      head: { branch: "set-up-lunamill" },
       base: { branch: "main" },
     });
   });
@@ -609,7 +618,7 @@ describe("a repository with no commits yet, against the real git", () => {
   it("makes no commit and pushes nothing when told no, and says what to run", async () => {
     expect(await start(false).result).toBe(1);
     expect(lines).toEqual([
-      'Push a first commit, then run kodor init again: git commit --allow-empty -m "Start the repository" && git push -u origin trunk',
+      'Push a first commit, then run lunamill init again: git commit --allow-empty -m "Start the repository" && git push -u origin trunk',
       "Nothing changed.",
     ]);
     expect(unborn()).toBe(true);
@@ -620,7 +629,7 @@ describe("a repository with no commits yet, against the real git", () => {
     commitTwice();
     expect(await start(false).result).toBe(1);
     expect(lines).toEqual([
-      "Push trunk, then run kodor init again: git push -u origin trunk",
+      "Push trunk, then run lunamill init again: git push -u origin trunk",
       "Nothing changed.",
     ]);
     expect(heads()).toBe("");

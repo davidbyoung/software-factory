@@ -1,15 +1,15 @@
-// `kodor guard credentials`: refuses a session's tool call that reads the
+// `lunamill guard credentials`: refuses a session's tool call that reads the
 // credentials file (`lib/credentials.mts`): a shell command with its path
 // as an argument, or a file tool pointed at it. A message or a search that
 // only mentions the path goes through. It stops a careless session or a
 // plain prompt injection, not one that builds the path in pieces.
 
 export const CREDENTIALS_REFUSAL =
-  "kodor's credentials file is not for sessions to read. Its commands read it themselves: run the kodor command you need, such as kodor ticket view.";
+  "lunamill's credentials file is not for sessions to read. Its commands read it themselves: run the lunamill command you need, such as lunamill ticket view.";
 
 /** The path written as a path: after a folder, as `~/.config/...` or
  * `$XDG_CONFIG_HOME/...` writes it, or as the file itself. */
-const PATH = /\/kodor\/credentials|kodor\/credentials\.yaml/;
+const PATH = /\/lunamill\/credentials|lunamill\/credentials\.yaml/;
 
 /** A shell command with its prose taken out: heredoc bodies, and quoted
  * strings with a space in them, such as a commit message. A quoted string

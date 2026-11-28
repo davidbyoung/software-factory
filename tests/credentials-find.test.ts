@@ -227,14 +227,14 @@ describe("the credentials policy's rule", () => {
   });
 
   it("finds nothing in a one-sentence change to a docs page", () => {
-    expect(found(adds("README.md", "kodor reads every pull request."))).toEqual(
-      [],
-    );
+    expect(
+      found(adds("README.md", "lunamill reads every pull request.")),
+    ).toEqual([]);
   });
 });
 
 describe("the credentials policy's reader", () => {
-  const text = readFileSync("agents/kodor-credentials-reader.md", "utf8");
+  const text = readFileSync("agents/lunamill-credentials-reader.md", "utf8");
   const paragraphs = text.split(/^---$/m)[2]!.trim().split(/\n\n+/);
 
   it("runs with Opus", () => {

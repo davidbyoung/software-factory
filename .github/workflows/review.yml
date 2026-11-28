@@ -1,10 +1,10 @@
-# What has to read a pull request's own code: the check that kodor's
+# What has to read a pull request's own code: the check that lunamill's
 # files match the settings. A repository's own
-# .github/workflows/kodor-review.yml, which `kodor sync` writes, calls
+# .github/workflows/lunamill-review.yml, which `lunamill sync` writes, calls
 # this file on `pull_request`, at the version its lock names. GitHub runs it
 # from the pull request's copy, so it is given no secret and may only read:
 # everything that decides or posts is run.yml's, from the default branch's.
-# It also checks that kodor.yml is enabled: GitHub switches a workflow with
+# It also checks that lunamill.yml is enabled: GitHub switches a workflow with
 # a schedule off in a public repository that goes quiet, and this one's
 # caller has none.
 name: Factory review run
@@ -17,11 +17,11 @@ permissions:
   contents: read
 
 jobs:
-  # Checks that kodor's copies match the version the lock names, and
-  # that the settings in .claude/kodor.yaml are sound. A copy under
-  # .claude/ or .github/ is written by `kodor sync` and never edited.
+  # Checks that lunamill's copies match the version the lock names, and
+  # that the settings in .claude/lunamill.yaml are sound. A copy under
+  # .claude/ or .github/ is written by `lunamill sync` and never edited.
   check:
-    name: kodor files in step
+    name: lunamill files in step
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -38,18 +38,18 @@ jobs:
       # The version the pull request's own lock names, which is the one its
       # copies were written by: an update's pull request names a newer one
       # than the default branch does.
-      - name: Install kodor
+      - name: Install lunamill
         run: |
-          if [ "$(jq -r '.name // empty' package.json 2> /dev/null)" = "@kodor-ai/kodor" ]; then
+          if [ "$(jq -r '.name // empty' package.json 2> /dev/null)" = "@lunamill-ai/lunamill" ]; then
             npm ci --ignore-scripts
             npm link
           else
-            version="$(sed -n 's/^version: *//p' .claude/kodor.lock | head -n 1)"
+            version="$(sed -n 's/^version: *//p' .claude/lunamill.lock | head -n 1)"
             if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-              echo "::error::.claude/kodor.lock names no release of kodor. Run kodor sync, and commit what it writes."
+              echo "::error::.claude/lunamill.lock names no release of lunamill. Run lunamill sync, and commit what it writes."
               exit 1
             fi
-            npm install --global --no-audit --no-fund "@kodor-ai/kodor@$version"
+            npm install --global --no-audit --no-fund "@lunamill-ai/lunamill@$version"
           fi
 
       # The base commit's lock is what a preset's pin is compared with. This
@@ -62,36 +62,36 @@ jobs:
         run: |
           git -c http.extraheader="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$TOKEN" | base64 -w0)" fetch --no-tags --depth 1 origin "$BASE"
           unset TOKEN
-          kodor sync --check --against "$BASE" --public
+          lunamill sync --check --against "$BASE" --public
 
       - name: Check the settings
-        run: kodor config check
+        run: lunamill config check
 
-      - name: Check that kodor.yml is enabled
+      - name: Check that lunamill.yml is enabled
         if: ${{ !cancelled() }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          fix="so nothing posts \"Review verdict\" here. Enable it on the Actions tab, or run: gh workflow enable kodor.yml. Then push a commit to this pull request."
+          fix="so nothing posts \"Review verdict\" here. Enable it on the Actions tab, or run: gh workflow enable lunamill.yml. Then push a commit to this pull request."
           error="$RUNNER_TEMP/factory-yml-error"
-          if ! state="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/kodor.yml" --jq .state 2> "$error")"; then
+          if ! state="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/lunamill.yml" --jq .state 2> "$error")"; then
             reason="$(tail -n 1 "$error")"
             case "$reason" in
-              *"(HTTP 404)") echo "kodor.yml is not on the default branch yet" ;;
-              *) echo "::warning::Could not tell whether kodor.yml is enabled: ${reason#gh: }" ;;
+              *"(HTTP 404)") echo "lunamill.yml is not on the default branch yet" ;;
+              *) echo "::warning::Could not tell whether lunamill.yml is enabled: ${reason#gh: }" ;;
             esac
             exit 0
           fi
           case "$state" in
-            active) echo "kodor.yml is enabled" ;;
-            disabled_fork) echo "kodor.yml is off in this fork" ;;
+            active) echo "lunamill.yml is enabled" ;;
+            disabled_fork) echo "lunamill.yml is off in this fork" ;;
             disabled_inactivity)
-              echo "::error::GitHub switched kodor.yml off after 60 days with no activity, $fix"
+              echo "::error::GitHub switched lunamill.yml off after 60 days with no activity, $fix"
               exit 1
               ;;
             disabled_*)
-              echo "::error::kodor.yml is disabled, $fix"
+              echo "::error::lunamill.yml is disabled, $fix"
               exit 1
               ;;
-            *) echo "::warning::Could not tell whether kodor.yml is enabled: its state is $state" ;;
+            *) echo "::warning::Could not tell whether lunamill.yml is enabled: its state is $state" ;;
           esac

@@ -2,18 +2,18 @@
 
 ### Requirement: Init's pull request
 
-kodor SHALL behave as this line says: When `kodor init` sets a repository up, its first line is `Setting up kodor for OWNER/NAME`, its pull request comes from the branch `set-up-kodor` and is titled "Set up kodor", the ruleset it makes is named "kodor", and the signing key it makes is titled "kodor builds".
+lunamill SHALL behave as this line says: When `lunamill init` sets a repository up, its first line is `Setting up lunamill for OWNER/NAME`, its pull request comes from the branch `set-up-lunamill` and is titled "Set up lunamill", the ruleset it makes is named "lunamill", and the signing key it makes is titled "lunamill builds".
 
 #### Scenario: Init's pull request
 
-- **WHEN** `kodor init` sets a repository up
-- **THEN** its first line is `Setting up kodor for OWNER/NAME`, its pull request comes from the branch `set-up-kodor` and is titled "Set up kodor", the ruleset it makes is named "kodor", and the signing key it makes is titled "kodor builds".
+- **WHEN** `lunamill init` sets a repository up
+- **THEN** its first line is `Setting up lunamill for OWNER/NAME`, its pull request comes from the branch `set-up-lunamill` and is titled "Set up lunamill", the ruleset it makes is named "lunamill", and the signing key it makes is titled "lunamill builds".
 
 ### Requirement: A settings change's pull request
 
-kodor SHALL behave as this line says: When `kodor init` changes a repository's settings, its pull request is titled "Change kodor's settings".
+lunamill SHALL behave as this line says: When `lunamill init` changes a repository's settings, its pull request is titled "Change lunamill's settings".
 
 #### Scenario: A settings change's pull request
 
-- **WHEN** `kodor init` changes a repository's settings
-- **THEN** its pull request is titled "Change kodor's settings".
+- **WHEN** `lunamill init` changes a repository's settings
+- **THEN** its pull request is titled "Change lunamill's settings".

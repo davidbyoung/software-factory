@@ -899,7 +899,7 @@ export function githubCodeHost(o: {
         headers: {
           Authorization: `Bearer ${token}`,
           Accept: "application/vnd.github+json",
-          "User-Agent": "kodor",
+          "User-Agent": "lunamill",
         },
       });
       const body = (await response.json().catch(() => ({}))) as {
@@ -1298,7 +1298,7 @@ export function githubOrganization(o: {
         headers: {
           Authorization: `Bearer ${token}`,
           Accept: "application/vnd.github+json",
-          "User-Agent": "kodor",
+          "User-Agent": "lunamill",
         },
       });
       const header = response.headers.get("x-oauth-scopes");

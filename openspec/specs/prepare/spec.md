@@ -8,16 +8,16 @@ What the first job of a run in the cloud decides, claims, and hands to the sessi
 
 ### Requirement: Preparing a build
 
-kodor SHALL behave as the scenario below says, in the Spec line's own words.
+lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Preparing a build
 
 - **WHEN** a build's Prepare runs
-- **THEN** `kodor session prepare build N` claims the ticket, then stops it with the reason when it has no Spec or Acceptance criteria section, whatever its labels. It makes the branch-name and earlier-branch checks of `kodor-build` and deletes a merged branch. A build that fails there, or is canceled, releases its ticket.
+- **THEN** `lunamill session prepare build N` claims the ticket, then stops it with the reason when it has no Spec or Acceptance criteria section, whatever its labels. It makes the branch-name and earlier-branch checks of `lunamill-build` and deletes a merged branch. A build that fails there, or is canceled, releases its ticket.
 
 ### Requirement: What is handed over
 
-kodor SHALL behave as the scenario below says, in the Spec line's own words.
+lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: What is handed over
 
@@ -26,7 +26,7 @@ kodor SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: A pull request Prepare refuses
 
-kodor SHALL behave as the scenario below says, in the Spec line's own words.
+lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A pull request Prepare refuses
 

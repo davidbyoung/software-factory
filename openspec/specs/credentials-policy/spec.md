@@ -6,45 +6,45 @@ The approval policy every repository has unless it turns it off: a script that f
 
 ## Requirements
 
-### Requirement: kodor's own credentials policy
+### Requirement: lunamill's own credentials policy
 
-kodor SHALL behave as the scenario below says, in the Spec line's own words.
+lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
-#### Scenario: kodor's own credentials policy
+#### Scenario: lunamill's own credentials policy
 
 - **WHEN** the settings have no policy named `credentials`
-- **THEN** kodor's own layer, before any preset, gives one: `run: node .claude/approval-policies/credentials/find.mts`, `agent: kodor-credentials-reader`, and `files: ["**"]`, which `kodor config explain` marks `# default`.
+- **THEN** lunamill's own layer, before any preset, gives one: `run: node .claude/approval-policies/credentials/find.mts`, `agent: lunamill-credentials-reader`, and `files: ["**"]`, which `lunamill config explain` marks `# default`.
 
 ### Requirement: Turning the credentials policy off
 
-kodor SHALL behave as the scenario below says, in the Spec line's own words.
+lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Turning the credentials policy off
 
-- **WHEN** `.claude/kodor.yaml` lists `{ name: credentials, off: true }`
-- **THEN** the repository has no `credentials` policy, and `kodor config check` passes; a preset's or the repository's own policy named `credentials` replaces kodor's.
+- **WHEN** `.claude/lunamill.yaml` lists `{ name: credentials, off: true }`
+- **THEN** the repository has no `credentials` policy, and `lunamill config check` passes; a preset's or the repository's own policy named `credentials` replaces lunamill's.
 
 ### Requirement: Writing the policy's files
 
-kodor SHALL behave as the scenario below says, in the Spec line's own words.
+lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Writing the policy's files
 
 - **WHEN** the `credentials` policy is on
-- **THEN** `kodor sync` writes `.claude/approval-policies/credentials/find.mts` and `.claude/agents/kodor-credentials-reader.md` from the package, and when it is off, writes neither.
+- **THEN** `lunamill sync` writes `.claude/approval-policies/credentials/find.mts` and `.claude/agents/lunamill-credentials-reader.md` from the package, and when it is off, writes neither.
 
-### Requirement: kodor's agent before its first sync
+### Requirement: lunamill's agent before its first sync
 
-kodor SHALL behave as the scenario below says, in the Spec line's own words.
+lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
-#### Scenario: kodor's agent before its first sync
+#### Scenario: lunamill's agent before its first sync
 
-- **WHEN** `kodor config check` reads settings whose agent is kodor's own and its file isn't written yet, as on the first sync after an update
+- **WHEN** `lunamill config check` reads settings whose agent is lunamill's own and its file isn't written yet, as on the first sync after an update
 - **THEN** it passes, as it does for a preset's files.
 
 ### Requirement: What find.mts leaves out
 
-kodor SHALL behave as the scenario below says, in the Spec line's own words.
+lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: What find.mts leaves out
 
@@ -53,7 +53,7 @@ kodor SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: A new credential
 
-kodor SHALL behave as the scenario below says, in the Spec line's own words.
+lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A new credential
 
@@ -62,7 +62,7 @@ kodor SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: A secret passed to a workflow
 
-kodor SHALL behave as the scenario below says, in the Spec line's own words.
+lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A secret passed to a workflow
 
@@ -71,7 +71,7 @@ kodor SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: Write access for a workflow
 
-kodor SHALL behave as the scenario below says, in the Spec line's own words.
+lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Write access for a workflow
 
@@ -80,7 +80,7 @@ kodor SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: A workflow new to the repository
 
-kodor SHALL behave as the scenario below says, in the Spec line's own words.
+lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A workflow new to the repository
 
@@ -89,7 +89,7 @@ kodor SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: A pull_request_target trigger
 
-kodor SHALL behave as the scenario below says, in the Spec line's own words.
+lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A pull_request_target trigger
 
@@ -98,7 +98,7 @@ kodor SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: Nothing found
 
-kodor SHALL behave as the scenario below says, in the Spec line's own words.
+lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Nothing found
 
@@ -107,16 +107,16 @@ kodor SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: The credentials reader
 
-kodor SHALL behave as the scenario below says, in the Spec line's own words.
+lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The credentials reader
 
-- **WHEN** `kodor-credentials-reader` reads what `find.mts` found
+- **WHEN** `lunamill-credentials-reader` reads what `find.mts` found
 - **THEN** its instructions are round 3's tested wording, told that it has the default branch's code and the change's diff and to report only a High, and it runs with Opus.
 
 ### Requirement: A small change takes no new step
 
-kodor SHALL behave as the scenario below says, in the Spec line's own words.
+lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A small change takes no new step
 

@@ -1,4 +1,4 @@
-// `kodor init`, a person's tokens on the machine: the code host's token
+// `lunamill init`, a person's tokens on the machine: the code host's token
 // and the coding agent's credential are kept in the credentials file, and
 // stored from there in the person's next repository.
 import { readFileSync } from "node:fs";
@@ -66,13 +66,13 @@ const keep = (
     });
 };
 
-describe("kodor init, a person's first repository", () => {
+describe("lunamill init, a person's first repository", () => {
   it("plans storing both tokens on this machine, after the secrets", async () => {
     const r = sam();
     await r.run();
     const at = r.out.findIndex((l) => l.startsWith("  secrets "));
     expect(r.out.slice(at, at + 2)).toEqual([
-      "  secrets       CLAUDE_CODE_OAUTH_TOKEN, KODOR_BOARD_TOKEN",
+      "  secrets       CLAUDE_CODE_OAUTH_TOKEN, LUNAMILL_BOARD_TOKEN",
       `  store         your GitHub token and your Claude token on this machine, in ${credentialsPath(r.env)}`,
     ]);
   });
@@ -91,7 +91,7 @@ describe("kodor init, a person's first repository", () => {
   it("stores each as a secret and in the file, filed under the tool and the account, printing neither", async () => {
     const r = sam();
     await r.run();
-    expect(r.runner.secrets.get("KODOR_BOARD_TOKEN")).toBe(GOOD);
+    expect(r.runner.secrets.get("LUNAMILL_BOARD_TOKEN")).toBe(GOOD);
     expect(r.runner.secrets.get("CLAUDE_CODE_OAUTH_TOKEN")).toBe(AGENT);
     expect(load(readFileSync(credentialsPath(r.env), "utf8"))).toEqual({
       github: {
@@ -126,7 +126,7 @@ describe("kodor init, a person's first repository", () => {
   });
 });
 
-describe("kodor init, a person's next repository", () => {
+describe("lunamill init, a person's next repository", () => {
   const next = (over: Partial<Setup> = {}) =>
     sam({
       remote: "git@github.com:sam/web.git",
@@ -144,7 +144,7 @@ describe("kodor init, a person's next repository", () => {
     expect(await r.run()).toBe(0);
     expect(r.asked.filter((q) => q.startsWith("secret:"))).toEqual([]);
     expect(r.opened).toEqual([]);
-    expect(r.runner.secrets.get("KODOR_BOARD_TOKEN")).toBe(GOOD);
+    expect(r.runner.secrets.get("LUNAMILL_BOARD_TOKEN")).toBe(GOOD);
     expect(r.runner.secrets.get("CLAUDE_CODE_OAUTH_TOKEN")).toBe(AGENT);
     expect(r.out).toContain(
       "✓ Stored 2 secrets for sam/web from this machine.",
@@ -157,7 +157,7 @@ describe("kodor init, a person's next repository", () => {
     keep(r, { token: GOOD, agent: AGENT });
     await r.run();
     expect(r.out).toContain(
-      "  secrets       CLAUDE_CODE_OAUTH_TOKEN, KODOR_BOARD_TOKEN",
+      "  secrets       CLAUDE_CODE_OAUTH_TOKEN, LUNAMILL_BOARD_TOKEN",
     );
     expect(r.out.join("\n")).not.toMatch(/^ {2}store /m);
   });
@@ -227,7 +227,7 @@ describe("kodor init, a person's next repository", () => {
   });
 });
 
-describe("kodor init, a token on this machine that no longer serves", () => {
+describe("lunamill init, a token on this machine that no longer serves", () => {
   const stale = (token: string, parts: string[] = ["board", "cloud"]) => {
     const r = sam({
       remote: "git@github.com:sam/web.git",
@@ -258,13 +258,13 @@ describe("kodor init, a token on this machine that no longer serves", () => {
       "",
       "GitHub refused the token on this machine for sam. It may have expired.",
       "",
-      "An access token: opening https://code.example/tokens/new?scopes=push,workflows,board&note=kodor: sam/web",
-      "Check that push, workflows, and board are ticked, choose an expiry, and generate it. 90 days is a good balance: kodor warns you 30 days before it.",
+      "An access token: opening https://code.example/tokens/new?scopes=push,workflows,board&note=lunamill: sam/web",
+      "Check that push, workflows, and board are ticked, choose an expiry, and generate it. 90 days is a good balance: lunamill warns you 30 days before it.",
       QUESTION,
     ]);
     expect(r.opened).toHaveLength(1);
     expect(held(r, "github", "token")).toBe(GOOD);
-    expect(r.runner.secrets.get("KODOR_BOARD_TOKEN")).toBe(GOOD);
+    expect(r.runner.secrets.get("LUNAMILL_BOARD_TOKEN")).toBe(GOOD);
     expect(r.out.join("\n")).not.toContain(EXPIRED);
   });
 
@@ -298,11 +298,11 @@ describe("kodor init, a token on this machine that no longer serves", () => {
     const r = stale(NARROW, ["cloud"]);
     await r.run();
     expect(r.asked.filter((q) => q.startsWith("secret:"))).toEqual([]);
-    expect(r.runner.secrets.get("KODOR_BUILD_TOKEN")).toBe(NARROW);
+    expect(r.runner.secrets.get("LUNAMILL_BUILD_TOKEN")).toBe(NARROW);
   });
 });
 
-describe("kodor init, a stop after it stored a credential on this machine", () => {
+describe("lunamill init, a stop after it stored a credential on this machine", () => {
   const SITE_ADDRESS = "acme.example";
   const again = (confirm: boolean[]) =>
     init({
@@ -390,7 +390,7 @@ describe("kodor init, a stop after it stored a credential on this machine", () =
   });
 });
 
-describe("kodor init, a Claude token in its last 30 days", () => {
+describe("lunamill init, a Claude token in its last 30 days", () => {
   const OLD = "sk-ant-oat01-old";
   const NEAR =
     "CLAUDE_CODE_OAUTH_TOKEN stops working by 2026-12-10, in 13 days: a Claude token lasts a year.";
@@ -400,7 +400,7 @@ describe("kodor init, a Claude token in its last 30 days", () => {
   const near = (confirm: boolean[], over: Partial<Setup> = {}) =>
     sam({
       settings: `version: 1\nrepository: sam/api\n${CODE_HOST_YAML}\n`,
-      secrets: { CLAUDE_CODE_OAUTH_TOKEN: OLD, KODOR_BOARD_TOKEN: GOOD },
+      secrets: { CLAUDE_CODE_OAUTH_TOKEN: OLD, LUNAMILL_BOARD_TOKEN: GOOD },
       stored: { CLAUDE_CODE_OAUTH_TOKEN: "2025-12-10T14:50:57Z" },
       answers: { checkbox: [["cloud"]], confirm, secret: [AGENT] },
       ...over,
@@ -434,7 +434,7 @@ describe("kodor init, a Claude token in its last 30 days", () => {
       "Stored for sam/api, and on this machine for your next repository.",
     );
     expect(r.out[stored + 1]).toBe(
-      "Each of your other repositories keeps the old token until you run kodor init there. It stores this one from your machine.",
+      "Each of your other repositories keeps the old token until you run lunamill init there. It stores this one from your machine.",
     );
   });
 
@@ -457,7 +457,7 @@ describe("kodor init, a Claude token in its last 30 days", () => {
     expect(r.asked.filter((q) => q.startsWith("secret:"))).toEqual([
       "secret: Paste it (leave empty to do this later):",
     ]);
-    expect(r.runner.secrets.get("KODOR_BOARD_TOKEN")).toBe(GOOD);
+    expect(r.runner.secrets.get("LUNAMILL_BOARD_TOKEN")).toBe(GOOD);
     expect(r.runner.secrets.get("CLAUDE_CODE_OAUTH_TOKEN")).toBe(OLD);
   });
 
@@ -516,7 +516,7 @@ describe("kodor init, a Claude token in its last 30 days", () => {
   });
 });
 
-describe("kodor init, the GitHub access token's days", () => {
+describe("lunamill init, the GitHub access token's days", () => {
   const NEW = "tok_new";
   const dated = (expires?: string) => ({
     [GOOD]: {
@@ -564,12 +564,12 @@ describe("kodor init, the GitHub access token's days", () => {
     const r = sam();
     await r.run();
     expect(r.out).toContain(
-      "Check that push, workflows, and board are ticked, choose an expiry, and generate it. 90 days is a good balance: kodor warns you 30 days before it.",
+      "Check that push, workflows, and board are ticked, choose an expiry, and generate it. 90 days is a good balance: lunamill warns you 30 days before it.",
     );
   });
 
   /** A repository set up with builds in the cloud, whose token is
-   * stored under KODOR_BUILD_TOKEN on the day given, and a machine that
+   * stored under LUNAMILL_BUILD_TOKEN on the day given, and a machine that
    * holds a token pasted and expiring on the days given. */
   const rerun = (
     confirm: boolean[],
@@ -582,8 +582,8 @@ describe("kodor init, the GitHub access token's days", () => {
   ) => {
     const r = sam({
       settings: `version: 1\nrepository: sam/api\n${CODE_HOST_YAML}\n`,
-      secrets: { CLAUDE_CODE_OAUTH_TOKEN: AGENT, KODOR_BUILD_TOKEN: GOOD },
-      stored: { KODOR_BUILD_TOKEN: o.stored },
+      secrets: { CLAUDE_CODE_OAUTH_TOKEN: AGENT, LUNAMILL_BUILD_TOKEN: GOOD },
+      stored: { LUNAMILL_BUILD_TOKEN: o.stored },
       tokens: dated("2027-02-25"),
       answers: { checkbox: [["cloud"]], confirm, secret: o.secret ?? [NEW] },
     });
@@ -623,12 +623,12 @@ describe("kodor init, the GitHub access token's days", () => {
       expires: "2026-12-10",
     });
     await r.run();
-    expect(r.runner.secrets.get("KODOR_BUILD_TOKEN")).toBe(NEW);
+    expect(r.runner.secrets.get("LUNAMILL_BUILD_TOKEN")).toBe(NEW);
     expect(held(r, "github", "token")).toBe(NEW);
     expect(held(r, "github", "pasted")).toBe("2026-11-27");
     expect(held(r, "github", "expires")).toBe("2027-02-25");
     expect(r.out).toContain(
-      "Each of your other repositories keeps the old token until you run kodor init there. It stores this one from your machine.",
+      "Each of your other repositories keeps the old token until you run lunamill init there. It stores this one from your machine.",
     );
   });
 
@@ -655,7 +655,7 @@ describe("kodor init, the GitHub access token's days", () => {
     // Make a new one: no; Replace it?: no; Go ahead: yes.
     const r = nearNow([false, false, true]);
     await r.run();
-    expect(r.runner.secrets.get("KODOR_BUILD_TOKEN")).toBe(GOOD);
+    expect(r.runner.secrets.get("LUNAMILL_BUILD_TOKEN")).toBe(GOOD);
     expect(r.out.join("\n")).not.toContain("from this machine");
   });
 
@@ -677,11 +677,11 @@ describe("kodor init, the GitHub access token's days", () => {
     });
     await r.run();
     expect(r.out).toContain(
-      "KODOR_BUILD_TOKEN here was stored on 2026-10-01, before the GitHub access token on this machine, pasted on 2026-11-01.",
+      "LUNAMILL_BUILD_TOKEN here was stored on 2026-10-01, before the GitHub access token on this machine, pasted on 2026-11-01.",
     );
     expect(r.asked).toContain(STORE);
     expect(r.asked.filter((q) => q.startsWith("secret:"))).toEqual([]);
-    expect(r.runner.secrets.get("KODOR_BUILD_TOKEN")).toBe(GOOD);
+    expect(r.runner.secrets.get("LUNAMILL_BUILD_TOKEN")).toBe(GOOD);
     expect(r.out).toContain("✓ Stored 1 secret for sam/api from this machine.");
   });
 
@@ -721,7 +721,7 @@ describe("kodor init, the GitHub access token's days", () => {
     expect(r.out).toContain(
       "The GitHub access token on this machine expires on 2026-12-10, in 13 days, so it is not stored here.",
     );
-    expect(r.runner.secrets.get("KODOR_BOARD_TOKEN")).toBe(NEW);
+    expect(r.runner.secrets.get("LUNAMILL_BOARD_TOKEN")).toBe(NEW);
   });
 
   it("leaves a token past its day to GitHub's check, which refuses it", async () => {
@@ -738,7 +738,7 @@ describe("kodor init, the GitHub access token's days", () => {
       "GitHub refused the token on this machine for sam. It may have expired.",
     );
     expect(r.out.join("\n")).not.toContain("so it is not stored here");
-    expect(r.runner.secrets.get("KODOR_BOARD_TOKEN")).toBe(NEW);
+    expect(r.runner.secrets.get("LUNAMILL_BOARD_TOKEN")).toBe(NEW);
   });
 
   it("does not copy a token whose file has no expiry when GitHub's check says it is near", async () => {
@@ -748,6 +748,6 @@ describe("kodor init, the GitHub access token's days", () => {
     expect(r.out).toContain(
       "The GitHub access token on this machine expires on 2026-12-10, in 13 days, so it is not stored here.",
     );
-    expect(r.runner.secrets.get("KODOR_BOARD_TOKEN")).toBe(NEW);
+    expect(r.runner.secrets.get("LUNAMILL_BOARD_TOKEN")).toBe(NEW);
   });
 });

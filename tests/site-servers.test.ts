@@ -286,7 +286,7 @@ describe("the base a comparison starts, in a checkout whose settings have a repo
 
     await expect(failed).rejects.toBeInstanceOf(SiteError);
     await expect(failed).rejects.toThrow(
-      "✗ repository: .claude/kodor.yaml says acme/site, and no remote here is acme/site. origin is dev/web. Add the remote, or change the line and run kodor sync.",
+      "✗ repository: .claude/lunamill.yaml says acme/site, and no remote here is acme/site. origin is dev/web. Add the remote, or change the line and run lunamill sync.",
     );
   });
 });
@@ -331,7 +331,7 @@ describe("runChecks", () => {
   });
 });
 
-describe("kodor site stop's message", () => {
+describe("lunamill site stop's message", () => {
   it("says it stopped the two sites compare --keep left running", () => {
     expect(stopMessage(true)).toBe(
       "Stopped the 2 sites site compare --keep left running.",

@@ -2,49 +2,49 @@
 
 ## Purpose
 
-Where kodor takes the default branch's name from, and what the commit guard, session start, `kodor sync`, and the commands that name the branch do with it, so nothing assumes it is called `main`.
+Where lunamill takes the default branch's name from, and what the commit guard, session start, `lunamill sync`, and the commands that name the branch do with it, so nothing assumes it is called `main`.
 
 ## Requirements
 
 ### Requirement: In a workflow run
 
-kodor SHALL behave as this line says: When `kodor default-branch` runs in a workflow run whose event names the repository's default branch, it prints that name and exits 0.
+lunamill SHALL behave as this line says: When `lunamill default-branch` runs in a workflow run whose event names the repository's default branch, it prints that name and exits 0.
 
 #### Scenario: In a workflow run
 
-- **WHEN** `kodor default-branch` runs in a workflow run whose event names the repository's default branch
+- **WHEN** `lunamill default-branch` runs in a workflow run whose event names the repository's default branch
 - **THEN** it prints that name and exits 0.
 
 ### Requirement: From origin/HEAD
 
-kodor SHALL behave as the scenario below says, in the Spec line's own words.
+lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: From origin/HEAD
 
-- **WHEN** `kodor default-branch` runs outside a workflow and `REMOTE/HEAD` is set
-- **THEN** it prints the branch `REMOTE/HEAD` points to, without `REMOTE/`, and exits 0. REMOTE is the remote whose address is the repository the `repository` line of `.claude/kodor.yaml` names, whatever that remote is called and whether its address is an SSH or an HTTPS one, and `origin` where two remotes have that repository's address and one of them is `origin`. Where no remote has that repository's address, REMOTE is `origin` when the address of `origin` names no repository on a code host kodor supports, as an SSH host alias such as `git@github-work:acme/web.git` or a proxy's address does not; an `origin` whose address names another repository, or no `origin`, stops the command with the line `init-repository` gives for no such remote. In a checkout with no `.claude/kodor.yaml`, REMOTE is `origin`.
+- **WHEN** `lunamill default-branch` runs outside a workflow and `REMOTE/HEAD` is set
+- **THEN** it prints the branch `REMOTE/HEAD` points to, without `REMOTE/`, and exits 0. REMOTE is the remote whose address is the repository the `repository` line of `.claude/lunamill.yaml` names, whatever that remote is called and whether its address is an SSH or an HTTPS one, and `origin` where two remotes have that repository's address and one of them is `origin`. Where no remote has that repository's address, REMOTE is `origin` when the address of `origin` names no repository on a code host lunamill supports, as an SSH host alias such as `git@github-work:acme/web.git` or a proxy's address does not; an `origin` whose address names another repository, or no `origin`, stops the command with the line `init-repository` gives for no such remote. In a checkout with no `.claude/lunamill.yaml`, REMOTE is `origin`.
 
 ### Requirement: From the code host
 
-kodor SHALL behave as this line says: When `REMOTE/HEAD` is not set, REMOTE being the remote "From origin/HEAD" reads, `kodor default-branch` asks the code host, prints the name, sets `REMOTE/HEAD` to it so the next run asks nobody, and exits 0.
+lunamill SHALL behave as this line says: When `REMOTE/HEAD` is not set, REMOTE being the remote "From origin/HEAD" reads, `lunamill default-branch` asks the code host, prints the name, sets `REMOTE/HEAD` to it so the next run asks nobody, and exits 0.
 
 #### Scenario: From the code host
 
 - **WHEN** `REMOTE/HEAD` is not set, REMOTE being the remote "From origin/HEAD" reads
-- **THEN** `kodor default-branch` asks the code host, prints the name, sets `REMOTE/HEAD` to it so the next run asks nobody, and exits 0.
+- **THEN** `lunamill default-branch` asks the code host, prints the name, sets `REMOTE/HEAD` to it so the next run asks nobody, and exits 0.
 
 ### Requirement: Nobody answers
 
-kodor SHALL behave as this line says: When there is a remote REMOTE, as "From origin/HEAD" reads it, and none of the three answers, `kodor default-branch` prints `Could not tell the default branch. Run: git remote set-head REMOTE --auto` on standard error, with the remote's name for REMOTE, and exits 1.
+lunamill SHALL behave as this line says: When there is a remote REMOTE, as "From origin/HEAD" reads it, and none of the three answers, `lunamill default-branch` prints `Could not tell the default branch. Run: git remote set-head REMOTE --auto` on standard error, with the remote's name for REMOTE, and exits 1.
 
 #### Scenario: Nobody answers
 
 - **WHEN** there is a remote REMOTE, as "From origin/HEAD" reads it, and none of the three answers
-- **THEN** `kodor default-branch` prints `Could not tell the default branch. Run: git remote set-head REMOTE --auto` on standard error, with the remote's name for REMOTE, and exits 1.
+- **THEN** `lunamill default-branch` prints `Could not tell the default branch. Run: git remote set-head REMOTE --auto` on standard error, with the remote's name for REMOTE, and exits 1.
 
 ### Requirement: The default branch is checked out
 
-kodor SHALL behave as this line says: When a session runs a git command with the default branch checked out, the commit guard blocks it with `BRANCH is checked out. Create a branch from REMOTE/BRANCH first.`, whatever the default branch is called, REMOTE being the remote "From origin/HEAD" reads, or with the line `init-repository` gives for no such remote when no remote's address is the `repository` line's.
+lunamill SHALL behave as this line says: When a session runs a git command with the default branch checked out, the commit guard blocks it with `BRANCH is checked out. Create a branch from REMOTE/BRANCH first.`, whatever the default branch is called, REMOTE being the remote "From origin/HEAD" reads, or with the line `init-repository` gives for no such remote when no remote's address is the `repository` line's.
 
 #### Scenario: The default branch is checked out
 
@@ -53,7 +53,7 @@ kodor SHALL behave as this line says: When a session runs a git command with the
 
 ### Requirement: A push to the default branch
 
-kodor SHALL behave as this line says: When a session pushes to the default branch, the commit guard blocks it with `pushing to BRANCH. BRANCH only changes through a merged pull request.`
+lunamill SHALL behave as this line says: When a session pushes to the default branch, the commit guard blocks it with `pushing to BRANCH. BRANCH only changes through a merged pull request.`
 
 #### Scenario: A push to the default branch
 
@@ -62,81 +62,81 @@ kodor SHALL behave as this line says: When a session pushes to the default branc
 
 ### Requirement: The guard cannot tell
 
-kodor SHALL behave as this line says: When the commit guard cannot tell the default branch in a checkout that has `.claude/kodor.yaml`, it blocks the git command with the line `kodor default-branch` fails with there: the message of "Nobody answers", or the line `init-repository` gives for no such remote.
+lunamill SHALL behave as this line says: When the commit guard cannot tell the default branch in a checkout that has `.claude/lunamill.yaml`, it blocks the git command with the line `lunamill default-branch` fails with there: the message of "Nobody answers", or the line `init-repository` gives for no such remote.
 
 #### Scenario: The guard cannot tell
 
-- **WHEN** the commit guard cannot tell the default branch in a checkout that has `.claude/kodor.yaml`
-- **THEN** it blocks the git command with the line `kodor default-branch` fails with there: the message of "Nobody answers", or the line `init-repository` gives for no such remote.
+- **WHEN** the commit guard cannot tell the default branch in a checkout that has `.claude/lunamill.yaml`
+- **THEN** it blocks the git command with the line `lunamill default-branch` fails with there: the message of "Nobody answers", or the line `init-repository` gives for no such remote.
 
 ### Requirement: Session start
 
-kodor SHALL behave as this line says: When a session starts, the branches it lists as holding unmerged work are compared with `REMOTE/BRANCH`, BRANCH being the default branch and REMOTE the remote "From origin/HEAD" reads, and each line reads `NAME (N commits not on REMOTE/BRANCH)`. Where the default branch or that remote cannot be told, the line `kodor default-branch` fails with there stands in for the list, and the session starts.
+lunamill SHALL behave as this line says: When a session starts, the branches it lists as holding unmerged work are compared with `REMOTE/BRANCH`, BRANCH being the default branch and REMOTE the remote "From origin/HEAD" reads, and each line reads `NAME (N commits not on REMOTE/BRANCH)`. Where the default branch or that remote cannot be told, the line `lunamill default-branch` fails with there stands in for the list, and the session starts.
 
 #### Scenario: Session start
 
 - **WHEN** a session starts
-- **THEN** the branches it lists as holding unmerged work are compared with `REMOTE/BRANCH`, BRANCH being the default branch and REMOTE the remote "From origin/HEAD" reads, and each line reads `NAME (N commits not on REMOTE/BRANCH)`. Where the default branch or that remote cannot be told, the line `kodor default-branch` fails with there stands in for the list, and the session starts.
+- **THEN** the branches it lists as holding unmerged work are compared with `REMOTE/BRANCH`, BRANCH being the default branch and REMOTE the remote "From origin/HEAD" reads, and each line reads `NAME (N commits not on REMOTE/BRANCH)`. Where the default branch or that remote cannot be told, the line `lunamill default-branch` fails with there stands in for the list, and the session starts.
 
 ### Requirement: Sync writes the push triggers
 
-kodor SHALL behave as this line says: When `kodor sync` runs, the `branches:` list of the push trigger in `.github/workflows/kodor.yml` holds the default branch's name and nothing else.
+lunamill SHALL behave as this line says: When `lunamill sync` runs, the `branches:` list of the push trigger in `.github/workflows/lunamill.yml` holds the default branch's name and nothing else.
 
 #### Scenario: Sync writes the push triggers
 
-- **WHEN** `kodor sync` runs
-- **THEN** the `branches:` list of the push trigger in `.github/workflows/kodor.yml` holds the default branch's name and nothing else.
+- **WHEN** `lunamill sync` runs
+- **THEN** the `branches:` list of the push trigger in `.github/workflows/lunamill.yml` holds the default branch's name and nothing else.
 
 ### Requirement: Triggers out of step
 
-kodor SHALL behave as this line says: When the default branch's name differs from what that file holds, `kodor sync --check` fails, naming the file.
+lunamill SHALL behave as this line says: When the default branch's name differs from what that file holds, `lunamill sync --check` fails, naming the file.
 
 #### Scenario: Triggers out of step
 
 - **WHEN** the default branch's name differs from what that file holds
-- **THEN** `kodor sync --check` fails, naming the file.
+- **THEN** `lunamill sync --check` fails, naming the file.
 
 ### Requirement: Sync cannot tell
 
-kodor SHALL behave as this line says: When `kodor sync` cannot tell the default branch, which is where `kodor default-branch` fails, it writes nothing, prints the line that command fails with there, and exits 1.
+lunamill SHALL behave as this line says: When `lunamill sync` cannot tell the default branch, which is where `lunamill default-branch` fails, it writes nothing, prints the line that command fails with there, and exits 1.
 
 #### Scenario: Sync cannot tell
 
-- **WHEN** `kodor sync` cannot tell the default branch, which is where `kodor default-branch` fails
+- **WHEN** `lunamill sync` cannot tell the default branch, which is where `lunamill default-branch` fails
 - **THEN** it writes nothing, prints the line that command fails with there, and exits 1.
 
 ### Requirement: Conflict and dependency lines
 
-kodor SHALL behave as this line says: When `kodor pr watch N` reports a conflict, its line reads `conflict with BRANCH at SHA`, and `kodor deps` names the step `merge BRANCH (step 2)`, BRANCH being the default branch.
+lunamill SHALL behave as this line says: When `lunamill pr watch N` reports a conflict, its line reads `conflict with BRANCH at SHA`, and `lunamill deps` names the step `merge BRANCH (step 2)`, BRANCH being the default branch.
 
 #### Scenario: Conflict and dependency lines
 
-- **WHEN** `kodor pr watch N` reports a conflict
-- **THEN** its line reads `conflict with BRANCH at SHA`, and `kodor deps` names the step `merge BRANCH (step 2)`, BRANCH being the default branch.
+- **WHEN** `lunamill pr watch N` reports a conflict
+- **THEN** its line reads `conflict with BRANCH at SHA`, and `lunamill deps` names the step `merge BRANCH (step 2)`, BRANCH being the default branch.
 
 ### Requirement: The site comparison's base
 
-kodor SHALL behave as this line says: When `kodor site compare` runs, the base it starts is the default branch as `kodor default-branch` gives it, on the remote "From origin/HEAD" reads, and it fails with the line that command fails with where that does, and with the line `init-repository` gives for no such remote when no remote's address is the `repository` line's.
+lunamill SHALL behave as this line says: When `lunamill site compare` runs, the base it starts is the default branch as `lunamill default-branch` gives it, on the remote "From origin/HEAD" reads, and it fails with the line that command fails with where that does, and with the line `init-repository` gives for no such remote when no remote's address is the `repository` line's.
 
 #### Scenario: The site comparison's base
 
-- **WHEN** `kodor site compare` runs
-- **THEN** the base it starts is the default branch as `kodor default-branch` gives it, on the remote "From origin/HEAD" reads, and it fails with the line that command fails with where that does, and with the line `init-repository` gives for no such remote when no remote's address is the `repository` line's.
+- **WHEN** `lunamill site compare` runs
+- **THEN** the base it starts is the default branch as `lunamill default-branch` gives it, on the remote "From origin/HEAD" reads, and it fails with the line that command fails with where that does, and with the line `init-repository` gives for no such remote when no remote's address is the `repository` line's.
 
 ### Requirement: No origin remote
 
-kodor SHALL behave as this line says: When the checkout has no `.claude/kodor.yaml` and no `origin` remote, `kodor default-branch` prints the branch `git config init.defaultBranch` names, or `main` when that is not set, and exits 0.
+lunamill SHALL behave as this line says: When the checkout has no `.claude/lunamill.yaml` and no `origin` remote, `lunamill default-branch` prints the branch `git config init.defaultBranch` names, or `main` when that is not set, and exits 0.
 
 #### Scenario: No origin remote
 
-- **WHEN** the checkout has no `.claude/kodor.yaml` and no `origin` remote
-- **THEN** `kodor default-branch` prints the branch `git config init.defaultBranch` names, or `main` when that is not set, and exits 0.
+- **WHEN** the checkout has no `.claude/lunamill.yaml` and no `origin` remote
+- **THEN** `lunamill default-branch` prints the branch `git config init.defaultBranch` names, or `main` when that is not set, and exits 0.
 
 ### Requirement: A checkout without settings
 
-kodor SHALL behave as this line says: When a session runs a git command in a checkout that has no `.claude/kodor.yaml`, the commit guard takes the default branch from `origin/HEAD` alone, asks no code host, and lets the command through when `origin/HEAD` is not set.
+lunamill SHALL behave as this line says: When a session runs a git command in a checkout that has no `.claude/lunamill.yaml`, the commit guard takes the default branch from `origin/HEAD` alone, asks no code host, and lets the command through when `origin/HEAD` is not set.
 
 #### Scenario: A checkout without settings
 
-- **WHEN** a session runs a git command in a checkout that has no `.claude/kodor.yaml`
+- **WHEN** a session runs a git command in a checkout that has no `.claude/lunamill.yaml`
 - **THEN** the commit guard takes the default branch from `origin/HEAD` alone, asks no code host, and lets the command through when `origin/HEAD` is not set.
