@@ -140,7 +140,7 @@ describe("a session in the cloud", () => {
     );
   });
 
-  it("cannot write what it was handed, where it starts, or lunamill", async () => {
+  it("cannot write what it was handed, where it starts, or Lunamill", async () => {
     const w = world(() => {});
     await runSession(w.d);
     expect(w.started[0].readOnly).toEqual([

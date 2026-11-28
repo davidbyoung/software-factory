@@ -8,7 +8,7 @@ How the poller starts builds from the board: one pass for a scheduled run, the s
 
 ### Requirement: One pass of the poller
 
-lunamill SHALL behave as this line says: When `lunamill poller --once` runs, it reads the board once, starts a build for each Ready ticket as the hosted poller does, and exits 0.
+Lunamill SHALL behave as this line says: When `lunamill poller --once` runs, it reads the board once, starts a build for each Ready ticket as the hosted poller does, and exits 0.
 
 #### Scenario: One pass of the poller
 
@@ -17,7 +17,7 @@ lunamill SHALL behave as this line says: When `lunamill poller --once` runs, it 
 
 ### Requirement: A pass that cannot read
 
-lunamill SHALL behave as this line says: When `lunamill poller --once` cannot read the board or the tickets, it prints why and exits 1, so the scheduled run shows as failed. With `--preset FILE`, only a board it cannot read does so: a repository whose tickets it cannot read is logged under the repository's name, as a warning in a workflow's run, and fails nothing.
+Lunamill SHALL behave as this line says: When `lunamill poller --once` cannot read the board or the tickets, it prints why and exits 1, so the scheduled run shows as failed. With `--preset FILE`, only a board it cannot read does so: a repository whose tickets it cannot read is logged under the repository's name, as a warning in a workflow's run, and fails nothing.
 
 #### Scenario: A pass that cannot read
 
@@ -26,7 +26,7 @@ lunamill SHALL behave as this line says: When `lunamill poller --once` cannot re
 
 ### Requirement: Nothing to poll
 
-lunamill SHALL behave as this line says: When the settings have no `tickets.board`, or the Ready column is `none`, `lunamill poller --once` prints which, and exits 1 without reading anything.
+Lunamill SHALL behave as this line says: When the settings have no `tickets.board`, or the Ready column is `none`, `lunamill poller --once` prints which, and exits 1 without reading anything.
 
 #### Scenario: Nothing to poll
 
@@ -35,7 +35,7 @@ lunamill SHALL behave as this line says: When the settings have no `tickets.boar
 
 ### Requirement: What a pass reads
 
-lunamill SHALL behave as this line says: When `lunamill poller --once` runs without `--preset`, it reads the repository, `tickets.board`, and the Ready column from `.claude/lunamill.yaml`, and the token from `LUNAMILL_BOARD_TOKEN`. With `--preset FILE` it reads the board and the Ready column from FILE and the board's owner from `GITHUB_REPOSITORY`, as `org-poller` says, and the token the same way.
+Lunamill SHALL behave as this line says: When `lunamill poller --once` runs without `--preset`, it reads the repository, `tickets.board`, and the Ready column from `.claude/lunamill.yaml`, and the token from `LUNAMILL_BOARD_TOKEN`. With `--preset FILE` it reads the board and the Ready column from FILE and the board's owner from `GITHUB_REPOSITORY`, as `org-poller` says, and the token the same way.
 
 #### Scenario: What a pass reads
 
@@ -44,7 +44,7 @@ lunamill SHALL behave as this line says: When `lunamill poller --once` runs with
 
 ### Requirement: The scheduled workflow is written
 
-lunamill SHALL behave as this line says: When `lunamill sync` runs with `builds.trigger: github-action`, and the lock records no preset whose repository runs the poller, it writes the poller's `cron` line into `.github/workflows/lunamill.yml`, whose poller job runs `lunamill poller --once` every `builds.poll-minutes` minutes and can be run by hand. With such a preset it writes no `cron` line for the poller, and the poller's job is off.
+Lunamill SHALL behave as this line says: When `lunamill sync` runs with `builds.trigger: github-action`, and the lock records no preset whose repository runs the poller, it writes the poller's `cron` line into `.github/workflows/lunamill.yml`, whose poller job runs `lunamill poller --once` every `builds.poll-minutes` minutes and can be run by hand. With such a preset it writes no `cron` line for the poller, and the poller's job is off.
 
 #### Scenario: The scheduled workflow is written
 
@@ -53,7 +53,7 @@ lunamill SHALL behave as this line says: When `lunamill sync` runs with `builds.
 
 ### Requirement: The scheduled workflow is deleted
 
-lunamill SHALL behave as this line says: When `lunamill sync` runs with any other trigger, it writes no `cron` line for the poller into `.github/workflows/lunamill.yml`, and the poller's job is off.
+Lunamill SHALL behave as this line says: When `lunamill sync` runs with any other trigger, it writes no `cron` line for the poller into `.github/workflows/lunamill.yml`, and the poller's job is off.
 
 #### Scenario: The scheduled workflow is deleted
 
@@ -62,7 +62,7 @@ lunamill SHALL behave as this line says: When `lunamill sync` runs with any othe
 
 ### Requirement: Poller runs do not overlap
 
-lunamill SHALL behave as this line says: When a poller run starts while the previous poller run is still running, it waits for that one to finish. Each build it starts is a separate run of `lunamill.yml`, so builds run in parallel.
+Lunamill SHALL behave as this line says: When a poller run starts while the previous poller run is still running, it waits for that one to finish. Each build it starts is a separate run of `lunamill.yml`, so builds run in parallel.
 
 #### Scenario: Poller runs do not overlap
 
@@ -71,7 +71,7 @@ lunamill SHALL behave as this line says: When a poller run starts while the prev
 
 ### Requirement: The hourly cap
 
-lunamill SHALL behave as this line says: When `builds.max-per-hour` is set, or left at its default of 20, neither poller starts a build while that many have started in the past hour, counted from the start events on the repository's labeled tickets, and its log reads `REF waits: MAX builds started in the last hour (builds.max-per-hour)`.
+Lunamill SHALL behave as this line says: When `builds.max-per-hour` is set, or left at its default of 20, neither poller starts a build while that many have started in the past hour, counted from the start events on the repository's labeled tickets, and its log reads `REF waits: MAX builds started in the last hour (builds.max-per-hour)`.
 
 #### Scenario: The hourly cap
 
@@ -80,7 +80,7 @@ lunamill SHALL behave as this line says: When `builds.max-per-hour` is set, or l
 
 ### Requirement: The cap across a restart
 
-lunamill SHALL behave as this line says: When the hosted poller restarts, builds it started in the past hour still count toward the cap.
+Lunamill SHALL behave as this line says: When the hosted poller restarts, builds it started in the past hour still count toward the cap.
 
 #### Scenario: The cap across a restart
 
@@ -89,7 +89,7 @@ lunamill SHALL behave as this line says: When the hosted poller restarts, builds
 
 ### Requirement: The cap's setting is checked
 
-lunamill SHALL behave as this line says: When `builds.max-per-hour` is not a whole number of 1 or more, `lunamill config check` fails with `.claude/lunamill.yaml: builds.max-per-hour: must be a whole number, 1 or more`. It is accepted with any trigger.
+Lunamill SHALL behave as this line says: When `builds.max-per-hour` is not a whole number of 1 or more, `lunamill config check` fails with `.claude/lunamill.yaml: builds.max-per-hour: must be a whole number, 1 or more`. It is accepted with any trigger.
 
 #### Scenario: The cap's setting is checked
 
@@ -98,7 +98,7 @@ lunamill SHALL behave as this line says: When `builds.max-per-hour` is not a who
 
 ### Requirement: The poller starts in the board's order
 
-lunamill SHALL behave as this line says: When several labeled tickets are in the ready column, the poller starts them by their cards' rank, the order the board shows them unsorted, top first, and by key where two ranks are equal. If a GitHub Project's API does not keep that order, GitHub's adapter gives every card the same rank, so on GitHub the poller starts them by key.
+Lunamill SHALL behave as this line says: When several labeled tickets are in the ready column, the poller starts them by their cards' rank, the order the board shows them unsorted, top first, and by key where two ranks are equal. If a GitHub Project's API does not keep that order, GitHub's adapter gives every card the same rank, so on GitHub the poller starts them by key.
 
 #### Scenario: The poller starts in the board's order
 
@@ -107,7 +107,7 @@ lunamill SHALL behave as this line says: When several labeled tickets are in the
 
 ### Requirement: The hosted poller reads the settings
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The hosted poller reads the settings
 
@@ -116,7 +116,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: The hosted poller names its repository
 
-lunamill SHALL behave as this line says: When the hosted poller starts, it logs `ready-poller started for OWNER/NAME`.
+Lunamill SHALL behave as this line says: When the hosted poller starts, it logs `ready-poller started for OWNER/NAME`.
 
 #### Scenario: The hosted poller names its repository
 
@@ -125,7 +125,7 @@ lunamill SHALL behave as this line says: When the hosted poller starts, it logs 
 
 ### Requirement: The hosted poller logs the settings it read
 
-lunamill SHALL behave as this line says: When the hosted poller first reads the settings, and at each pass where the board, the ready column, the label, or the cap differ from the last it logged, it logs `settings from .claude/lunamill.lock on BRANCH: board N, ready column "COLUMN", label "LABEL", MAX builds an hour`, BRANCH being the default branch.
+Lunamill SHALL behave as this line says: When the hosted poller first reads the settings, and at each pass where the board, the ready column, the label, or the cap differ from the last it logged, it logs `settings from .claude/lunamill.lock on BRANCH: board N, ready column "COLUMN", label "LABEL", MAX builds an hour`, BRANCH being the default branch.
 
 #### Scenario: The hosted poller logs the settings it read
 
@@ -134,7 +134,7 @@ lunamill SHALL behave as this line says: When the hosted poller first reads the 
 
 ### Requirement: The hosted poller names variables it no longer reads
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The hosted poller names variables it no longer reads
 
@@ -143,7 +143,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: No lock on the default branch
 
-lunamill SHALL behave as this line says: When the default branch has no `.claude/lunamill.lock`, the hosted poller starts nothing and its reason is `no .claude/lunamill.lock on BRANCH yet. Merge the pull request that sets lunamill up.`
+Lunamill SHALL behave as this line says: When the default branch has no `.claude/lunamill.lock`, the hosted poller starts nothing and its reason is `no .claude/lunamill.lock on BRANCH yet. Merge the pull request that sets lunamill up.`
 
 #### Scenario: No lock on the default branch
 
@@ -152,7 +152,7 @@ lunamill SHALL behave as this line says: When the default branch has no `.claude
 
 ### Requirement: A trigger other than own-server
 
-lunamill SHALL behave as this line says: When the settings' `builds.trigger` is not `own-server`, the hosted poller starts nothing and its reason is `builds.trigger is VALUE on BRANCH, not own-server`.
+Lunamill SHALL behave as this line says: When the settings' `builds.trigger` is not `own-server`, the hosted poller starts nothing and its reason is `builds.trigger is VALUE on BRANCH, not own-server`.
 
 #### Scenario: A trigger other than own-server
 
@@ -161,7 +161,7 @@ lunamill SHALL behave as this line says: When the settings' `builds.trigger` is 
 
 ### Requirement: No board in the settings
 
-lunamill SHALL behave as this line says: When the settings have no `tickets.board`, the hosted poller starts nothing and its reason is `tickets.board is not set on BRANCH`.
+Lunamill SHALL behave as this line says: When the settings have no `tickets.board`, the hosted poller starts nothing and its reason is `tickets.board is not set on BRANCH`.
 
 #### Scenario: No board in the settings
 
@@ -170,16 +170,16 @@ lunamill SHALL behave as this line says: When the settings have no `tickets.boar
 
 ### Requirement: A setting the hosted poller cannot read
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A setting the hosted poller cannot read
 
 - **WHEN** a setting the hosted poller uses can't be read, a ready column of `none` included
-- **THEN** it starts nothing and its reason is `.claude/lunamill.lock on BRANCH: ` and the fault as `lunamill config check` words it after the file's name, such as `builds.max-per-hour: must be a whole number, 1 or more`. When the lock's `version:` differs from the poller's own version, the reason ends ` (written by lunamill LOCK, and this poller is OWN: run ghcr.io/lunamill-ai/lunamill-poller:LOCK)`.
+- **THEN** it starts nothing and its reason is `.claude/lunamill.lock on BRANCH: ` and the fault as `lunamill config check` words it after the file's name, such as `builds.max-per-hour: must be a whole number, 1 or more`. When the lock's `version:` differs from the poller's own version, the reason ends ` (written by Lunamill LOCK, and this poller is OWN: run ghcr.io/lunamill-ai/lunamill-poller:LOCK)`.
 
 ### Requirement: Settings the hosted poller does not use
 
-lunamill SHALL behave as this line says: When the lock holds a key the poller's version does not know, or any value, even one it would refuse, in a setting other than those "The hosted poller reads the settings" names, the hosted poller reads the settings that requirement names and polls as usual.
+Lunamill SHALL behave as this line says: When the lock holds a key the poller's version does not know, or any value, even one it would refuse, in a setting other than those "The hosted poller reads the settings" names, the hosted poller reads the settings that requirement names and polls as usual.
 
 #### Scenario: Settings the hosted poller does not use
 
@@ -188,7 +188,7 @@ lunamill SHALL behave as this line says: When the lock holds a key the poller's 
 
 ### Requirement: How the hosted poller logs a reason not to poll
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: How the hosted poller logs a reason not to poll
 
@@ -197,7 +197,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: No settings from an earlier pass
 
-lunamill SHALL behave as this line says: When the hosted poller can't read the settings, it never uses settings it read at an earlier pass.
+Lunamill SHALL behave as this line says: When the hosted poller can't read the settings, it never uses settings it read at an earlier pass.
 
 #### Scenario: No settings from an earlier pass
 
@@ -206,7 +206,7 @@ lunamill SHALL behave as this line says: When the hosted poller can't read the s
 
 ### Requirement: A failed read of the lock
 
-lunamill SHALL behave as this line says: When reading `.claude/lunamill.lock` fails, other than the file not being there, the hosted poller logs `read failed (N in a row): ERROR`, starts nothing, and counts it toward the slower retry, as a failed read of the board does.
+Lunamill SHALL behave as this line says: When reading `.claude/lunamill.lock` fails, other than the file not being there, the hosted poller logs `read failed (N in a row): ERROR`, starts nothing, and counts it toward the slower retry, as a failed read of the board does.
 
 #### Scenario: A failed read of the lock
 
@@ -215,7 +215,7 @@ lunamill SHALL behave as this line says: When reading `.claude/lunamill.lock` fa
 
 ### Requirement: The hosted poller needs its token
 
-lunamill SHALL behave as this line says: When the hosted poller starts without `LUNAMILL_BOARD_TOKEN`, or with only spaces in it, it logs `ready-poller started for OWNER/NAME`, then `not polling: LUNAMILL_BOARD_TOKEN not set` at each pass, which counts toward the slower retry as it does today, and polls nothing.
+Lunamill SHALL behave as this line says: When the hosted poller starts without `LUNAMILL_BOARD_TOKEN`, or with only spaces in it, it logs `ready-poller started for OWNER/NAME`, then `not polling: LUNAMILL_BOARD_TOKEN not set` at each pass, which counts toward the slower retry as it does today, and polls nothing.
 
 #### Scenario: The hosted poller needs its token
 
@@ -224,7 +224,7 @@ lunamill SHALL behave as this line says: When the hosted poller starts without `
 
 ### Requirement: Init prints the poller's two variables
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Init prints the poller's two variables
 

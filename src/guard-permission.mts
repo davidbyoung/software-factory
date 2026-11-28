@@ -1,6 +1,6 @@
 // The PermissionRequest hook, run as `lunamill guard permission`. Claude Code
 // protects `.claude/`, and an unattended `claude -p` run denies any write
-// there that nothing approves. In a run lunamill's action started
+// there that nothing approves. In a run Lunamill's action started
 // (`LUNAMILL_UNATTENDED=1`), this approves a write to the repository's own
 // files under `.claude/`, and says nothing otherwise, so a person at a
 // keyboard is still asked, and so is any other workflow that runs Claude.

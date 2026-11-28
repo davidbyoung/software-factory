@@ -272,7 +272,7 @@ export type InitDeps = {
   now?: () => Date;
 };
 
-const SIGNING_TITLE = "lunamill builds";
+const SIGNING_TITLE = "Lunamill builds";
 /** A month of runs at each interval the scheduled poller allows. */
 const RUNS_A_MONTH = (minutes: number) => (30 * 24 * 60) / minutes;
 const AGAIN = "Run lunamill init again to add it.";
@@ -283,10 +283,10 @@ const NOT_COMMITTED = "The files are written, and nothing is committed.";
 const USAGE = "Usage: lunamill init [--preset NAME]... [--org ADDRESS]";
 /** The branch the setup's commit is made on. */
 const BRANCH = "set-up-lunamill";
-const SET_UP = "Set up lunamill";
+const SET_UP = "Set up Lunamill";
 /** The message of the commit that gives an empty repository a branch. */
 const FIRST_COMMIT = "Start the repository";
-const CHANGE = "Change lunamill's settings";
+const CHANGE = "Change Lunamill's settings";
 
 /** Each state `tickets.columns` writes, as its columns or null for none,
  * from the settings as parsed YAML. */
@@ -424,9 +424,9 @@ export async function whichRepository(
     d.out(
       say.text(
         remotes.length === 1
-          ? `The ${remotes[0]!.name} remote, ${remotes[0]!.url}, is not on a code host lunamill supports: ${hosts}.`
+          ? `The ${remotes[0]!.name} remote, ${remotes[0]!.url}, is not on a code host Lunamill supports: ${hosts}.`
           : remotes.length
-            ? `No remote here is on a code host lunamill supports: ${hosts}.`
+            ? `No remote here is on a code host Lunamill supports: ${hosts}.`
             : "This is not a git repository with a remote. Run it in your repository's checkout.",
       ),
     );
@@ -924,7 +924,7 @@ export function fileRows(
   if (copies.length)
     rows.push([
       "files",
-      `Copy lunamill's skills, agents, rules, and guards${ships ? `, and ${ships}` : ""}`,
+      `Copy Lunamill's skills, agents, rules, and guards${ships ? `, and ${ships}` : ""}`,
     ]);
   if (workflows.length)
     rows.push([
@@ -1113,7 +1113,7 @@ export function afterMerge(
     say.text("       ", update),
     say.step(
       2,
-      "Start a new session of your coding agent here. It loads lunamill from the files now in your repository.",
+      "Start a new session of your coding agent here. It loads Lunamill from the files now in your repository.",
     ),
     say.step(
       3,
@@ -1426,12 +1426,12 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
       : null;
   const choosing = flags.length > 0 || (looks && (held?.length ?? 0) > 0);
 
-  d.out(say.text("Setting up lunamill for ", say.name(repository)));
+  d.out(say.text("Setting up Lunamill for ", say.name(repository)));
   d.out(say.BLANK);
   if (!agent.agent.installed(d.hasCommand)) {
     d.out(
       say.text(
-        `lunamill runs in a coding agent, and ${agent.label} is not installed.`,
+        `Lunamill runs in a coding agent, and ${agent.label} is not installed.`,
       ),
     );
     d.out(say.text("Install it and run lunamill init again."));
@@ -1891,7 +1891,7 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
       ...(offerNew
         ? [
             {
-              name: `Create "${name}", with lunamill's columns`,
+              name: `Create "${name}", with Lunamill's columns`,
               value: "new",
             },
           ]
@@ -1952,7 +1952,7 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
   }
 
   // The board's columns, all six written: the coding agent suggests them
-  // when an existing board lacks one of lunamill's and the settings
+  // when an existing board lacks one of Lunamill's and the settings
   // name none, a block that leaves states out is filled in, and a ready
   // column is asked for when builds from the board turn on without one.
   let columnLines: [string, string][] = [];
@@ -2468,12 +2468,12 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
   if (board === "new")
     planRow(
       "create",
-      `board "${name}" under ${owner}, linked to the repository, with lunamill's columns and fields`,
+      `board "${name}" under ${owner}, linked to the repository, with Lunamill's columns and fields`,
     );
   else if (parts.has("board") && typeof board === "number" && ownBoard)
     planRow(
       "board",
-      `give board ${board} any of lunamill's columns and fields it lacks`,
+      `give board ${board} any of Lunamill's columns and fields it lacks`,
     );
   if (toStore.length) planRow("secrets", toStore.join(", "));
   if (storesOnMachine || keeping.length)
@@ -2726,7 +2726,7 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
       );
       d.out(
         say.text(
-          "lunamill's workflows install with it. Use a token that can only read.",
+          "Lunamill's workflows install with it. Use a token that can only read.",
         ),
       );
       prompt = "Paste it (leave empty to do this later):";
@@ -2748,7 +2748,7 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
     if (!value) {
       d.out(
         say.text(
-          `No ${a.name} stored. lunamill's workflows fail at npm ci until it is. ${AGAIN}`,
+          `No ${a.name} stored. Lunamill's workflows fail at npm ci until it is. ${AGAIN}`,
         ),
       );
       continue;

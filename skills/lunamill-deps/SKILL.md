@@ -5,12 +5,12 @@ description: Move every open Dependabot pull request one step closer to merged: 
 
 # Shepherding Dependabot pull requests
 
-A minor or patch bump already has auto-merge on, set by lunamill's
+A minor or patch bump already has auto-merge on, set by Lunamill's
 job for Dependabot's pull requests, so it merges by itself once its checks are
 green. The job here is to get it there. A major bump never has
 auto-merge, and this skill never turns it on or merges anything: the
 owner reads a major's migration before it lands. Dependabot does not
-update lunamill or a preset: lunamill's own Updates job opens those
+update Lunamill or a preset: Lunamill's own Updates job opens those
 pull requests, and they are not this skill's.
 
 Every command below goes through `lunamill deps`, `lunamill ticket`, or
@@ -142,14 +142,14 @@ If one still fails, try once more in the same run, on a person's machine. A
 second failure, or the first in the cloud, is the end for this run: comment
 what was tried and leave it for the next one.
 
-## 4. A pull request that names lunamill
+## 4. A pull request that names Lunamill
 
 Where `.github/dependabot.yml` watches `github-actions`, Dependabot may
-open a pull request that raises lunamill's version in
+open a pull request that raises Lunamill's version in
 `.github/workflows/lunamill.yml` or `.github/workflows/lunamill-review.yml`.
 `lunamill deps` says `leave (step 4)` for it. Do nothing to it: no step 2,
 no step 3, and no comment. Raising the version there without the files
-that version writes fails "lunamill files in step", it never has
+that version writes fails "Lunamill files in step", it never has
 auto-merge, and the Updates job's own pull request, which holds both,
 replaces it. Say in the report (step 7) that the owner can close it, and
 that an `ignore` entry for `lunamill-ai/lunamill` in

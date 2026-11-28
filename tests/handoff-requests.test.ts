@@ -223,7 +223,7 @@ describe("what Publish runs of it", () => {
       build,
     ],
     [
-      "a command that is not lunamill's to ask",
+      "a command that is not Lunamill's to ask",
       "a session can't ask for this",
       asked("sync"),
       build,

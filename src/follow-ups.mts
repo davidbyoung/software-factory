@@ -107,7 +107,7 @@ const same = (a: string, b: string) =>
   a.trim().toLowerCase() === b.trim().toLowerCase();
 
 /** The words on one line, without what would end the title or pass for one
- * of lunamill's markers. */
+ * of Lunamill's markers. */
 const oneLine = (words: string) =>
   withoutMarkers(words.replaceAll("**", "")).replace(/\s+/g, " ").trim();
 

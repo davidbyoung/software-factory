@@ -30,9 +30,9 @@ builds:
   trigger: own-server # start a build when a ticket moves to Ready, through the poller you host
 ```
 
-Each release of lunamill publishes the poller as a container image,
+Each release of Lunamill publishes the poller as a container image,
 `ghcr.io/lunamill-ai/lunamill-poller`, tagged with its version and
-`latest`. It holds nothing but Node and that version of lunamill, runs
+`latest`. It holds nothing but Node and that version of Lunamill, runs
 as an unprivileged user, and needs no sign-in to pull. Run the version on
 the `version:` line of your repository's `.claude/lunamill.lock`, with the
 two variables [What it reads](builds-from-the-board.md#what-it-reads) names; `lunamill init` prints the exact
@@ -59,7 +59,7 @@ FROM ghcr.io/lunamill-ai/lunamill-poller:0.2.0
 ```
 
 and an entry for your dependency bot, so it opens a pull request for each
-new version of the image, which waits for you as lunamill's own
+new version of the image, which waits for you as Lunamill's own
 [update](../maintain/updating.md) does.
 [GitHub](../integrations/github.md#dependabot-and-the-pollers-image) has the entry.
 
@@ -86,7 +86,7 @@ where it finds your settings.
 
 One: [`builds.trigger`](../reference/settings/builds.md#builds), set to
 `own-server`. The hosting is yours: nothing else about it goes in
-`.claude/lunamill.yaml`, and lunamill never deploys it.
+`.claude/lunamill.yaml`, and Lunamill never deploys it.
 
 ## When something goes wrong
 

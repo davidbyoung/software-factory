@@ -112,7 +112,7 @@ describe("lunamill guard commit", () => {
     expect(r.stderr).not.toContain(MAIN_BLOCK);
   });
 
-  it("lets a commit through in a repository lunamill does not govern, one with no settings", () => {
+  it("lets a commit through in a repository Lunamill does not govern, one with no settings", () => {
     const r = hook("git commit -m x", feature);
     expect(r.status).toBe(0);
     expect(r.stderr).toBe("");
@@ -267,7 +267,7 @@ describe("lunamill guard commit", () => {
 
     afterEach(() => rmSync(repo, { recursive: true, force: true }));
 
-    it("blocks the git command, naming the fix, in a checkout that has lunamill's settings", async () => {
+    it("blocks the git command, naming the fix, in a checkout that has Lunamill's settings", async () => {
       const { block, asked } = await guarded({
         settings: true,
         remotes: [["origin", "https://github.com/o/r.git"]],
@@ -316,7 +316,7 @@ describe("lunamill guard commit", () => {
       );
     });
 
-    it("reads origin where its address is an SSH host alias, which names no repository lunamill can read", async () => {
+    it("reads origin where its address is an SSH host alias, which names no repository Lunamill can read", async () => {
       const { block } = await guarded({
         settings: true,
         remotes: [["origin", "git@github-work:o/r.git", "main"]],
@@ -580,7 +580,7 @@ describe("lunamill guard commit", () => {
       withLoader("version: 3\nrepository: o/r\n");
       const r = hook("git commit -m x", repo);
       expect(r.status).toBe(2);
-      expect(r.stderr).toContain("lunamill's settings could not be read");
+      expect(r.stderr).toContain("Lunamill's settings could not be read");
       expect(r.stderr).toContain("version: must be 1");
     });
 
@@ -666,7 +666,7 @@ describe("lunamill guard commit", () => {
       expect(ran()).toEqual([]);
     });
 
-    describe("in a checkout with its own copy of lunamill", () => {
+    describe("in a checkout with its own copy of Lunamill", () => {
       const PACKAGE = dirname(dirname(LAUNCHER));
       const CHECKOUT = execFileSync("git", ["rev-parse", "--show-toplevel"], {
         cwd: PACKAGE,

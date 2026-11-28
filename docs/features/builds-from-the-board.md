@@ -134,7 +134,7 @@ and builds it where you are.
 
 ### The poller
 
-The poller is a small program of lunamill's. It runs on a server you
+The poller is a small program of Lunamill's. It runs on a server you
 host, reading your board once a minute and never exiting, or as one pass
 at a time on a schedule in the cloud. Each time it reads the board, for
 each ticket in Ready with the lunamill label and no open blocker, in the
@@ -229,18 +229,18 @@ it names each one that is still set, for you to take out
 LUNAMILL_BOARD_OWNER, LUNAMILL_BOARD_NUMBER, LUNAMILL_READY_COLUMN are no longer read: the settings on main are. Take them out of the poller's environment.
 ```
 
-#### When the poller and lunamill differ
+#### When the poller and Lunamill differ
 
-The [poller's image](hosting-the-poller.md#hosting-the-poller-own-server) and lunamill in
+The [poller's image](hosting-the-poller.md#hosting-the-poller-own-server) and Lunamill in
 your repository update separately, each by a pull request of its own,
 so for a while one can be a release ahead of the other. The
 poller reads only the settings it uses, and leaves any other alone, so
-a newer version of lunamill in your repository doesn't stop it. If a setting it uses
+a newer version of Lunamill in your repository doesn't stop it. If a setting it uses
 has changed in a way it can't read, it polls nothing and names both
 versions:
 
 ```text
-not polling: .claude/lunamill.lock on main: tickets.columns.ready: must be one column, or none: only a ticket you approved goes there (written by lunamill 0.3.0, and this poller is 0.2.0: run ghcr.io/lunamill-ai/lunamill-poller:0.3.0)
+not polling: .claude/lunamill.lock on main: tickets.columns.ready: must be one column, or none: only a ticket you approved goes there (written by Lunamill 0.3.0, and this poller is 0.2.0: run ghcr.io/lunamill-ai/lunamill-poller:0.3.0)
 ```
 
 Run the image it names.
@@ -248,7 +248,7 @@ Run the image it names.
 #### Its limits
 
 - **It builds only tickets with the lunamill label**
-  ([Which tickets are lunamill's](../workflow/tickets.md#which-tickets-are-lunamills)).
+  ([Which tickets are Lunamill's](../workflow/tickets.md#which-tickets-are-lunamills)).
   A ticket without it sits in Ready and nothing starts it.
 - **It starts at most 20 builds an hour,** or what
   [`builds.max-per-hour`](../reference/settings/builds.md#builds) says, counted from the start notes
@@ -286,7 +286,7 @@ of these lines:
 | `not polling: builds.trigger is manual on main, not own-server`                                                                        | Set `builds.trigger: own-server`, as [Hosting the poller](hosting-the-poller.md#hosting-the-poller-own-server) shows, and merge it                          |
 | `not polling: builds.trigger is github-action on main, not own-server`                                                                 | Stop the poller you host: the schedule starts your builds now                                                                                               |
 | `not polling: tickets.board is not set on main`                                                                                        | Set [`tickets.board`](../reference/settings/tickets.md#tickets)                                                                                             |
-| `not polling: .claude/lunamill.lock on main: builds.max-per-hour: must be a whole number, 1 or more`, or another setting and its fault | Fix that setting. If the line ends by naming two versions, run the newer image: [When the poller and lunamill differ](#when-the-poller-and-lunamill-differ) |
+| `not polling: .claude/lunamill.lock on main: builds.max-per-hour: must be a whole number, 1 or more`, or another setting and its fault | Fix that setting. If the line ends by naming two versions, run the newer image: [When the poller and Lunamill differ](#when-the-poller-and-lunamill-differ) |
 
 ### When the schedule fails
 

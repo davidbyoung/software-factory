@@ -536,7 +536,7 @@ describe("this repository's workflows", () => {
     ...groupCalls.flatMap(([file, on]) => jobsWithSecrets(open(file), on)),
   ];
 
-  it("finds the workflows to scan, and lunamill's own behind the two files sync writes", () => {
+  it("finds the workflows to scan, and Lunamill's own behind the two files sync writes", () => {
     expect(files).toContain(`${DIR}/release.yml`);
     expect(calls(factoryWorkflow(OPTIONS))).toEqual([
       [`${DIR}/run.yml`, factoryEvents],

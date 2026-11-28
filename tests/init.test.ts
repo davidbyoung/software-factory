@@ -61,7 +61,7 @@ describe("lunamill init, a first run with every part", () => {
     await r.run();
     const start = r.out.indexOf("Found");
     const found = r.out.slice(0, r.out.indexOf("", start)).join("\n");
-    expect(found).toContain("Setting up lunamill for acme/site");
+    expect(found).toContain("Setting up Lunamill for acme/site");
     expect(found).toMatch(/Code host +GitHub \(from your git remote\)/);
     expect(found).toMatch(/Tickets +GitHub Issues/);
     expect(found).toMatch(/Coding agent +Claude Code/);
@@ -87,7 +87,7 @@ describe("lunamill init, a first run with every part", () => {
     expect(r.synced()).toBe(1);
   });
 
-  it("creates the board with lunamill's columns and fields, keeping a column that matches whatever its case", async () => {
+  it("creates the board with Lunamill's columns and fields, keeping a column that matches whatever its case", async () => {
     const r = first();
     await r.run();
     expect(r.tickets.boards).toEqual([
@@ -145,7 +145,7 @@ describe("lunamill init, a first run with every part", () => {
     const r = first();
     await r.run();
     expect(r.host.settings.signingKeys).toEqual([
-      { title: "lunamill builds", key: "ssh-ed25519 PUBLIC" },
+      { title: "Lunamill builds", key: "ssh-ed25519 PUBLIC" },
     ]);
   });
 
@@ -198,7 +198,7 @@ describe("lunamill init, a first run with every part", () => {
         },
         {
           state: "pass",
-          text: "CLAUDE.md imports lunamill's rules",
+          text: "CLAUDE.md imports Lunamill's rules",
           group: "Claude Code",
         },
         { state: "off", text: "A board", group: "Parts that are off" },
@@ -210,7 +210,7 @@ describe("lunamill init, a first run with every part", () => {
       "    ✓ The settings are valid",
       "",
       "  Claude Code",
-      "    ✓ CLAUDE.md imports lunamill's rules",
+      "    ✓ CLAUDE.md imports Lunamill's rules",
       "",
       "  Parts that are off",
       "    - A board",
@@ -226,7 +226,7 @@ describe("lunamill init, a first run with every part", () => {
     const text = plan.join("\n");
     expect(text).toContain(".claude/lunamill.yaml");
     expect(text).not.toContain("package.json");
-    expect(text).toContain("Copy lunamill's skills, agents, rules, and guards");
+    expect(text).toContain("Copy Lunamill's skills, agents, rules, and guards");
     expect(text).toContain("LUNAMILL_BOARD_TOKEN");
     expect(text).toContain('Require "Review verdict"');
     const go = r.asked.indexOf("confirm: Go ahead?");
@@ -500,7 +500,7 @@ describe("lunamill init, the access token", () => {
     });
     await r.run();
     expect(r.out).toContain(
-      "Check that push, workflows, and board are ticked, choose an expiry, and generate it. 90 days is a good balance: lunamill warns you 30 days before it.",
+      "Check that push, workflows, and board are ticked, choose an expiry, and generate it. 90 days is a good balance: Lunamill warns you 30 days before it.",
     );
   });
 
@@ -539,9 +539,9 @@ describe("lunamill init, the access token", () => {
     });
     expect(await r.run()).toBe(1);
     expect(r.out).toEqual([
-      "Setting up lunamill for acme/site",
+      "Setting up Lunamill for acme/site",
       "",
-      "lunamill runs in a coding agent, and Claude Code is not installed.",
+      "Lunamill runs in a coding agent, and Claude Code is not installed.",
       "Install it and run lunamill init again.",
       "Nothing changed.",
     ]);
@@ -898,9 +898,9 @@ describe("lunamill init, what CI's own token may do", () => {
   });
 });
 
-describe("lunamill init, the events lunamill's workflow starts on", () => {
+describe("lunamill init, the events Lunamill's workflow starts on", () => {
   const ROW =
-    '  policy        Let .github/workflows/lunamill.yml run on pull_request_target, as the policy "lunamill"';
+    '  policy        Let .github/workflows/lunamill.yml run on pull_request_target, as the policy "Lunamill"';
   const answers = { checkbox: [[]], confirm: [true] };
 
   it("plans the policy and adds it where the code host holds the event back", async () => {
@@ -963,7 +963,7 @@ describe("lunamill init, word for word", () => {
     expect(await r.run()).toBe(0);
     expect(shown(r)).toMatchInlineSnapshot(`
       [
-        "Setting up lunamill for acme/site",
+        "Setting up Lunamill for acme/site",
         "",
         "Found",
         "  Code host      GitHub (from your git remote)",
@@ -985,12 +985,12 @@ describe("lunamill init, word for word", () => {
         "",
         "This is everything setup will do:",
         "  settings      Write .claude/lunamill.yaml",
-        "  files         Copy lunamill's skills, agents, rules, and guards",
-        "  create        board "site" under acme, linked to the repository, with lunamill's columns and fields",
+        "  files         Copy Lunamill's skills, agents, rules, and guards",
+        "  create        board "site" under acme, linked to the repository, with Lunamill's columns and fields",
         "  secrets       CLAUDE_CODE_OAUTH_TOKEN, LUNAMILL_BOARD_TOKEN, LUNAMILL_AUTOMERGE_TOKEN, LUNAMILL_SIGNING_KEY",
         "  store         your GitHub token and your Claude token on this machine, in ~/.config/lunamill/credentials.yaml",
         "  repository    allow auto-merge on the repository",
-        "  rules         Require "Review verdict" before a merge to the default branch, as the rule "lunamill", once this pull request merges",
+        "  rules         Require "Review verdict" before a merge to the default branch, as the rule "Lunamill", once this pull request merges",
         "  pull request  Push the branch set-up-lunamill and open a pull request",
         "? confirm: Go ahead?",
         "Created board 1, "site".",
@@ -1002,14 +1002,14 @@ describe("lunamill init, word for word", () => {
         "Stored for acme/site, and on this machine for your next repository.",
         "",
         "An access token: opening https://code.example/tokens/new?scopes=push,workflows,board&note=lunamill: acme/site",
-        "Check that push, workflows, and board are ticked, choose an expiry, and generate it. 90 days is a good balance: lunamill warns you 30 days before it.",
+        "Check that push, workflows, and board are ticked, choose an expiry, and generate it. 90 days is a good balance: Lunamill warns you 30 days before it.",
         "? secret: Paste it (leave empty to do this later):",
         "It belongs to dave. Stored for acme/site, and on this machine for your next repository.",
         "",
         "Made a signing key and stored it as LUNAMILL_SIGNING_KEY.",
         "Added its public half to dave as a signing key.",
         "",
-        "✓ Opened acme/site#1, "Set up lunamill".",
+        "✓ Opened acme/site#1, "Set up Lunamill".",
         "Merge it to finish. Left to do:",
         "  1. Run the poller's image, ghcr.io/lunamill-ai/lunamill-poller:0.2.0, where you host it, with:
              LUNAMILL_REPOSITORY=acme/site
@@ -1020,7 +1020,7 @@ describe("lunamill init, word for word", () => {
         "After it merges:",
         "  1. Come back to main and bring it up to date:",
         "       git switch main && git pull",
-        "  2. Start a new session of your coding agent here. It loads lunamill from the files now in your repository.",
+        "  2. Start a new session of your coding agent here. It loads Lunamill from the files now in your repository.",
         "  3. Refine a ticket with /lunamill-refine N, then build it with /lunamill-build N.",
         "The steps in full:",
         "     https://github.com/lunamill-ai/lunamill/blob/v0.2.0/docs/get-started/quick-start.md#4-open-a-ticket",
@@ -1062,7 +1062,7 @@ describe("lunamill init, word for word", () => {
     expect(await r.run()).toBe(0);
     expect(shown(r)).toMatchInlineSnapshot(`
       [
-        "Setting up lunamill for acme/site",
+        "Setting up Lunamill for acme/site",
         "",
         "Found",
         "  Code host      GitHub (from your git remote)",
@@ -1079,15 +1079,15 @@ describe("lunamill init, word for word", () => {
         "? confirm: 4 secrets these parts read are already set. Replace them?",
         "",
         "This is everything setup will do:",
-        "  files         Copy lunamill's skills, agents, rules, and guards",
-        "  board         give board 3 any of lunamill's columns and fields it lacks",
+        "  files         Copy Lunamill's skills, agents, rules, and guards",
+        "  board         give board 3 any of Lunamill's columns and fields it lacks",
         "  repository    allow auto-merge on the repository",
-        "  rules         Require "Review verdict" before a merge to the default branch, as the rule "lunamill"",
+        "  rules         Require "Review verdict" before a merge to the default branch, as the rule "Lunamill"",
         "  pull request  Push the branch set-up-lunamill and open a pull request",
         "? confirm: Go ahead?",
         "Added to board 3: Session, Runs in, Cost.",
         "",
-        "✓ Opened acme/site#1, "Change lunamill's settings".",
+        "✓ Opened acme/site#1, "Change Lunamill's settings".",
         "Merge it to finish. Left to do:",
         "  1. Run the poller's image, ghcr.io/lunamill-ai/lunamill-poller:0.2.0, where you host it, with:
              LUNAMILL_REPOSITORY=acme/site
@@ -1595,7 +1595,7 @@ describe("lunamill init, with more than one tool of a kind", () => {
     });
     expect(await r.run()).toBe(1);
     expect(r.out).toEqual([
-      "The origin remote, https://gitlab.com/acme/site.git, is not on a code host lunamill supports: GitHub, Elsewhere, and Yonder.",
+      "The origin remote, https://gitlab.com/acme/site.git, is not on a code host Lunamill supports: GitHub, Elsewhere, and Yonder.",
     ]);
   });
 });
@@ -1699,7 +1699,7 @@ describe("lunamill init, the column step", () => {
   const STEP_LINES = [
     "",
     "Board 3 has the columns Todo, In Progress, Code review, and Done.",
-    "Asking Claude Code which of them shows each of lunamill's six states...",
+    "Asking Claude Code which of them shows each of Lunamill's six states...",
     "",
     "  State      Column",
     "  backlog    Todo",
@@ -1723,7 +1723,7 @@ describe("lunamill init, the column step", () => {
       r.transcript.indexOf("This is everything setup will do:"),
     ).toBeGreaterThan(at + STEP_LINES.length);
     expect(selectOf(r, "Use these columns?")).toEqual({
-      names: ["Yes", "Change some", "No: add lunamill's columns instead"],
+      names: ["Yes", "Change some", "No: add Lunamill's columns instead"],
       fallback: "yes",
     });
   });
@@ -1872,7 +1872,7 @@ describe("lunamill init, the column step", () => {
     });
   });
 
-  it("adds lunamill's columns it lacks and writes lunamill's six on No", async () => {
+  it("adds Lunamill's columns it lacks and writes Lunamill's six on No", async () => {
     const r = shop({ select: ["no"] });
     expect(await r.run()).toBe(0);
     expect(r.yaml().tickets).toEqual({ board: 3, columns: LUNAMILL_COLUMNS });
@@ -1955,7 +1955,7 @@ describe("lunamill init, the column step", () => {
     const to = r.transcript.indexOf("? select: Use these columns?");
     expect(r.transcript.slice(from, to + 1)).toEqual([
       "Board 3 has the columns Todo, In Progress, Code review, and Done.",
-      "Asking Claude Code which of them shows each of lunamill's six states...",
+      "Asking Claude Code which of them shows each of Lunamill's six states...",
       "Claude Code's answer could not be used: it failed: Invalid API key · Please run /login.",
       "Choose the column for each state yourself.",
       "? select: Which column shows backlog?",
@@ -1980,7 +1980,7 @@ describe("lunamill init, the column step", () => {
 
   it.each([
     [
-      "a board with lunamill's six columns",
+      "a board with Lunamill's six columns",
       { boards: [{ number: 3, title: "Roadmap", columns: SIX_COLUMNS }] },
       ["3"],
       LUNAMILL_COLUMNS,
@@ -2027,7 +2027,7 @@ describe("lunamill init, the column step", () => {
     },
   );
 
-  it("says a board has lunamill's six columns, and saves them as the board spells them", async () => {
+  it("says a board has Lunamill's six columns, and saves them as the board spells them", async () => {
     const spelled = SIX_COLUMNS.map((c) =>
       c === "In progress" ? "In Progress" : c,
     );
@@ -2041,7 +2041,7 @@ describe("lunamill init, the column step", () => {
     const at = r.transcript.indexOf("? select: Which board?");
     expect(r.transcript.slice(at + 1, at + 11)).toEqual([
       "",
-      "Board 3 has a column for each of lunamill's six states:",
+      "Board 3 has a column for each of Lunamill's six states:",
       "",
       "  State      Column",
       "  backlog    Backlog",
@@ -2177,7 +2177,7 @@ describe("lunamill init, the column step", () => {
     });
     expect(await r.run()).toBe(0);
     expect(r.out).toContain(
-      "Asking Fake Agent which of them shows each of lunamill's six states...",
+      "Asking Fake Agent which of them shows each of Lunamill's six states...",
     );
     expect(r.out.join("\n")).not.toContain("Claude Code");
     const missing = shop({
@@ -2185,7 +2185,7 @@ describe("lunamill init, the column step", () => {
     });
     expect(await missing.run()).toBe(1);
     expect(missing.out).toContain(
-      "lunamill runs in a coding agent, and Fake Agent is not installed.",
+      "Lunamill runs in a coding agent, and Fake Agent is not installed.",
     );
   });
 });
@@ -2268,7 +2268,7 @@ describe("lunamill init, a block that leaves states out", () => {
     expect(Object.keys(r.columns() as object)).toHaveLength(6);
   });
 
-  it("fills in each state left out from the board's column of lunamill's name, asking nothing", async () => {
+  it("fills in each state left out from the board's column of Lunamill's name, asking nothing", async () => {
     const r = rerun(SHOP_PARTIAL);
     expect(await r.run()).toBe(0);
     const at = r.transcript.indexOf(
@@ -2276,7 +2276,7 @@ describe("lunamill init, a block that leaves states out", () => {
     );
     expect(r.transcript.slice(at, at + 10)).toEqual([
       "Your settings give no column to building or done.",
-      "Board 3 has a column of lunamill's name for each:",
+      "Board 3 has a column of Lunamill's name for each:",
       "",
       "  State      Column",
       "  backlog    Todo",
@@ -2516,7 +2516,7 @@ describe("the tokens .npmrc reads", () => {
   const INTRO = [
     "",
     `.npmrc reads NPM_TOKEN for ${JFROG}.`,
-    "lunamill's workflows install with it. Use a token that can only read.",
+    "Lunamill's workflows install with it. Use a token that can only read.",
   ];
   const UNSEEN =
     "NPM_TOKEN isn't set for Dependabot on this repository, and only an organization admin can see whether your organization sets it. If it does, leave this empty.";
@@ -2636,7 +2636,7 @@ describe("the tokens .npmrc reads", () => {
     });
     await r.run();
     expect(r.out).toContain(
-      "No NPM_TOKEN stored. lunamill's workflows fail at npm ci until it is. Run lunamill init again to add it.",
+      "No NPM_TOKEN stored. Lunamill's workflows fail at npm ci until it is. Run lunamill init again to add it.",
     );
     expect(r.runner.secrets.has("NPM_TOKEN")).toBe(false);
     expect(r.runner.dependabotSecrets.has("NPM_TOKEN")).toBe(false);
@@ -2824,13 +2824,13 @@ describe("lunamill init, the field step", () => {
     const r = fielded({ select: ["yes"] });
     expect(await r.run()).toBe(0);
     expect(r.looks).toContain(
-      "{skip:Asking Claude Code which of them should hold each of lunamill's fields...}",
+      "{skip:Asking Claude Code which of them should hold each of Lunamill's fields...}",
     );
     expect(step(r.out)).toEqual([
       "acme/site's tickets have the text fields Acceptance criteria, Design notes, and Customer.",
-      "Asking Claude Code which of them should hold each of lunamill's fields...",
+      "Asking Claude Code which of them should hold each of Lunamill's fields...",
       "",
-      "  lunamill field        Ticket field",
+      "  Lunamill field        Ticket field",
       "  Decisions             the description",
       "  Spec                  Acceptance criteria",
       "  Acceptance criteria   Acceptance criteria",
@@ -2857,7 +2857,7 @@ describe("lunamill init, the field step", () => {
     expect(q.prompt).toContain("__description__");
   });
 
-  it("Yes writes all four lunamill fields, none for the description", async () => {
+  it("Yes writes all four Lunamill fields, none for the description", async () => {
     const r = fielded({ select: ["yes"] });
     expect(await r.run()).toBe(0);
     expect(r.read(".claude/lunamill.yaml")).toBe(
@@ -2887,7 +2887,7 @@ describe("lunamill init, the field step", () => {
     );
   });
 
-  it("Change some asks only about lunamill fields you pick, then shows the table again", async () => {
+  it("Change some asks only about Lunamill fields you pick, then shows the table again", async () => {
     const r = fielded({
       checkbox: [["decisions"]],
       select: ["change", "field:Customer", "yes"],
@@ -2930,7 +2930,7 @@ describe("lunamill init, the field step", () => {
     ).toHaveLength(2);
   });
 
-  it("refuses one ticket field for two lunamill fields, and asks which to change again", async () => {
+  it("refuses one ticket field for two Lunamill fields, and asks which to change again", async () => {
     const r = fielded({
       checkbox: [["decisions"], ["decisions"]],
       select: ["change", "field:Design notes", "field:Customer", "yes"],
@@ -3004,7 +3004,7 @@ describe("lunamill init, the field step", () => {
     );
     expect(at).toBeGreaterThan(-1);
     expect(r.out[at + 1]).toBe(
-      "Choose where each of lunamill's fields goes yourself.",
+      "Choose where each of Lunamill's fields goes yourself.",
     );
   });
 
@@ -3043,11 +3043,11 @@ describe("lunamill init, the field step", () => {
     const to = r.transcript.indexOf("? select: Use these ticket fields?");
     expect(r.transcript.slice(from, to + 1)).toEqual([
       "acme/site's tickets have the text fields Acceptance criteria, Design notes, and Customer.",
-      "Asking Claude Code which of them should hold each of lunamill's fields...",
+      "Asking Claude Code which of them should hold each of Lunamill's fields...",
       "Claude Code's answer could not be used: it failed: Invalid API key.",
-      "Choose where each of lunamill's fields goes yourself.",
+      "Choose where each of Lunamill's fields goes yourself.",
       "",
-      "  lunamill field        What it holds",
+      "  Lunamill field        What it holds",
       "  Decisions             the questions refinement settled, and what was chosen",
       "  Spec                  what a change users will notice must do, line by line",
       "  Acceptance criteria   what must be true for any other ticket to be done",
@@ -3060,7 +3060,7 @@ describe("lunamill init, the field step", () => {
       "? select: Where does Acceptance criteria go?",
       "? select: Where does For the builder go?",
       "",
-      "  lunamill field        Ticket field",
+      "  Lunamill field        Ticket field",
       "  Decisions             the description",
       "  Spec                  Acceptance criteria",
       "  Acceptance criteria   Acceptance criteria",
@@ -3130,16 +3130,16 @@ describe("lunamill init, the field step", () => {
     });
   });
 
-  it("underlines the column names and bolds lunamill fields in what each holds", async () => {
+  it("underlines the column names and bolds Lunamill fields in what each holds", async () => {
     const r = byHand(BY_HAND);
     await r.run();
     const at = r.looks.findIndex((l) => l.includes("What it holds"));
     expect(r.looks.slice(at, at + 2)).toEqual([
-      "  {heading:lunamill field}        {heading:What it holds}",
+      "  {heading:Lunamill field}        {heading:What it holds}",
       "  {name:Decisions}             the questions refinement settled, and what was chosen",
     ]);
     expect(r.looks).toContain(
-      "Choose where each of lunamill's fields goes yourself.",
+      "Choose where each of Lunamill's fields goes yourself.",
     );
     expect(r.looks).toContain(
       "A ticket has a Spec or Acceptance criteria, never both, so the two can share a ticket field.",
@@ -3198,7 +3198,7 @@ describe("lunamill init, the field step", () => {
     expect(await r.run()).toBe(0);
     const lines = step(r.out).join("\n");
     expect(lines).toContain(
-      "Asking Fake Agent which of them should hold each of lunamill's fields...",
+      "Asking Fake Agent which of them should hold each of Lunamill's fields...",
     );
     expect(lines).toContain(
       "Fake Tickets shows a field's text as typed, without Markdown formatting.",

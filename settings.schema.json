@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Settings for lunamill",
+  "title": "Settings for Lunamill",
   "description": "The settings file, .claude/lunamill.yaml. An editor's help: `lunamill config check` is the check that counts.",
   "type": "object",
   "additionalProperties": false,
@@ -8,7 +8,7 @@
   "properties": {
     "version": {
       "const": 1,
-      "description": "The shape of this file, not lunamill's version. Must be 1."
+      "description": "The shape of this file, not Lunamill's version. Must be 1."
     },
     "repository": {
       "type": "string",
@@ -81,7 +81,7 @@
       "description": "The automated review of every pull request: on with true."
     },
     "site": {
-      "description": "How lunamill looks at your website, or a list of sites, one for each web app, each with in.",
+      "description": "How Lunamill looks at your website, or a list of sites, one for each web app, each with in.",
       "anyOf": [
         {
           "$ref": "#/definitions/site"
@@ -144,7 +144,7 @@
     },
     "tickets.labels": {
       "type": "object",
-      "description": "Your own names for the labels lunamill puts on tickets. A key left out keeps its default name.",
+      "description": "Your own names for the labels Lunamill puts on tickets. A key left out keeps its default name.",
       "additionalProperties": false,
       "properties": {
         "spec": {
@@ -155,7 +155,7 @@
         "lunamill": {
           "type": "string",
           "minLength": 1,
-          "description": "The label on every ticket lunamill works on: it acts on no other. Default: lunamill."
+          "description": "The label on every ticket Lunamill works on: it acts on no other. Default: Lunamill."
         }
       }
     },
@@ -258,7 +258,7 @@
     },
     "tickets.fields": {
       "type": "object",
-      "description": "Which of your fields holds each of lunamill's fields: on the board, session, runs-in, and cost, which need a board; on the ticket, decisions, spec, acceptance-criteria, for-the-builder, repositories, and any heading of your own.",
+      "description": "Which of your fields holds each of Lunamill's fields: on the board, session, runs-in, and cost, which need a board; on the ticket, decisions, spec, acceptance-criteria, for-the-builder, repositories, and any heading of your own.",
       "additionalProperties": false,
       "properties": {
         "session": {
@@ -882,7 +882,7 @@
     },
     "site": {
       "type": "object",
-      "description": "How lunamill looks at your website.",
+      "description": "How Lunamill looks at your website.",
       "additionalProperties": false,
       "properties": {
         "in": {

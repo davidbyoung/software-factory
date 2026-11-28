@@ -181,7 +181,7 @@ describe("lunamill remove with presets", () => {
     expect(r.has(".claude/agents/mine.md")).toBe(true);
   });
 
-  it("leaves no npm uninstall line, for lunamill or for a preset", async () => {
+  it("leaves no npm uninstall line, for Lunamill or for a preset", async () => {
     const r = withPresets();
     await r.run();
     expect(r.out.filter((l) => l.includes("npm uninstall"))).toEqual([]);
@@ -215,13 +215,13 @@ describe("lunamill remove", () => {
     );
   });
 
-  it("deletes lunamill's files", async () => {
+  it("deletes Lunamill's files", async () => {
     const r = remove({});
     await r.run();
     for (const path of DELETED) expect(r.has(path)).toBe(false);
   });
 
-  it("takes out lunamill's hooks and import, keeping everything else", async () => {
+  it("takes out Lunamill's hooks and import, keeping everything else", async () => {
     const r = remove({});
     await r.run();
     expect(JSON.parse(r.read(".claude/settings.json"))).toEqual({
@@ -287,7 +287,7 @@ describe("lunamill remove", () => {
       "Nothing is committed. Left for you to do by hand:",
       "",
       "  GitHub",
-      '  1. Delete the "lunamill" ruleset first, under Settings, Rules: until then every pull request waits on its "Review verdict" check.',
+      '  1. Delete the "Lunamill" ruleset first, under Settings, Rules: until then every pull request waits on its "Review verdict" check.',
       "  2. Delete the secrets LUNAMILL_BOARD_TOKEN, LUNAMILL_AUTOMERGE_TOKEN, and LUNAMILL_SIGNING_KEY.",
       "  3. Delete whichever of the labels merge-automatic, merge-manual, and verdict-override exist, if you do not want their history: deleting one takes it off every pull request.",
       "",
@@ -338,7 +338,7 @@ describe("lunamill remove", () => {
     });
     await r.run();
     expect(r.out).toContain(
-      '  1. Delete the "lunamill" ruleset first, if there is one, under Settings, Rules: until then every pull request waits on its "Review verdict" check.',
+      '  1. Delete the "Lunamill" ruleset first, if there is one, under Settings, Rules: until then every pull request waits on its "Review verdict" check.',
     );
   });
 
@@ -356,12 +356,12 @@ describe("lunamill remove", () => {
     );
   });
 
-  it("says so when nothing of lunamill's is here", async () => {
+  it("says so when nothing of Lunamill's is here", async () => {
     const r = remove({
       files: { "package.json": "{}\n", "CLAUDE.md": "# Ours\n" },
     });
     expect(await r.run()).toBe(0);
-    expect(r.out).toEqual(["Nothing of lunamill's is here."]);
+    expect(r.out).toEqual(["Nothing of Lunamill's is here."]);
     expect(r.asked).toEqual([]);
   });
 
@@ -402,7 +402,7 @@ describe("lunamill remove", () => {
     );
   });
 
-  it("deletes a settings file lunamill's hooks were all it held", async () => {
+  it("deletes a settings file Lunamill's hooks were all it held", async () => {
     const onlyFactory = JSON.parse(withHooks(null, LAUNCHER));
     delete onlyFactory.attribution;
     const r = remove({

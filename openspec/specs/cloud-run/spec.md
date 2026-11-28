@@ -8,7 +8,7 @@ How a run that uses AI is split into three jobs, so the AI and a sign-in to the 
 
 ### Requirement: Three jobs
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Three jobs
 
@@ -17,7 +17,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: The sandbox
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The sandbox
 
@@ -26,16 +26,16 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: Where the session starts
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Where the session starts
 
 - **WHEN** the session's job lays out its folders
-- **THEN** The session starts in a copy of the default branch, from which its `CLAUDE.md`, skills, agents, and settings are read, with the work copy beside it. That copy, lunamill's install, and what was handed over are read-only to it.
+- **THEN** The session starts in a copy of the default branch, from which its `CLAUDE.md`, skills, agents, and settings are read, with the work copy beside it. That copy, Lunamill's install, and what was handed over are read-only to it.
 
 ### Requirement: Setup before the session
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Setup before the session
 
@@ -44,7 +44,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: After the session
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: After the session
 
@@ -53,7 +53,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: What a run keeps
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: What a run keeps
 
@@ -62,7 +62,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: A session that ends in an error
 
-lunamill SHALL behave as this line says: When Claude Code ends a cloud session with a result marked as an error and its result has text, the session's job prints, once the session has ended and the runner reads its commands again, `::error::Claude Code: WORDS`, where WORDS is the first line of that result, so it shows as an error on the run. With no text in the result, it prints only today's `Finished (...)` line.
+Lunamill SHALL behave as this line says: When Claude Code ends a cloud session with a result marked as an error and its result has text, the session's job prints, once the session has ended and the runner reads its commands again, `::error::Claude Code: WORDS`, where WORDS is the first line of that result, so it shows as an error on the run. With no text in the result, it prints only today's `Finished (...)` line.
 
 #### Scenario: A session that ends in an error
 
@@ -71,7 +71,7 @@ lunamill SHALL behave as this line says: When Claude Code ends a cloud session w
 
 ### Requirement: A refused Claude token
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A refused Claude token
 
@@ -80,7 +80,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: A refused API key
 
-lunamill SHALL behave as this line says: When WORDS reads as a refusal and the session read `ANTHROPIC_API_KEY`, the line is `::error::Claude Code refused ANTHROPIC_API_KEY: WORDS.`
+Lunamill SHALL behave as this line says: When WORDS reads as a refusal and the session read `ANTHROPIC_API_KEY`, the line is `::error::Claude Code refused ANTHROPIC_API_KEY: WORDS.`
 
 #### Scenario: A refused API key
 

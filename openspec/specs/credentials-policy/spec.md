@@ -6,45 +6,45 @@ The approval policy every repository has unless it turns it off: a script that f
 
 ## Requirements
 
-### Requirement: lunamill's own credentials policy
+### Requirement: Lunamill's own credentials policy
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
-#### Scenario: lunamill's own credentials policy
+#### Scenario: Lunamill's own credentials policy
 
 - **WHEN** the settings have no policy named `credentials`
-- **THEN** lunamill's own layer, before any preset, gives one: `run: node .claude/approval-policies/credentials/find.mts`, `agent: lunamill-credentials-reader`, and `files: ["**"]`, which `lunamill config explain` marks `# default`.
+- **THEN** Lunamill's own layer, before any preset, gives one: `run: node .claude/approval-policies/credentials/find.mts`, `agent: lunamill-credentials-reader`, and `files: ["**"]`, which `lunamill config explain` marks `# default`.
 
 ### Requirement: Turning the credentials policy off
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Turning the credentials policy off
 
 - **WHEN** `.claude/lunamill.yaml` lists `{ name: credentials, off: true }`
-- **THEN** the repository has no `credentials` policy, and `lunamill config check` passes; a preset's or the repository's own policy named `credentials` replaces lunamill's.
+- **THEN** the repository has no `credentials` policy, and `lunamill config check` passes; a preset's or the repository's own policy named `credentials` replaces Lunamill's.
 
 ### Requirement: Writing the policy's files
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Writing the policy's files
 
 - **WHEN** the `credentials` policy is on
 - **THEN** `lunamill sync` writes `.claude/approval-policies/credentials/find.mts` and `.claude/agents/lunamill-credentials-reader.md` from the package, and when it is off, writes neither.
 
-### Requirement: lunamill's agent before its first sync
+### Requirement: Lunamill's agent before its first sync
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
-#### Scenario: lunamill's agent before its first sync
+#### Scenario: Lunamill's agent before its first sync
 
-- **WHEN** `lunamill config check` reads settings whose agent is lunamill's own and its file isn't written yet, as on the first sync after an update
+- **WHEN** `lunamill config check` reads settings whose agent is Lunamill's own and its file isn't written yet, as on the first sync after an update
 - **THEN** it passes, as it does for a preset's files.
 
 ### Requirement: What find.mts leaves out
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: What find.mts leaves out
 
@@ -53,7 +53,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: A new credential
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A new credential
 
@@ -62,7 +62,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: A secret passed to a workflow
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A secret passed to a workflow
 
@@ -71,7 +71,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: Write access for a workflow
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Write access for a workflow
 
@@ -80,7 +80,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: A workflow new to the repository
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A workflow new to the repository
 
@@ -89,7 +89,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: A pull_request_target trigger
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A pull_request_target trigger
 
@@ -98,7 +98,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: Nothing found
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Nothing found
 
@@ -107,7 +107,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: The credentials reader
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The credentials reader
 
@@ -116,7 +116,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: A small change takes no new step
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A small change takes no new step
 

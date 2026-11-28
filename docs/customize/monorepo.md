@@ -7,7 +7,7 @@ that package's checks, its [gate](../reference/glossary.md#the-words), not every
 package's, and a change to a file nobody accounted for still runs them
 all.
 
-Set lunamill up first, at the repository's root, with the
+Set Lunamill up first, at the repository's root, with the
 [quick start](../get-started/quick-start.md): one `lunamill init`, one
 `.claude/lunamill.yaml`, and one board, as for any repository. This
 page changes the commands under [`commands`](../reference/settings/commands.md#commands) in that file, on the
@@ -63,7 +63,7 @@ commands:
   in the list, or the package's own changes stop running it.
 - **List what a package's checks read outside its folder,** such as a
   shared library or the root's lock file, as `npm test` does above. Then
-  a change to that file runs every package's tests. lunamill looks at
+  a change to that file runs every package's tests. Lunamill looks at
   which files changed, not at what your code imports, so a file you leave
   out runs nothing of that package's when it changes.
 - **A plain text command,** such as the format check, runs from the root
@@ -71,7 +71,7 @@ commands:
 
 A changed file is **covered** when a gate command's `files` match it, or
 its folder does when it has no `files`. A changed file that nothing
-covers runs every gate command, since lunamill can't tell what it
+covers runs every gate command, since Lunamill can't tell what it
 might break. That is what keeps an edit to a root file such as
 `tsconfig.base.json` from passing with no type check.
 
@@ -163,7 +163,7 @@ different commands for it.
 - **[`commands.test-one`](../reference/settings/commands.md#commandstest-one) and
   [`commands.end-to-end`](../reference/settings/commands.md#commandsend-to-end),** which a
   session uses to run one test file, if your packages run their tests
-  with different tools: give a command for each kind of package, and lunamill runs the one whose folder holds the test file.
+  with different tools: give a command for each kind of package, and Lunamill runs the one whose folder holds the test file.
 - **[`commands.coverage`](../reference/settings/commands.md#commandscoverage),** if each
   package measures its own coverage: give each its command and report,
   and `lunamill coverage` runs the ones a change needs.

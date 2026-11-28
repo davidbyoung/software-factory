@@ -8,7 +8,7 @@ How `lunamill init` learns a repository's presets before it asks anything, from 
 
 ### Requirement: The presets --preset names
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The presets --preset names
 
@@ -17,7 +17,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: Looking for the presets
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Looking for the presets
 
@@ -26,7 +26,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: Choosing among lunamill-config's presets
 
-lunamill SHALL behave as this line says: When it found `lunamill-config`, it prints `Presets          OWNER/lunamill-config holds N` and asks which the repository follows, listing each `lunamill-preset.yaml` there by its preset's name and the first comment line of its file. The one at the root starts checked.
+Lunamill SHALL behave as this line says: When it found `lunamill-config`, it prints `Presets          OWNER/lunamill-config holds N` and asks which the repository follows, listing each `lunamill-preset.yaml` there by its preset's name and the first comment line of its file. The one at the root starts checked.
 
 #### Scenario: Choosing among lunamill-config's presets
 
@@ -35,7 +35,7 @@ lunamill SHALL behave as this line says: When it found `lunamill-config`, it pri
 
 ### Requirement: The presets chosen are pinned
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The presets chosen are pinned
 
@@ -44,7 +44,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: Nothing the presets answer is asked
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Nothing the presets answer is asked
 
@@ -53,7 +53,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: The gate's question
 
-lunamill SHALL behave as this line says: When nothing sets `commands.gate`, it asks the question "the rest" shows, and writes the answer as the one gate command. Left empty, "Left to do" keeps today's line.
+Lunamill SHALL behave as this line says: When nothing sets `commands.gate`, it asks the question "the rest" shows, and writes the answer as the one gate command. Left empty, "Left to do" keeps today's line.
 
 #### Scenario: The gate's question
 

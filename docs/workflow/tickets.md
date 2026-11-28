@@ -1,14 +1,14 @@
 # Write a ticket
 
-For someone writing a ticket for lunamill to build. At the end the
-ticket says what you want and why, carries lunamill's label, and
+For someone writing a ticket for Lunamill to build. At the end the
+ticket says what you want and why, carries Lunamill's label, and
 records which ticket it waits on, if any.
 
-## Which tickets are lunamill's
+## Which tickets are Lunamill's
 
-lunamill works only on tickets that carry its label, a label named
-`lunamill`, which lunamill creates the first time it needs it.
-Everything else is left alone: lunamill doesn't add it to the board,
+Lunamill works only on tickets that carry its label, a label named
+`lunamill`, which Lunamill creates the first time it needs it.
+Everything else is left alone: Lunamill doesn't add it to the board,
 move its card, fill in its fields, comment on it, or build it, and
 `lunamill status` doesn't list it. A ticket without the label that is
 already on your board, because you or your board's own automation put
@@ -18,7 +18,7 @@ name under [`tickets.labels`](../reference/settings/tickets.md#ticketslabels).
 
 A ticket gets the label in one of three ways:
 
-- **lunamill opens it.** Every ticket lunamill opens carries the
+- **Lunamill opens it.** Every ticket Lunamill opens carries the
   label, such as one opened from a [follow-up](follow-ups.md).
 - **You add it,** in your ticket system as you would any label, or from
   a terminal with `lunamill ticket adopt 12`.
@@ -27,19 +27,19 @@ A ticket gets the label in one of three ways:
   took the label off, and the session says so:
 
   ```text
-  #12 had no lunamill label: added it, so lunamill now tracks #12
+  #12 had no lunamill label: added it, so Lunamill now tracks #12
   ```
 
-**Removing the label hands a ticket back.** lunamill leaves its card
+**Removing the label hands a ticket back.** Lunamill leaves its card
 in the column it's in, with its fields as they were, and nothing builds
 it. To work a ticket by hand, remove the label first. While a ticket has
-the label, lunamill keeps its card in the column the ticket's state
+the label, Lunamill keeps its card in the column the ticket's state
 calls for, which it works out from what sessions record on the ticket,
 each time the [board sync](../features/board.md) runs. It keeps two moves of yours: to Ready, which
 approves a build, and back to Backlog. Drag a labeled card anywhere
 else and the next sync moves it back.
 
-If you set lunamill up before the label existed, the update that
+If you set Lunamill up before the label existed, the update that
 brings it has you label every open ticket once:
 [Labeling your open tickets](../maintain/upgrade-notes.md#labeling-your-open-tickets).
 

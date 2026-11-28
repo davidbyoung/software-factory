@@ -14,7 +14,7 @@ import { AGENT, GOOD, init, type Setup } from "./init-harness";
 import { into } from "./printed";
 
 const GATED = `version: 1\nrepository: acme/site\n${CODE_HOST_YAML}\ncommands:\n  gate:\n    - npm run check\n`;
-const OPENED_FIRST = '✓ Opened acme/site#1, "Set up lunamill".';
+const OPENED_FIRST = '✓ Opened acme/site#1, "Set up Lunamill".';
 /** A run that goes ahead with no part on. */
 const quick = (over: Partial<Setup> = {}) =>
   init({ answers: { checkbox: [[]], confirm: [true] }, ...over });
@@ -47,7 +47,7 @@ describe("lunamill init, the plan's rows", () => {
     const at = r.out.indexOf("This is everything setup will do:");
     expect(r.out.slice(at + 1, at + 7)).toEqual([
       "  settings      Write .claude/lunamill.yaml and .claude/lunamill.lock",
-      "  files         Copy lunamill's skills, agents, rules, and guards",
+      "  files         Copy Lunamill's skills, agents, rules, and guards",
       "  workflows     Write .github/workflows/lunamill.yml and lunamill-review.yml",
       "  secrets       LUNAMILL_AUTOMERGE_TOKEN",
       "  store         your GitHub token on this machine, in " +
@@ -81,7 +81,7 @@ describe("lunamill init, the plan's rows", () => {
       ],
       [
         "files",
-        "Copy lunamill's skills, agents, rules, and guards, and acme's own agent",
+        "Copy Lunamill's skills, agents, rules, and guards, and acme's own agent",
       ],
     ]);
   });
@@ -111,7 +111,7 @@ describe("lunamill init, the gate", () => {
     expect(r.out.slice(at - 1, at + 3)).toEqual([
       "",
       "✓ npm run check passes here.",
-      '✓ Opened acme/site#1, "Change lunamill\'s settings".',
+      '✓ Opened acme/site#1, "Change Lunamill\'s settings".',
       "Merge it to finish. Nothing else is left to do.",
     ]);
   });
@@ -297,7 +297,7 @@ describe("lunamill init, the branch and its commit", () => {
     await r.run();
     const pull = await r.host.codeHost.get(1);
     expect(pull).toMatchObject({
-      title: "Set up lunamill",
+      title: "Set up Lunamill",
       isDraft: false,
       head: { branch: "set-up-lunamill" },
       base: { branch: "trunk" },
@@ -306,7 +306,7 @@ describe("lunamill init, the branch and its commit", () => {
       [
         "```text",
         "settings      Write .claude/lunamill.yaml",
-        "files         Copy lunamill's skills, agents, rules, and guards",
+        "files         Copy Lunamill's skills, agents, rules, and guards",
         "pull request  Push the branch set-up-lunamill and open a pull request",
         "```",
         "",
@@ -323,10 +323,10 @@ describe("lunamill init, the branch and its commit", () => {
       "base000:.claude/lunamill.yaml",
     ]);
     expect((await r.host.codeHost.get(1)).title).toBe(
-      "Change lunamill's settings",
+      "Change Lunamill's settings",
     );
     expect(r.out).toContain(
-      '✓ Opened acme/site#1, "Change lunamill\'s settings".',
+      '✓ Opened acme/site#1, "Change Lunamill\'s settings".',
     );
   });
 
@@ -336,7 +336,7 @@ describe("lunamill init, the branch and its commit", () => {
       git: (args) => (args[0] === "cat-file" ? { status: 128 } : undefined),
     });
     await r.run();
-    expect((await r.host.codeHost.get(1)).title).toBe("Set up lunamill");
+    expect((await r.host.codeHost.get(1)).title).toBe("Set up Lunamill");
   });
 });
 
@@ -348,7 +348,7 @@ describe("lunamill init, its closing lines", () => {
     "After it merges:",
     `  1. Come back to ${branch} and bring it up to date:`,
     `       git switch ${branch} && git pull`,
-    "  2. Start a new session of your coding agent here. It loads lunamill from the files now in your repository.",
+    "  2. Start a new session of your coding agent here. It loads Lunamill from the files now in your repository.",
     "  3. Refine a ticket with /lunamill-refine N, then build it with /lunamill-build N.",
     "The steps in full:",
     `     ${ADDRESS}`,
@@ -627,7 +627,7 @@ describe("lunamill init, a step that fails after the files are written", () => {
       base: "main",
       branch: "set-up-lunamill",
       paths: ["a"],
-      title: "Change lunamill's settings",
+      title: "Change Lunamill's settings",
       body: "",
     };
     const d = (status: Partial<GitResult>) => ({
@@ -639,7 +639,7 @@ describe("lunamill init, a step that fails after the files are written", () => {
       number: 57,
     });
     expect(out).toEqual([
-      '✓ Opened acme/web#57, "Change lunamill\'s settings".',
+      '✓ Opened acme/web#57, "Change Lunamill\'s settings".',
     ]);
     expect(await openPull(d({ stdout: "" }), o)).toEqual({ state: "nothing" });
     expect(
@@ -657,7 +657,7 @@ describe("lunamill init, a step that fails after the files are written", () => {
 
 describe("lunamill init, the rule that requires the review's verdict", () => {
   const RULE_ROW =
-    '  rules         Require "Review verdict" before a merge to the default branch, as the rule "lunamill"';
+    '  rules         Require "Review verdict" before a merge to the default branch, as the rule "Lunamill"';
   const LEFT =
     'Once it merges, an admin of acme/site runs lunamill init, to require "Review verdict"';
   const review = (over: Partial<Setup> = {}) =>
@@ -666,12 +666,12 @@ describe("lunamill init, the rule that requires the review's verdict", () => {
       ...over,
     });
 
-  it("makes the rule, posted by the runner, when the default branch has lunamill's workflow", async () => {
+  it("makes the rule, posted by the runner, when the default branch has Lunamill's workflow", async () => {
     const r = review({ workflows: { "lunamill.yml": "active" } });
     expect(await r.run()).toBe(0);
     expect(r.out).toContain(RULE_ROW);
     expect(r.host.settings.rules).toEqual([
-      { name: "lunamill", check: "Review verdict", source: "runner" },
+      { name: "Lunamill", check: "Review verdict", source: "runner" },
     ]);
     expect(r.out.join("\n")).not.toContain("Once it merges");
   });
@@ -824,7 +824,7 @@ describe("lunamill init, the rule that requires the review's verdict", () => {
     expect(r.out.join("\n")).toContain(LEFT);
   });
 
-  it("leaves it to an admin in an organization's repository with no lunamill property", async () => {
+  it("leaves it to an admin in an organization's repository with no Lunamill property", async () => {
     const r = init({
       organization: true,
       organizationVariables: ["LUNAMILL_APP_CLIENT_ID"],

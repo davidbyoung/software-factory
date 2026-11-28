@@ -56,7 +56,7 @@ export type StateKey = keyof typeof STATE_KEYS;
  * moves to, or null for a board with none. */
 export type Columns = Record<Status, readonly string[] | null>;
 
-/** lunamill's own board: every state has the column of its own name. */
+/** Lunamill's own board: every state has the column of its own name. */
 export const DEFAULT_COLUMNS: Columns = {
   Backlog: ["Backlog"],
   "In refinement": ["In refinement"],

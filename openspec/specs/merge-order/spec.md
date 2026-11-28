@@ -8,7 +8,7 @@ The status that says which of a ticket's other repositories a pull request waits
 
 ### Requirement: The Merge order status
 
-lunamill SHALL behave as this line says: When a pull request with a link to a ticket across repositories is opened, reopened, pushed to, or marked ready, its newest commit gets the status "Merge order": pending, `Waits for acme/api#88 to merge`, or `Waits for acme/api, which has no pull request yet`, with the first it waits for, or success, `Nothing to wait for`.
+Lunamill SHALL behave as this line says: When a pull request with a link to a ticket across repositories is opened, reopened, pushed to, or marked ready, its newest commit gets the status "Merge order": pending, `Waits for acme/api#88 to merge`, or `Waits for acme/api, which has no pull request yet`, with the first it waits for, or success, `Nothing to wait for`.
 
 #### Scenario: The Merge order status
 
@@ -17,7 +17,7 @@ lunamill SHALL behave as this line says: When a pull request with a link to a ti
 
 ### Requirement: Posting again
 
-lunamill SHALL behave as this line says: When a pull request merges, or its ticket's list changes by the command, every open pull request of that ticket gets its "Merge order" and "Review verdict" again, by a run in its own repository with that run's own token.
+Lunamill SHALL behave as this line says: When a pull request merges, or its ticket's list changes by the command, every open pull request of that ticket gets its "Merge order" and "Review verdict" again, by a run in its own repository with that run's own token.
 
 #### Scenario: Posting again
 
@@ -26,7 +26,7 @@ lunamill SHALL behave as this line says: When a pull request merges, or its tick
 
 ### Requirement: No token to read with
 
-lunamill SHALL behave as this line says: When the run has neither the App's key nor a build token, "Merge order" is success, `Can't read acme/api#12: no token here reaches it`, and "Review verdict" does not wait.
+Lunamill SHALL behave as this line says: When the run has neither the App's key nor a build token, "Merge order" is success, `Can't read acme/api#12: no token here reaches it`, and "Review verdict" does not wait.
 
 #### Scenario: No token to read with
 
@@ -35,7 +35,7 @@ lunamill SHALL behave as this line says: When the run has neither the App's key 
 
 ### Requirement: A read that fails
 
-lunamill SHALL behave as this line says: When a token is there and the read fails, "Merge order" is pending, `Could not read acme/api#12`.
+Lunamill SHALL behave as this line says: When a token is there and the read fails, "Merge order" is pending, `Could not read acme/api#12`.
 
 #### Scenario: A read that fails
 
@@ -44,7 +44,7 @@ lunamill SHALL behave as this line says: When a token is there and the read fail
 
 ### Requirement: Any other pull request
 
-lunamill SHALL behave as this line says: When a pull request has no link to a ticket across repositories, it gets no such status.
+Lunamill SHALL behave as this line says: When a pull request has no link to a ticket across repositories, it gets no such status.
 
 #### Scenario: Any other pull request
 

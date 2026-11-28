@@ -362,7 +362,7 @@ describe("in a checkout whose settings have a repository line", () => {
     ["an SSH host alias", "git@github-work:acme/web.git"],
     ["a proxy's address", "https://git-proxy.example.com/acme/web.git"],
   ])(
-    "reads origin where its address is %s, which names no repository lunamill can read, and no other remote is that repository's",
+    "reads origin where its address is %s, which names no repository Lunamill can read, and no other remote is that repository's",
     async (_, address) => {
       const c = checkout({
         repository: "acme/web",

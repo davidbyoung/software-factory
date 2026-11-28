@@ -2,7 +2,7 @@
 // on the code host, that several repositories share. `.claude/lunamill.yaml`
 // names them under `presets`, and the lock pins each to one commit, with
 // its settings and a hash of each file it ships. `lunamill sync` combines
-// lunamill's defaults, each preset in the order listed, and the
+// Lunamill's defaults, each preset in the order listed, and the
 // repository's own settings into the lock, with where each value came
 // from. Every other command reads the lock.
 import { createHash } from "node:crypto";
@@ -408,7 +408,7 @@ type Entry = { layer: string; value: unknown };
 export type Combine = {
   layers: Layer[];
   choices: Record<string, string>;
-  /** Whether a path is one of lunamill's own files. */
+  /** Whether a path is one of Lunamill's own files. */
   factoryFile?: (path: string) => boolean;
   /** Whether a path is a file the repository wrote itself. */
   ownFile?: (path: string) => boolean;
@@ -604,7 +604,7 @@ export function combine(c: Combine): Resolution {
   for (const l of c.layers)
     if (l.folders) addForFolders(r, l, l.folders, forFolders);
 
-  // The files the presets ship: lunamill's own and the repository's own
+  // The files the presets ship: Lunamill's own and the repository's own
   // stay, and two presets' files are chosen as a single value is. A file
   // is shown as its path in its preset's repository.
   const byPath = new Map<string, Entry[]>();
@@ -617,7 +617,7 @@ export function combine(c: Combine): Resolution {
   for (const [to, es] of byPath) {
     const last = es.at(-1)!.layer;
     if (c.factoryFile?.(to)) {
-      r.kept.push(`kept ${to}, lunamill's own, over ${last}`);
+      r.kept.push(`kept ${to}, Lunamill's own, over ${last}`);
       continue;
     }
     if (c.ownFile?.(to)) {
@@ -840,7 +840,7 @@ export function settingsHash(own: string | null, choices: string | null) {
 
 export const staleMessages = {
   missing: `${LOCK_FILE} is missing. Run: ${SYNC}`,
-  earlier: `${LOCK_FILE} is from an earlier version of lunamill. Run: ${SYNC}`,
+  earlier: `${LOCK_FILE} is from an earlier version of Lunamill. Run: ${SYNC}`,
   changed: (file: string) =>
     `${file} changed since the last sync. Run: ${SYNC}`,
   unreadable: `${LOCK_FILE} can't be read. Run: ${SYNC}`,

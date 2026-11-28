@@ -58,7 +58,7 @@ export function chooseEntry(deps) {
   if (!wanted || wanted === deps.version) return self;
   if (!RELEASE.test(wanted))
     return {
-      fault: `✗ .claude/lunamill.lock names lunamill ${wanted}, which is not a release. Run: lunamill update`,
+      fault: `✗ .claude/lunamill.lock names Lunamill ${wanted}, which is not a release. Run: lunamill update`,
     };
 
   const dir = join(deps.cache, "versions", wanted);

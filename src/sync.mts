@@ -1,8 +1,8 @@
-// Writes lunamill's skills, agents, rules, and review instructions from
+// Writes Lunamill's skills, agents, rules, and review instructions from
 // the package into the repository, the two workflow files that call the
-// lunamill's own workflows, the agents and skills its presets ship, its hook
+// Lunamill's own workflows, the agents and skills its presets ship, its hook
 // entries into `.claude/settings.json`, the rules' import into `CLAUDE.md`,
-// and `.claude/lunamill.lock`: lunamill's version, the commit each preset
+// and `.claude/lunamill.lock`: Lunamill's version, the commit each preset
 // is pinned to, the settings in effect, and the files it wrote. Every other
 // command reads the settings from the lock.
 //
@@ -98,7 +98,7 @@ type Has = (path: string) => boolean;
 
 /** A part of the package written only when a setting or a file in the
  * repository turns it on, by its path in the package: a skill's folder or
- * an agent's file. Everything else is lunamill's core, called by its
+ * an agent's file. Everything else is Lunamill's core, called by its
  * own steps, and is written to every repository. */
 export const NEEDS: Record<string, (s: Settings, has: Has) => boolean> = {
   "skills/lunamill-design": (s) => s.sites.length > 0,
@@ -111,7 +111,7 @@ export const NEEDS: Record<string, (s: Settings, has: Has) => boolean> = {
     s.approvalPolicies.some((p) => p.run === LUNAMILL_POLICY.run),
 };
 
-/** The parts that are on, which a job of lunamill's workflows is
+/** The parts that are on, which a job of Lunamill's workflows is
  * skipped without, in the order the workflow files list them. */
 export function partsOn(s: Settings, has: Has): Part[] {
   const on: [Part, boolean][] = [
@@ -314,7 +314,7 @@ export function factoryHooks(
             type: "command",
             command: guard("guard"),
             timeout: 180,
-            statusMessage: "Checking lunamill's guards",
+            statusMessage: "Checking Lunamill's guards",
           },
         ],
       },
@@ -388,7 +388,7 @@ const isFactory = (h: HookEntry) =>
       h.command,
     ));
 
-/** `.claude/settings.json` with the entries that run lunamill's launcher
+/** `.claude/settings.json` with the entries that run Lunamill's launcher
  * replaced by those above, and attribution turned off unless the file
  * sets its own. Every other entry stays, in its order. */
 export function withHooks(
@@ -460,7 +460,7 @@ function othersHooks(settings: ClaudeSettings): Record<string, HookGroup[]> {
   return hooks;
 }
 
-/** Whether every event of the five has lunamill's entry. */
+/** Whether every event of the five has Lunamill's entry. */
 export function hasFactoryHooks(text: string | null): boolean {
   if (!text) return false;
   const hooks = (JSON.parse(text) as ClaudeSettings).hooks ?? {};
@@ -478,7 +478,7 @@ export function hasAnyFactoryHook(text: string | null): boolean {
   );
 }
 
-/** `.claude/settings.json` with lunamill's entries taken out and an
+/** `.claude/settings.json` with Lunamill's entries taken out and an
  * emptied `hooks` dropped, or null when nothing is left. */
 export function withoutHooks(text: string): string | null {
   const {
@@ -531,7 +531,7 @@ export type LockParts = {
 export function lockText(l: LockParts): string {
   const replaced = Object.entries(l.overridden);
   return [
-    "# Written by `lunamill sync`: lunamill's version, the presets, the",
+    "# Written by `lunamill sync`: Lunamill's version, the presets, the",
     "# settings in effect, and the files it wrote. Do not edit.",
     `version: ${l.version}`,
     ...l.presets,
@@ -632,7 +632,7 @@ export async function plan(
     );
   const launcher = launcherPath(pkg, root);
   const workflows: WorkflowOptions = {
-    // lunamill's own repository runs the workflows in the same commit.
+    // Lunamill's own repository runs the workflows in the same commit.
     version: launcher === LAUNCHER ? null : manifest.version,
     branch,
     parts: partsOn(s, has),
@@ -649,7 +649,7 @@ export async function plan(
   write.set(LUNAMILL_FILE, factoryWorkflow(workflows));
   write.set(REVIEW_FILE, reviewWorkflow(workflows));
   const files = [...write.keys()];
-  // A preset's agent or skill, unless lunamill's own file or one the
+  // A preset's agent or skill, unless Lunamill's own file or one the
   // repository wrote itself is at its path: those always stay. The copy
   // here is kept while it is what the lock records, so no preset's
   // repository is read for it.
@@ -657,7 +657,7 @@ export async function plan(
   const kept: string[] = [];
   const unrestored: Plan["unrestored"] = [];
   for (const [to, { from, hash }] of r.resolution.files) {
-    if (write.has(to)) kept.push(`kept ${to}, lunamill's own, over ${from}`);
+    if (write.has(to)) kept.push(`kept ${to}, Lunamill's own, over ${from}`);
     else if (existsSync(join(root, to)) && !previous.includes(to))
       kept.push(`kept ${to}, this repository's own, over ${from}`);
     else {
@@ -852,14 +852,14 @@ export async function main(
   const differ = differences(d.root, p);
   if (check) {
     if (differ.length === 0) {
-      d.out(say.mark("ok", "lunamill's files match the settings."));
+      d.out(say.mark("ok", "Lunamill's files match the settings."));
       return 0;
     }
     const n = differ.length;
     d.err(
       say.mark(
         "fail",
-        `${n} of lunamill's files ${n === 1 ? "doesn't" : "don't"} match the settings:`,
+        `${n} of Lunamill's files ${n === 1 ? "doesn't" : "don't"} match the settings:`,
       ),
     );
     for (const path of differ) d.err(say.text(`  ${path}`));
@@ -891,7 +891,7 @@ export async function main(
   }
   if (differ.length === 0 && d.announce)
     d.out(
-      say.text("lunamill's files already match the settings. Nothing changed."),
+      say.text("Lunamill's files already match the settings. Nothing changed."),
     );
   return 0;
 }

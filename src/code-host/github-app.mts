@@ -107,7 +107,7 @@ const escaped = (text: string) =>
 const page = (body: string): Reply => ({
   status: 200,
   headers: { "content-type": "text/html; charset=utf-8" },
-  body: `<!doctype html><meta charset="utf-8"><title>lunamill</title>${body}`,
+  body: `<!doctype html><meta charset="utf-8"><title>Lunamill</title>${body}`,
 });
 
 /** The page that sends the manifest to GitHub's form as soon as it opens. */
@@ -329,7 +329,7 @@ async function installationOf(
   }).catch((e) => {
     if (!(e instanceof HttpError) || e.status !== 404) throw e;
     throw new Error(
-      `lunamill's app for ${owner} is not installed on ${repository}. An owner of ${owner} adds it: ${SITE}/organizations/${owner}/settings/installations`,
+      `Lunamill's app for ${owner} is not installed on ${repository}. An owner of ${owner} adds it: ${SITE}/organizations/${owner}/settings/installations`,
     );
   });
 }

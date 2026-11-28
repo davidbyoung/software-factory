@@ -1,6 +1,6 @@
 # How it works
 
-For someone deciding whether to try lunamill. At the end you know what
+For someone deciding whether to try Lunamill. At the end you know what
 it does with a ticket, which steps are yours, and what it needs from you.
 Read this before installing anything.
 
@@ -37,7 +37,7 @@ each step.
 ## What changes for you
 
 - **You write tickets, not prompts.** A few sentences of what you want and
-  why. lunamill asks the rest.
+  why. Lunamill asks the rest.
 - **Every change is built the same way.** A test first, the change, your
   own checks, a review, and a pull request that says how it was verified.
 - **You are asked only what is yours to decide,** each question with a
@@ -51,7 +51,7 @@ each step.
 
 ## The tools it works through
 
-lunamill works through five kinds of tool: a code host for your
+Lunamill works through five kinds of tool: a code host for your
 repository and its pull requests, a ticket system, a board, a cloud runner
 for the work with nobody at the keyboard, and a coding agent. A board and a
 cloud runner are optional. [Integrations](../integrations/README.md) says

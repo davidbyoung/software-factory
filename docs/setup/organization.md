@@ -22,7 +22,7 @@ Give the organization's address, from any folder:
 lunamill init --org https://github.com/acme
 ```
 
-It asks which board to use: a new one, made with lunamill's columns,
+It asks which board to use: a new one, made with Lunamill's columns,
 or one the organization already has. For a board you already have, it
 reads the board's own columns and has the coding agent suggest which column
 shows each of a ticket's six states, as
@@ -56,10 +56,10 @@ it will do and asks "Go ahead?", where Enter alone answers no. After
 `y`, it prints:
 
 ```text
-✓ Created board 12, "lunamill".
+✓ Created board 12, "Lunamill".
 ✓ Created acme/lunamill-config.
 
-Registering the GitHub App "lunamill for acme". Two steps, both in your browser.
+Registering the GitHub App "Lunamill for acme". Two steps, both in your browser.
 
 1. Create the app. Your browser should open this address. If it does not, open it yourself:
      http://127.0.0.1:4100/
@@ -77,12 +77,12 @@ The coding agent's token: running claude setup-token...
 ? Paste the token it printed, the line that starts sk-ant-oat01- (leave empty to do this later):
 Trying the token...
 ✓ Stored 2 secrets and 1 variable for acme.
-✓ Required "Review verdict" where the property lunamill is "on".
+✓ Required "Review verdict" where the property Lunamill is "on".
 
 ✓ acme is set up.
 
-Next, in each repository you want lunamill in:
-  1. A developer installs lunamill once on their machine:
+Next, in each repository you want Lunamill in:
+  1. A developer installs Lunamill once on their machine:
        npm install -g @lunamill-ai/lunamill
   2. In the repository's checkout, they run:
        lunamill init
@@ -113,14 +113,14 @@ browser. What it does not say:
 
 **It worked when** it prints `✓ acme is set up.` It leaves you with:
 
-- The App "lunamill for acme", which builds in the cloud act as.
+- The App "Lunamill for acme", which builds in the cloud act as.
 - Two secrets and a variable, which
   [Tokens and secrets](../security/credentials.md#who-handles-a-token) names.
 - The repository `acme/lunamill-config`, with the organization's preset
   and its one poller.
 - The rule "lunamill", which requires "Review verdict" in each
-  repository set up with lunamill.
-- A board with lunamill's columns and fields, or the board you chose,
+  repository set up with Lunamill.
+- A board with Lunamill's columns and fields, or the board you chose,
   with its own columns and whatever it lacked.
 
 [What setup adds on GitHub organizations](../integrations/github-organizations.md#what-setup-adds)
@@ -130,7 +130,7 @@ The preset, `lunamill-preset.yaml`, is yours to edit. Under
 [`code-host`](../reference/settings/code-host.md#code-host) it holds the pattern builds
 name their branches by. Under
 [`tickets.columns`](../reference/settings/tickets.md#ticketscolumns) it names the
-board's column for each state: lunamill's own names on a new board,
+board's column for each state: Lunamill's own names on a new board,
 and the columns you confirmed on a board you already had. Edit them
 there if the board's columns change.
 
@@ -154,14 +154,14 @@ Three things stay by hand, on the code host:
 | -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | The App's key has to be replaced                               | Follow [Replacing the App's key](../integrations/github-organizations.md#replacing-the-apps-key)                                                                                                                                                                        |
 | A run fails because the App is not installed on its repository | The failed run prints the address of the organization's installations page. Add the repository there. A ticket moved to Ready in such a repository starts no build and gets no comment: the poller's run in `lunamill-config` shows a warning that names the repository |
-| A later release of lunamill needs a new permission             | The code host asks an owner to review the App's new permission. Accept it, as [GitHub organizations](../integrations/github-organizations.md#when-something-goes-wrong) shows                                                                                           |
+| A later release of Lunamill needs a new permission             | The code host asks an owner to review the App's new permission. Accept it, as [GitHub organizations](../integrations/github-organizations.md#when-something-goes-wrong) shows                                                                                           |
 
 ## What each developer does next
 
-Send each developer who will use lunamill these two steps, which the
+Send each developer who will use Lunamill these two steps, which the
 command printed after `✓ acme is set up.`:
 
-1. Install lunamill once on their machine
+1. Install Lunamill once on their machine
    ([Install](../get-started/install.md)).
 2. In each repository's checkout, run `lunamill init`. It asks them for no
    token, and opens the pull request that sets the repository up.

@@ -2,40 +2,40 @@
 
 ## Purpose
 
-The one poller for an organization's board: `lunamill poller --once --preset FILE`, lunamill's `poller.yml` that runs it from the organization's `lunamill-config` repository, how a new release reaches that repository's `lunamill-poller.yml`, and the check of its schedule.
+The one poller for an organization's board: `lunamill poller --once --preset FILE`, Lunamill's `poller.yml` that runs it from the organization's `lunamill-config` repository, how a new release reaches that repository's `lunamill-poller.yml`, and the check of its schedule.
 
 ## Requirements
 
 ### Requirement: A pass from a preset
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A pass from a preset
 
 - **WHEN** `lunamill poller --once --preset FILE` runs
 - **THEN** it reads the ticket system, the board, the columns, the labels, and `builds.max-per-hour` from FILE, takes the board's owner from `GITHUB_REPOSITORY`, and reads the board once. For each repository with a ticket in the ready column it makes today's pass for that repository: the same tickets, order, blockers, hourly cap for that repository, start note, and comment when a build cannot start, as in a repository with no `lunamill.yml` or one the App is not installed on.
 
-### Requirement: lunamill's poller.yml
+### Requirement: Lunamill's poller.yml
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
-#### Scenario: lunamill's poller.yml
+#### Scenario: Lunamill's poller.yml
 
 - **WHEN** a workflow file that calls `poller.yml` runs on its poller's schedule
-- **THEN** `poller.yml`, in lunamill's repository, runs line 16's command for `lunamill-preset.yaml` on the schedule of the file that calls it, with a token of the App's for every repository of the installation. Two passes never overlap.
+- **THEN** `poller.yml`, in Lunamill's repository, runs line 16's command for `lunamill-preset.yaml` on the schedule of the file that calls it, with a token of the App's for every repository of the installation. Two passes never overlap.
 
 ### Requirement: A new release reaches lunamill-poller.yml
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A new release reaches lunamill-poller.yml
 
 - **WHEN** `poller.yml` runs on its `0 1 * * *` schedule or by hand
-- **THEN** On its `0 1 * * *` schedule and by hand, `poller.yml` runs `lunamill update --pull-requests`, which in a checkout with `.github/workflows/lunamill-poller.yml` and no `.claude/lunamill.yaml` does only this: when that file names a release older than the newest, it opens one pull request that rewrites the version after `poller.yml@v`, with the branch, title, description, and `is still open` and `was closed` lines an update of lunamill has today. `lunamill update` there prints `lunamill OLD → NEW` and rewrites the file.
+- **THEN** On its `0 1 * * *` schedule and by hand, `poller.yml` runs `lunamill update --pull-requests`, which in a checkout with `.github/workflows/lunamill-poller.yml` and no `.claude/lunamill.yaml` does only this: when that file names a release older than the newest, it opens one pull request that rewrites the version after `poller.yml@v`, with the branch, title, description, and `is still open` and `was closed` lines an update of Lunamill has today. `lunamill update` there prints `Lunamill OLD → NEW` and rewrites the file.
 
 ### Requirement: The cron line and the interval
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The cron line and the interval
 
@@ -44,7 +44,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: A repository that sets its own trigger
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A repository that sets its own trigger
 
@@ -53,7 +53,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: The poller reads a preset that leaves settings out
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The poller reads a preset that leaves settings out
 
@@ -62,7 +62,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: The poller words a fault as the check does
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The poller words a fault as the check does
 
@@ -71,7 +71,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: An interval the poller cannot run on
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: An interval the poller cannot run on
 

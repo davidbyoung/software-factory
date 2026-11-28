@@ -1,5 +1,5 @@
 // `init`'s column step: the coding agent suggests which of a board's
-// columns shows each of lunamill's six states, and you accept, change,
+// columns shows each of Lunamill's six states, and you accept, change,
 // or refuse the suggestion. It names no agent and no ticket system: the
 // agent is the registry's, by its label, and the board's columns are given.
 import type { Agent } from "./agent/types.mts";
@@ -15,7 +15,7 @@ import {
 import * as say from "./lib/output.mts";
 
 /** A state's column: one of the board's, by the board's spelling; the
- * lunamill's own name, which init adds; or none. */
+ * Lunamill's own name, which init adds; or none. */
 export type Choice = { column: string } | "add" | "none";
 export type Mapping = Record<StateKey, Choice>;
 
@@ -173,7 +173,7 @@ export function written(mapping: Mapping): [StateKey, string][] {
   });
 }
 
-/** Every state written with lunamill's own name: a board init creates,
+/** Every state written with Lunamill's own name: a board init creates,
  * one with no columns, and the answer No. */
 export const LUNAMILL_LINES: [StateKey, string][] = KEYS.map((k) => [
   k,
@@ -374,7 +374,7 @@ export async function suggestColumns(
   d.out(say.text(boardLine(o.board, o.columns)));
   d.out(
     say.note(
-      `Asking ${d.label} which of them shows each of lunamill's six states...`,
+      `Asking ${d.label} which of them shows each of Lunamill's six states...`,
     ),
   );
   const got = await d.agent.answer({
@@ -415,7 +415,7 @@ export async function suggestColumns(
       [
         { name: "Yes", value: "yes" },
         { name: "Change some", value: "change" },
-        { name: "No: add lunamill's columns instead", value: "no" },
+        { name: "No: add Lunamill's columns instead", value: "no" },
       ],
       "yes",
     );
@@ -457,7 +457,7 @@ export async function askReady(
   }
 }
 
-/** A board with a column of each of lunamill's names: init says so,
+/** A board with a column of each of Lunamill's names: init says so,
  * shows them as the board spells them, and writes them. */
 export function everyColumn(
   d: Pick<SuggestDeps, "out">,
@@ -469,7 +469,7 @@ export function everyColumn(
   d.out(say.BLANK);
   d.out(
     say.text(
-      `Board ${o.board} has a column for each of lunamill's six states:`,
+      `Board ${o.board} has a column for each of Lunamill's six states:`,
     ),
   );
   d.out(say.BLANK);
@@ -526,7 +526,7 @@ export async function fillColumns(
       say.text(`Your settings give no column to ${listed(missing, "or")}.`),
     );
     d.out(
-      say.text(`Board ${o.board} has a column of lunamill's name for each:`),
+      say.text(`Board ${o.board} has a column of Lunamill's name for each:`),
     );
     d.out(say.BLANK);
     for (const line of table(mapping)) d.out(line);

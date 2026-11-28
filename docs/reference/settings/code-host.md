@@ -134,7 +134,7 @@ code-host:
 - **The override matters only with [`pr-review`](pr-review.md#pr-review) on**, since
   that review gives the verdict, and `policy-override` only with
   [`approval-policies`](approval-policies.md#approval-policies).
-- **You don't create these labels either.** lunamill creates each merge
+- **You don't create these labels either.** Lunamill creates each merge
   label the first time it adds it, and `verdict-override` the first time
   it posts "Review verdict" on a pull request, and `policy-override` the
   first time an approval policy waits. Only a person adds either to one.
@@ -147,7 +147,7 @@ code-host:
 The rules under [`tickets.labels`](tickets.md#ticketslabels) hold here too: write
 only the keys you change, give each label its own name, quote a name
 with `: ` in it, and rename the label you have on the code host yourself.
-Do that before the new name merges: after it, lunamill creates a label
+Do that before the new name merges: after it, Lunamill creates a label
 of that name, and the code host won't give a second one the same name. Then check
 the file and sync:
 

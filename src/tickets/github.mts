@@ -43,7 +43,7 @@ export type GithubOptions = {
    * unless given. */
   reach?: (repository: string) => Promise<Transport>;
   /** The board's own names for the fields the sync reads, null for one it
-   * never writes. lunamill's own names where not given. */
+   * never writes. Lunamill's own names where not given. */
   fieldNames?: {
     session: string | null;
     runsIn: string | null;

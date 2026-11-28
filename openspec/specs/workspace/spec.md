@@ -8,7 +8,7 @@
 
 ### Requirement: Cloning the others
 
-lunamill SHALL behave as this line says: When `lunamill workspace N` runs on a machine, for a ticket that names other repositories, in a checkout of one of them, each of the others is cloned from its default branch to `~/.local/share/lunamill/work/OWNER/NAME-NUMBER/REPOSITORY`, where NAME and NUMBER are the ticket's. Each is on the branch `lunamill ticket branch` names there, and one already cloned is left as it is.
+Lunamill SHALL behave as this line says: When `lunamill workspace N` runs on a machine, for a ticket that names other repositories, in a checkout of one of them, each of the others is cloned from its default branch to `~/.local/share/lunamill/work/OWNER/NAME-NUMBER/REPOSITORY`, where NAME and NUMBER are the ticket's. Each is on the branch `lunamill ticket branch` names there, and one already cloned is left as it is.
 
 #### Scenario: Cloning the others
 
@@ -17,7 +17,7 @@ lunamill SHALL behave as this line says: When `lunamill workspace N` runs on a m
 
 ### Requirement: What workspace prints
 
-lunamill SHALL behave as this line says: When it has, it prints `#12 workspace`, one line for each repository in merge order, `✓`, its name, `branch` and the branch of line 28, and its folder, with `, this checkout` after the session's own, and last `Read first: ` and the path of each clone's `CLAUDE.md` that exists.
+Lunamill SHALL behave as this line says: When it has, it prints `#12 workspace`, one line for each repository in merge order, `✓`, its name, `branch` and the branch of line 28, and its folder, with `, this checkout` after the session's own, and last `Read first: ` and the path of each clone's `CLAUDE.md` that exists.
 
 #### Scenario: What workspace prints
 
@@ -26,7 +26,7 @@ lunamill SHALL behave as this line says: When it has, it prints `#12 workspace`,
 
 ### Requirement: A clone that fails
 
-lunamill SHALL behave as this line says: When a clone fails, its line is `✗` with git's last line, and it exits 1 with the others cloned.
+Lunamill SHALL behave as this line says: When a clone fails, its line is `✗` with git's last line, and it exits 1 with the others cloned.
 
 #### Scenario: A clone that fails
 
@@ -35,7 +35,7 @@ lunamill SHALL behave as this line says: When a clone fails, its line is `✗` w
 
 ### Requirement: No other repository
 
-lunamill SHALL behave as this line says: When the ticket names no other repository, it prints `#12 has one repository: nothing to clone.` and exits 0.
+Lunamill SHALL behave as this line says: When the ticket names no other repository, it prints `#12 has one repository: nothing to clone.` and exits 0.
 
 #### Scenario: No other repository
 
@@ -44,7 +44,7 @@ lunamill SHALL behave as this line says: When the ticket names no other reposito
 
 ### Requirement: Removing the clones
 
-lunamill SHALL behave as this line says: When `lunamill workspace N --remove` runs, it deletes each clone with nothing uncommitted and no commit that is not on its remote, then the ticket's folder when it is empty, and prints `✓ Removed acme/web` for each.
+Lunamill SHALL behave as this line says: When `lunamill workspace N --remove` runs, it deletes each clone with nothing uncommitted and no commit that is not on its remote, then the ticket's folder when it is empty, and prints `✓ Removed acme/web` for each.
 
 #### Scenario: Removing the clones
 
@@ -53,7 +53,7 @@ lunamill SHALL behave as this line says: When `lunamill workspace N --remove` ru
 
 ### Requirement: A clone with work to lose
 
-lunamill SHALL behave as this line says: When a clone has work to lose, it keeps it, prints `✗ acme/web   2 commits are not pushed: FOLDER`, `1 commit is not pushed` for one, or `uncommitted changes: FOLDER`, and exits 1.
+Lunamill SHALL behave as this line says: When a clone has work to lose, it keeps it, prints `✗ acme/web   2 commits are not pushed: FOLDER`, `1 commit is not pushed` for one, or `uncommitted changes: FOLDER`, and exits 1.
 
 #### Scenario: A clone with work to lose
 
@@ -62,7 +62,7 @@ lunamill SHALL behave as this line says: When a clone has work to lose, it keeps
 
 ### Requirement: The claim and the clock in a clone
 
-lunamill SHALL behave as this line says: When `lunamill ticket still-live N`, `stop`, `cost`, `lunamill pr cost`, or a reviewer's note runs in a clone, it uses the claim and the cost clock of the checkout `lunamill workspace` ran in, so what a session spent is counted once.
+Lunamill SHALL behave as this line says: When `lunamill ticket still-live N`, `stop`, `cost`, `lunamill pr cost`, or a reviewer's note runs in a clone, it uses the claim and the cost clock of the checkout `lunamill workspace` ran in, so what a session spent is counted once.
 
 #### Scenario: The claim and the clock in a clone
 
@@ -71,7 +71,7 @@ lunamill SHALL behave as this line says: When `lunamill ticket still-live N`, `s
 
 ### Requirement: The folder a session may edit
 
-lunamill SHALL behave as this line says: When `lunamill sync` writes `.claude/settings.json`, `permissions.additionalDirectories` holds `~/.local/share/lunamill/work`, beside any other entry.
+Lunamill SHALL behave as this line says: When `lunamill sync` writes `.claude/settings.json`, `permissions.additionalDirectories` holds `~/.local/share/lunamill/work`, beside any other entry.
 
 #### Scenario: The folder a session may edit
 
@@ -80,7 +80,7 @@ lunamill SHALL behave as this line says: When `lunamill sync` writes `.claude/se
 
 ### Requirement: A clone left behind
 
-lunamill SHALL behave as this line says: When `lunamill status` runs and a clone is left for a ticket that is finished, it prints `? acme/web is still cloned for acme/api#12: FOLDER. Run: lunamill workspace acme/api#12 --remove`.
+Lunamill SHALL behave as this line says: When `lunamill status` runs and a clone is left for a ticket that is finished, it prints `? acme/web is still cloned for acme/api#12: FOLDER. Run: lunamill workspace acme/api#12 --remove`.
 
 #### Scenario: A clone left behind
 
@@ -89,7 +89,7 @@ lunamill SHALL behave as this line says: When `lunamill status` runs and a clone
 
 ### Requirement: Workspace in the cloud
 
-lunamill SHALL behave as this line says: When it runs in a cloud session, it clones nothing and prints the run's own repository as `✓` with its branch and `/work, this run's`, and each other as `-` with its pull request, or `no pull request yet`, and its folder and `to read only`.
+Lunamill SHALL behave as this line says: When it runs in a cloud session, it clones nothing and prints the run's own repository as `✓` with its branch and `/work, this run's`, and each other as `-` with its pull request, or `no pull request yet`, and its folder and `to read only`.
 
 #### Scenario: Workspace in the cloud
 
@@ -98,7 +98,7 @@ lunamill SHALL behave as this line says: When it runs in a cloud session, it clo
 
 ### Requirement: Where other repositories are cloned
 
-lunamill SHALL behave as this line says: When a session clones another repository to read, it clones it under `~/.local/share/lunamill/work/OWNER/NAME-NUMBER/REPOSITORY`.
+Lunamill SHALL behave as this line says: When a session clones another repository to read, it clones it under `~/.local/share/lunamill/work/OWNER/NAME-NUMBER/REPOSITORY`.
 
 #### Scenario: Where other repositories are cloned
 

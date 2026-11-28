@@ -294,8 +294,8 @@ describe("the code host's setup operations, on GitHub", () => {
 
   it("gives the page that makes a token with the scopes asked for", () => {
     const { host: h } = host([]);
-    expect(h.newTokenPage(["repo", "workflow"], "lunamill acme/site")).toBe(
-      "https://github.com/settings/tokens/new?scopes=repo,workflow&description=lunamill%20acme%2Fsite",
+    expect(h.newTokenPage(["repo", "workflow"], "Lunamill acme/site")).toBe(
+      "https://github.com/settings/tokens/new?scopes=repo,workflow&description=Lunamill%20acme%2Fsite",
     );
   });
 

@@ -255,7 +255,7 @@ describe("the setup's commit, against the real git", () => {
         base: "main",
         branch: "set-up-lunamill",
         paths: PATHS,
-        title: "Set up lunamill",
+        title: "Set up Lunamill",
         body: "",
         ...over,
       },
@@ -283,7 +283,7 @@ describe("the setup's commit, against the real git", () => {
     expect(git(root, "rev-parse", "--abbrev-ref", "HEAD")).toBe(
       "set-up-lunamill",
     );
-    expect(git(root, "log", "-1", "--format=%s")).toBe("Set up lunamill");
+    expect(git(root, "log", "-1", "--format=%s")).toBe("Set up Lunamill");
     expect(
       git(root, "show", "--name-status", "--format=", "HEAD").split("\n"),
     ).toEqual([
@@ -309,7 +309,7 @@ describe("the setup's commit, against the real git", () => {
       git(root, "rev-parse", "HEAD"),
     );
     expect(git(root, "rev-parse", "HEAD~1")).toBe(before);
-    expect(lines).toEqual(['✓ Opened acme/web#41, "Set up lunamill".']);
+    expect(lines).toEqual(['✓ Opened acme/web#41, "Set up Lunamill".']);
   });
 
   it("makes no branch when none of its paths changed", async () => {
@@ -328,7 +328,7 @@ describe("the setup's commit, against the real git", () => {
     expect(lines[1]).toBe(
       "The commit is on the branch set-up-lunamill here. Push it and open a pull request.",
     );
-    expect(git(root, "log", "-1", "--format=%s")).toBe("Set up lunamill");
+    expect(git(root, "log", "-1", "--format=%s")).toBe("Set up Lunamill");
   });
 
   it("takes the next name when set-up-lunamill is a branch here, or on the remote", async () => {
@@ -406,7 +406,7 @@ describe("the files the sync writes, against the real sync and the real git", ()
     );
     put(RULES, "# Edited by hand\n");
     git(root, "add", "--all");
-    git(root, "commit", "--quiet", "--message", "Set up lunamill");
+    git(root, "commit", "--quiet", "--message", "Set up Lunamill");
     git(root, "push", "--quiet", "origin", "HEAD:main");
   });
 
@@ -471,7 +471,7 @@ describe("the files the sync writes, against the real sync and the real git", ()
     });
     expect(code, [...out, ...printed].join("\n")).toBe(0);
     expect(out).toContain(
-      '✓ Opened acme/web#1, "Change lunamill\'s settings".',
+      '✓ Opened acme/web#1, "Change Lunamill\'s settings".',
     );
 
     // The review was turned off, which the settings and lunamill.yml

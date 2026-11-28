@@ -1,9 +1,9 @@
 # Limitations
 
-What lunamill does not do, what it assumes that nobody has tested, and
+What Lunamill does not do, what it assumes that nobody has tested, and
 the risks that come with it. Read this before relying on it.
 
-The limits that come from today's tools rather than from lunamill, such
+The limits that come from today's tools rather than from Lunamill, such
 as a code host's billing or what its workflows can see, and what nobody
 has tested about one tool, are on that tool's page:
 [GitHub](../integrations/github.md#limits-that-come-from-github),
@@ -17,7 +17,7 @@ has tested about one tool, are on that tool's page:
 
 ## What it does not do
 
-- **One tool of each kind.** lunamill reaches the code host, the ticket
+- **One tool of each kind.** Lunamill reaches the code host, the ticket
   system, the board, and the cloud runner each through one interface, and
   the settings name which one you use
   ([`code-host.type`](../reference/settings/code-host.md#code-host),
@@ -34,14 +34,14 @@ has tested about one tool, are on that tool's page:
   ([A repository that is not JavaScript](../customize/any-language.md#a-repository-that-is-not-javascript)).
 - **A session your coding agent's vendor hosts is a machine too.** One
   such as [Claude Code on the web](../integrations/claude-code.md#limits-that-come-from-claude-code), which is
-  not lunamill's session in the cloud, starts without lunamill, and lunamill's hooks stop its commands until it is there. Put the install
+  not Lunamill's session in the cloud, starts without Lunamill, and Lunamill's hooks stop its commands until it is there. Put the install
   line in the setup of the environment the session runs in:
   `npm install -g @lunamill-ai/lunamill`. The hooks then run,
   and the commands that read only the repository work. What still does not
   work there is under
   [GitHub Actions](../integrations/github-actions.md#limits-that-come-from-github).
-- **A preset names no versions of lunamill.** A preset has no version
-  of its own, and says nowhere which version of lunamill it was written for. One
+- **A preset names no versions of Lunamill.** A preset has no version
+  of its own, and says nowhere which version of Lunamill it was written for. One
   that uses a setting your version does not know stops
   `lunamill preset add`, and fails the check on its update's pull
   request, with that setting's name
@@ -97,12 +97,12 @@ has tested about one tool, are on that tool's page:
 - **One repository's CI doesn't run against another's unmerged change.**
   Where it can only pass once the other is deployed, its pull request waits.
 - **With the automated review off, the order of a ticket's pull requests is
-  information only.** Nothing lunamill posts is required there, so
+  information only.** Nothing Lunamill posts is required there, so
   nothing holds the merge.
 - **Review by teams is your code host's to enforce.** A session obeys
   anyone who can write to the repository. Required reviewers for a
   folder, and a number of approvals before a merge, are rules you set on
-  the code host, and lunamill's pull requests are held by them like
+  the code host, and Lunamill's pull requests are held by them like
   any other.
 - **The order of the workflow is fixed.** A [plugin](../customize/plugins.md) of
   yours can replace how a ticket is refined, how a ticket with one of your
@@ -113,13 +113,13 @@ has tested about one tool, are on that tool's page:
   reorder them ([why](design.md#the-order-of-the-workflow-is-fixed)).
 - **A build needs a gate you wrote.** With nothing under
   [`commands.gate`](../reference/settings/commands.md#commandsgate), `lunamill gate` fails
-  and a build stops there. lunamill cannot guess how your repository is
+  and a build stops there. Lunamill cannot guess how your repository is
   checked.
 - **A renamed default branch is read under its old name** until
   `git remote set-head origin --auto` runs in the checkout, which keeps
   the name in `origin/HEAD`. Where the remote whose address is your
   `repository` line's has another name, such as `upstream`, write that
-  name in place of `origin`. lunamill reads the name there before it
+  name in place of `origin`. Lunamill reads the name there before it
   asks the code host, so a stale one gives a stale answer: the commit hook
   then guards the old branch and not the new one. After the rename, run
   that command in each checkout, then `lunamill sync`, which writes the
@@ -147,7 +147,7 @@ has tested about one tool, are on that tool's page:
 - **Nothing retries on its own.** A build that stops waits for you.
 - **A cloud session's commits are never signed,** on your own account or
   in an organization. No job that runs a session holds a signing key. The
-  pull requests that update lunamill can be signed, on your own account
+  pull requests that update Lunamill can be signed, on your own account
   ([Set up a repository](../setup/repository.md#run-lunamill-init)). Verified
   commits under an app are _[Planned](../developing.md#what-is-built)_, as
   ticket 77. A repository whose rules require signed commits on every
@@ -228,7 +228,7 @@ has tested about one tool, are on that tool's page:
   person's, and `lunamill init --org` has given one its columns, but the
   board sync and the poller have only run against a person's.
 - **A cloud run on a ticket of any size.** Each of the five kinds has run
-  with a real session and lunamill's own skills, in a small scratch
+  with a real session and Lunamill's own skills, in a small scratch
   repository of an organization.
 - **A cloud run of hours,** such as one that waits out a token.
 - **A determined attacker.** Known ways to steal the agent's credential and
@@ -250,7 +250,7 @@ has tested about one tool, are on that tool's page:
   organization-wide rule, which needs a paid plan
   ([GitHub organizations](../integrations/github-organizations.md#limits-that-come-from-github)
   names it); and the poller in `lunamill-config`, which needs a release of
-  lunamill to call.
+  Lunamill to call.
 - **Your board's own automations,** such as moving a closed ticket to Done.
   They may fight the board sync.
 - **A lunamill update reaching a repository through the update job.**
@@ -260,12 +260,12 @@ has tested about one tool, are on that tool's page:
 - **A scheduled job as the poller,** including what it costs.
 - **A default branch not called `main`.** The name is read, never assumed,
   and the tests run with a branch called `develop`, but no repository with
-  one has run lunamill.
+  one has run Lunamill.
 - **A refiner, a prover, or a resolver of your own.** The settings accept
   each and the skills call them, but no repository has run one.
 - **Windows.** The tool and its hooks need only Node, but nothing here has
   been run on Windows.
-- **Adding lunamill's columns to a board you already have.**
+- **Adding Lunamill's columns to a board you already have.**
 - **Whether your coding agent's plan permits automated builds this way.**
   The automated review runs on a subscription token in the one repository
   that uses it. Check your plan's terms.

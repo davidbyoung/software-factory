@@ -1,5 +1,5 @@
 // The two workflow files `lunamill sync` writes into a repository. Each has
-// one job, which calls a workflow in lunamill's own repository at the
+// one job, which calls a workflow in Lunamill's own repository at the
 // version the repository's lock names, so a release changes one line of
 // each. They hold only what the repository decides: its default branch,
 // which parts are on, the poller's schedule, and the names of its secrets.
@@ -33,7 +33,7 @@ export const LUNAMILL_EVENTS = [
 export const HELD_EVENT = "pull_request_target";
 
 export { LUNAMILL_REPOSITORY };
-/** Where lunamill's workflows are, for a repository that calls them. */
+/** Where Lunamill's workflows are, for a repository that calls them. */
 const HOME = `${LUNAMILL_REPOSITORY}/.github/workflows`;
 
 /** The schedules run.yml tells apart by their text. Any other line of the
@@ -66,7 +66,7 @@ export type Part =
   | "approval-policies";
 
 export type WorkflowOptions = {
-  /** lunamill's version, or null in lunamill's own repository, whose
+  /** Lunamill's version, or null in Lunamill's own repository, whose
    * files call the copies in the same commit. */
   version: string | null;
   /** The default branch, which a push trigger cannot ask for. */
@@ -142,12 +142,12 @@ export function factoryWorkflow(o: WorkflowOptions): string {
   return `${[
     ...HEADER,
     "#",
-    "# Everything lunamill runs from the default branch's copy: the",
+    "# Everything Lunamill runs from the default branch's copy: the",
     "# review's verdict, who merges, the board sync, the poller, a build, an",
     "# answer to a review, the conflict sweep, Dependabot's pull requests, and",
-    "# updates. The jobs are in lunamill's own repository, at the version",
+    "# updates. The jobs are in Lunamill's own repository, at the version",
     "# below. A job whose part is off in the settings is skipped.",
-    "name: lunamill",
+    "name: Lunamill",
     `run-name: ${JSON.stringify(`\${{ inputs.ticket && format(${name}, inputs.ticket) || inputs.job == 'answer' && format('Answer #{0}', inputs.pr) || github.event_name == 'pull_request_target' && format('#{0} at {1}', github.event.pull_request.number, github.event.pull_request.head.sha) || '' }}`)}`,
     "",
     "on:",
@@ -226,10 +226,10 @@ export function reviewWorkflow(o: WorkflowOptions): string {
     ...HEADER,
     "#",
     "# What has to read a pull request's own code: the check that the",
-    "# lunamill's files match the settings. The job is in lunamill's own",
+    "# Lunamill's files match the settings. The job is in Lunamill's own",
     "# repository, at the version below. GitHub runs this file from the pull",
     "# request's copy, so it is given no secret, and may only read.",
-    "name: lunamill review",
+    "name: Lunamill review",
     "",
     "on:",
     "  pull_request:",

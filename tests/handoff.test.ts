@@ -76,7 +76,7 @@ const build = () => {
 const asked = () =>
   readRequests(readFileSync(join(dir, "out/request.json"), "utf8"));
 
-describe("a lunamill command in a session in the cloud", () => {
+describe("a Lunamill command in a session in the cloud", () => {
   it("is asked for when it would write, with its file's text", () => {
     writeFileSync(join(dir, "r.md"), "Fixed.");
     const first = factory("pr", "reply", "31", "901", "--body-file", "r.md");

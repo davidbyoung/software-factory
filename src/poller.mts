@@ -232,9 +232,9 @@ export type Deps = {
     options: Record<string, unknown>;
     own: boolean;
   };
-  /** The ticket systems to open it from; lunamill's own unless given. */
+  /** The ticket systems to open it from; Lunamill's own unless given. */
   systems?: Registry["tickets"];
-  /** lunamill's own version; the package's unless given. */
+  /** Lunamill's own version; the package's unless given. */
   version?: string;
 };
 
@@ -568,7 +568,7 @@ export async function hostedSettings(
   const fault = (words: string, written: string) =>
     `${P.LOCK_FILE} on ${branch}: ${words}${
       written && written !== own
-        ? ` (written by lunamill ${written}, and this poller is ${own}: run ${POLLER_IMAGE}:${written})`
+        ? ` (written by Lunamill ${written}, and this poller is ${own}: run ${POLLER_IMAGE}:${written})`
         : ""
     }`;
   let lock: ReturnType<typeof P.readLock>;
@@ -612,7 +612,7 @@ export async function hostedSettings(
   return { settings };
 }
 
-/** lunamill's version, from its package's manifest. */
+/** Lunamill's version, from its package's manifest. */
 function ownVersion(): string {
   const root = dirname(dirname(fileURLToPath(import.meta.url)));
   return (
@@ -662,7 +662,7 @@ export async function hosted(d: Deps, state: State): Promise<void> {
   const read =
     text === null
       ? {
-          reason: `no ${LOCK_FILE} on ${branch} yet. Merge the pull request that sets lunamill up.`,
+          reason: `no ${LOCK_FILE} on ${branch} yet. Merge the pull request that sets Lunamill up.`,
         }
       : await hostedSettings(text, branch, d.version ?? ownVersion());
   if ("reason" in read) {

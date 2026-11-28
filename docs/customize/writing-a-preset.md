@@ -71,7 +71,7 @@ repository holds your preset, and others follow it.
    ```
 
 A preset has no version of its own, and says nowhere which versions of
-lunamill it works with. lunamill refuses a settings file with a key it
+Lunamill it works with. Lunamill refuses a settings file with a key it
 does not know, and names the key, so a preset written for a newer
 version stops `lunamill preset add` and `lunamill update`, with that key's
 name.

@@ -2,7 +2,7 @@
 
 ### Requirement: Where other repositories are cloned
 
-lunamill SHALL behave as this line says: When a session clones another repository to read, it clones it under `~/.local/share/lunamill/work/OWNER/NAME-NUMBER/REPOSITORY`.
+Lunamill SHALL behave as this line says: When a session clones another repository to read, it clones it under `~/.local/share/lunamill/work/OWNER/NAME-NUMBER/REPOSITORY`.
 
 #### Scenario: Where other repositories are cloned
 

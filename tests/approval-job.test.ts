@@ -415,7 +415,7 @@ describe("running the checks", () => {
     expect(s.answer).toEqual({ kind: "nothing" });
   });
 
-  it("runs no agent on a one-sentence change to a docs page, under lunamill's own policy", async () => {
+  it("runs no agent on a one-sentence change to a docs page, under Lunamill's own policy", async () => {
     const r = repository(false);
     put(
       r.checkout,

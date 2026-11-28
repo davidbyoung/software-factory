@@ -84,7 +84,7 @@ function said(setUp: SetUp, name: string): string {
     case "missing":
       return `not set up: run lunamill init in ${name} before building`;
     case "old":
-      return `on lunamill ${setUp.version}, which can't build a ticket from another repository: run lunamill update in ${name}`;
+      return `on Lunamill ${setUp.version}, which can't build a ticket from another repository: run lunamill update in ${name}`;
     case "unseen":
       return "not found, or you can't see it";
   }
@@ -335,7 +335,7 @@ export async function notBuildable(
     if (setUp.state === "missing")
       return `${ref} names ${name}, which is not set up: run lunamill init in ${name}`;
     if (setUp.state === "old")
-      return `${ref} names ${name}, whose lunamill is too old: run lunamill update in ${name}`;
+      return `${ref} names ${name}, whose Lunamill is too old: run lunamill update in ${name}`;
     if (setUp.state === "unseen")
       return `${ref} names ${name}, which was not found, or you can't see it`;
   }

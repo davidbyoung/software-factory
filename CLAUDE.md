@@ -1,7 +1,7 @@
 @.claude/lunamill/rules.md
 
-This repository is lunamill itself: the npm package
-`@lunamill-ai/lunamill`, its docs, and its tests. It also uses lunamill on itself, so the skills, agents, rules, and workflows under
+This repository is Lunamill itself: the npm package
+`@lunamill-ai/lunamill`, its docs, and its tests. It also uses Lunamill on itself, so the skills, agents, rules, and workflows under
 `.claude/` and `.github/` are copies of this repository's own source,
 written by `lunamill sync`.
 
@@ -22,7 +22,7 @@ npm run format                  # auto-format with Prettier
 lunamill gate   # commands.gate in .claude/lunamill.yaml
 ```
 
-The gate here is `npm run check`: format, types, specs, lunamill's
+The gate here is `npm run check`: format, types, specs, Lunamill's
 files and settings, and the unit tests with coverage, which fail under
 the coverage floors set in `vitest.config.ts`.
 
@@ -30,7 +30,7 @@ A hook runs the `commands.before-commit` commands in `.claude/lunamill.yaml`
 before every `git commit` on a person's machine and blocks the commit if
 one fails.
 
-The other commands lunamill's skills run here:
+The other commands Lunamill's skills run here:
 
 ```bash
 lunamill test-one PATH "NAME"   # one unit test, by commands.test-one
@@ -41,8 +41,8 @@ npm run site-check                              # the site comparison against th
 
 CI runs the same checks on every pull request, in `ci.yml` (format, types,
 specs, unit tests under the same coverage floors, `pack-check`, and
-`site-check`, and uploads the coverage to Codecov) and the "lunamill files
-in step" job of the synced `lunamill-review.yml` (lunamill's files and
+`site-check`, and uploads the coverage to Codecov) and the "Lunamill files
+in step" job of the synced `lunamill-review.yml` (Lunamill's files and
 settings, and that `lunamill.yml` is enabled). There is no end-to-end suite.
 
 ## Rules by area
@@ -50,7 +50,7 @@ settings, and that `lunamill.yml` is enabled). There is no end-to-end suite.
 - `docs/developing.md`: how the package is laid out, how to run it from
   source, how to change a skill or add a ticket system, how a command's
   output reads, and how to release.
-- `README.md` and `docs/`: "Writing for lunamill" in
+- `README.md` and `docs/`: "Writing for Lunamill" in
   `docs/developing.md`, read before changing a page.
 - Tests follow "Small changes" and "Branching, pushing, and review" in
   `.claude/lunamill/rules.md`. A test is seen failing first, by its red run
@@ -81,7 +81,7 @@ no UI reviewer: `docs-reader`, the one reviewer plugin, reads the docs.
 
 - **The board** is https://github.com/orgs/lunamill-ai/projects/1, board 1
   of `lunamill-ai`, which owns this repository. The board at
-  https://github.com/users/davidbyoung/projects/1 is the repository lunamill was drawn out of, and no longer this one's.
+  https://github.com/users/davidbyoung/projects/1 is the repository Lunamill was drawn out of, and no longer this one's.
 - **Builds start from a session.** `builds.trigger` is `manual`, so moving a
   card to Ready starts nothing, and no poller runs for this repository.
   Wherever the rules or a skill say a card moved to Ready starts a build,
@@ -99,7 +99,7 @@ no UI reviewer: `docs-reader`, the one reviewer plugin, reads the docs.
 
 Nothing. There is no `auto-merge` in `.claude/lunamill.yaml`, so every pull
 request waits for the owner, since every change here reaches every
-repository that uses lunamill. The merge policy does not run, so no
+repository that uses Lunamill. The merge policy does not run, so no
 pull request gets a `merge-automatic` or `merge-manual` label or a
 `Who merges` status: where the rules or a skill name either, read it as
 "waits for the owner".
@@ -107,8 +107,8 @@ pull request gets a `merge-automatic` or `merge-manual` label or a
 ## Spec track: this repository
 
 `specs` is `openspec` here. A ticket gets the `spec` label when it changes
-what a lunamill user sees: a command's output or exit, a setting, which
-files lunamill writes into their repository and where, or when a job
+what a Lunamill user sees: a command's output or exit, a setting, which
+files Lunamill writes into their repository and where, or when a job
 of the workflows their two files call runs, or of `poller.yml`, the
 workflow an organization's `lunamill-poller.yml` calls. The text of
 its skills, agents, rules, and review instructions is not spec-tracked,
@@ -117,7 +117,7 @@ the fresh-agent trace in "Changing the process" instead. `openspec/specs/` holds
 each capability a ticket has changed, as `lunamill specs
 list` prints them; behavior with none gets one when a ticket next changes
 it. The docs stay the reader's guide, and a spec change updates them in
-the same pull request. lunamill's spec check,
+the same pull request. Lunamill's spec check,
 `lunamill specs check`, sets `DO_NOT_TRACK=1` for OpenSpec
 itself, and so does the `spec:validate` script the gate and CI run.
 
@@ -125,9 +125,9 @@ itself, and so does the `spec:validate` script the gate and CI run.
 
 **Draft the experience first.** Before step 1 of `lunamill-refine`, run
 `/dx-first N`, the `dx-first` skill, on a ticket that adds or changes a
-command, a command's output, a setting, a file lunamill writes, or a
+command, a command's output, a setting, a file Lunamill writes, or a
 docs page, and whose body has no `## Proposed docs` yet. Each is what a
-lunamill user meets, as "Spec track: this repository" reads them: the text
+Lunamill user meets, as "Spec track: this repository" reads them: the text
 of a skill, agent, rule, or workflow is not one, nor is this repository's
 own `.claude/lunamill.yaml`, and a docs page is `README.md` or one under
 `docs/` other than `docs/developing.md`. Skip it for a small change
@@ -169,10 +169,10 @@ Refinement's own check of the build order is unchanged. The owner runs
 
 ## Changing the process: this repository
 
-The source of every lunamill file is in this repository: `skills/`,
+The source of every Lunamill file is in this repository: `skills/`,
 `agents/`, `approval-policies/`, `rules.md`, and `review.md`, and, for
 the two workflow files a repository gets, `src/workflow-files.mts`. Change the source, run
-`node bin/lunamill.js sync`, and commit both; CI's `lunamill files in step`
+`node bin/lunamill.js sync`, and commit both; CI's `Lunamill files in step`
 fails when a copy differs from its source. Never edit the copy under
 `.claude/` or `.github/`.
 These are not copies: they have no source elsewhere and are edited where
@@ -212,11 +212,11 @@ which holds the App's permissions, `update.mts`,
 adapters name the files the merge policy holds, and `config.mts`'s
 `pluginsOf`.
 
-A change here reaches every repository that uses lunamill, through its
+A change here reaches every repository that uses Lunamill, through its
 next release, so the fresh-agent trace in "Changing the process" in
 `.claude/lunamill/rules.md` reads `.claude/change-types.md` here and asks,
 for each kind, both how it goes here and how it would go in a repository
-that installs lunamill.
+that installs Lunamill.
 
 ## Stepping back from a rabbit hole: this repository
 

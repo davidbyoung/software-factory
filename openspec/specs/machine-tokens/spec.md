@@ -8,7 +8,7 @@ A person's GitHub token and coding agent's credential kept on their machine, in 
 
 ### Requirement: The tokens are kept on the machine
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The tokens are kept on the machine
 
@@ -17,7 +17,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: Tokens stored from the machine
 
-lunamill SHALL behave as this line says: When the file holds a token for the repository's owner that GitHub accepts with every scope the parts need, and the agent's credential, it asks for neither, stores them, and prints `✓ Stored N secrets for REPOSITORY from this machine.`
+Lunamill SHALL behave as this line says: When the file holds a token for the repository's owner that GitHub accepts with every scope the parts need, and the agent's credential, it asks for neither, stores them, and prints `✓ Stored N secrets for REPOSITORY from this machine.`
 
 #### Scenario: Tokens stored from the machine
 
@@ -26,7 +26,7 @@ lunamill SHALL behave as this line says: When the file holds a token for the rep
 
 ### Requirement: A token on the machine that no longer serves
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A token on the machine that no longer serves
 
@@ -35,7 +35,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: Only init reads the machine's tokens
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Only init reads the machine's tokens
 
@@ -44,7 +44,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: The day a token was pasted
 
-lunamill SHALL behave as this line says: When `lunamill init` writes a `CLAUDE_CODE_OAUTH_TOKEN` it was given by a paste to the credentials file, it writes `pasted: DAY` in the same entry, with today's day.
+Lunamill SHALL behave as this line says: When `lunamill init` writes a `CLAUDE_CODE_OAUTH_TOKEN` it was given by a paste to the credentials file, it writes `pasted: DAY` in the same entry, with today's day.
 
 #### Scenario: The day a token was pasted
 
@@ -53,7 +53,7 @@ lunamill SHALL behave as this line says: When `lunamill init` writes a `CLAUDE_C
 
 ### Requirement: Init says the token's day is near
 
-lunamill SHALL behave as this line says: In a repository a person owns, when `CLAUDE_CODE_OAUTH_TOKEN` is set on the repository and its DAY is 30 days or fewer away, or past, `lunamill init` prints `CLAUDE_CODE_OAUTH_TOKEN stops working by DAY, WHEN: a Claude token lasts a year.`, or after DAY `CLAUDE_CODE_OAUTH_TOKEN stopped working by DAY: a Claude token lasts a year.`, before it asks `N secrets these parts read are already set. Replace them?`.
+Lunamill SHALL behave as this line says: In a repository a person owns, when `CLAUDE_CODE_OAUTH_TOKEN` is set on the repository and its DAY is 30 days or fewer away, or past, `lunamill init` prints `CLAUDE_CODE_OAUTH_TOKEN stops working by DAY, WHEN: a Claude token lasts a year.`, or after DAY `CLAUDE_CODE_OAUTH_TOKEN stopped working by DAY: a Claude token lasts a year.`, before it asks `N secrets these parts read are already set. Replace them?`.
 
 #### Scenario: Init says the token's day is near
 
@@ -62,7 +62,7 @@ lunamill SHALL behave as this line says: In a repository a person owns, when `CL
 
 ### Requirement: Init offers the machine's newer token
 
-lunamill SHALL behave as this line says: Then, when the file holds a token for the owner whose `pasted` day is later than the secret's `updated_at` and more than 30 days from its own year, it asks `Store the one on this machine, pasted on STORED, in its place? Press Enter for yes:`. Yes stores that token as the secret, and counts it in `✓ Stored N secrets for REPOSITORY from this machine.`
+Lunamill SHALL behave as this line says: Then, when the file holds a token for the owner whose `pasted` day is later than the secret's `updated_at` and more than 30 days from its own year, it asks `Store the one on this machine, pasted on STORED, in its place? Press Enter for yes:`. Yes stores that token as the secret, and counts it in `✓ Stored N secrets for REPOSITORY from this machine.`
 
 #### Scenario: Init offers the machine's newer token
 
@@ -71,7 +71,7 @@ lunamill SHALL behave as this line says: Then, when the file holds a token for t
 
 ### Requirement: Init makes a new token
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Init makes a new token
 
@@ -80,7 +80,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: Declining the new token
 
-lunamill SHALL behave as this line says: No, to line 14's or line 15's question, replaces nothing, and `init` goes on. Either way, `Replace them?` no longer counts the coding agent's credential, and a yes to it does not ask for it again.
+Lunamill SHALL behave as this line says: No, to line 14's or line 15's question, replaces nothing, and `init` goes on. Either way, `Replace them?` no longer counts the coding agent's credential, and a yes to it does not ask for it again.
 
 #### Scenario: Declining the new token
 
@@ -89,7 +89,7 @@ lunamill SHALL behave as this line says: No, to line 14's or line 15's question,
 
 ### Requirement: Init does not copy an old token
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Init does not copy an old token
 
@@ -98,7 +98,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: The access token's days on the machine
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The access token's days on the machine
 
@@ -107,7 +107,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: The access token's expiry from a store
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The access token's expiry from a store
 
@@ -116,7 +116,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: Init makes a new access token
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Init makes a new access token
 
@@ -125,7 +125,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: Init stores the machine's newer access token
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Init stores the machine's newer access token
 
@@ -134,7 +134,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: Declining the access token's question
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Declining the access token's question
 
@@ -143,7 +143,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: Init does not copy a near access token
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Init does not copy a near access token
 
@@ -152,7 +152,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: The access token step suggests an expiry
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The access token step suggests an expiry
 

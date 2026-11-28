@@ -1,9 +1,9 @@
 # `plugins`
 
-Your own skills and agents, doing a job lunamill would otherwise do
+Your own skills and agents, doing a job Lunamill would otherwise do
 itself, or adding to it. Each job is a **role**. For example, an agent you
 list in the `reviewers` role reads every change that touches its files,
-alongside lunamill's own reviewers. Roles are grouped by the part of
+alongside Lunamill's own reviewers. Roles are grouped by the part of
 the work they belong to: `refine`, `build`, `test`, and `conflicts`.
 
 ```yaml
@@ -15,7 +15,7 @@ plugins:
           - db/migrations/**
 ```
 
-Every role is optional. Leaving one out never turns a step off: lunamill does that step its own way. A reviewer is an agent, since it only
+Every role is optional. Leaving one out never turns a step off: Lunamill does that step its own way. A reviewer is an agent, since it only
 reads and reports. Every other role takes a skill, which the session
 follows itself. [Your own skills and agents](../../customize/plugins.md) says what each role is handed and
 what it has to give back.
@@ -24,8 +24,8 @@ what it has to give back.
 | --------------------- | ------------- | -------- | --------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
 | `refine.refiner`      | A skill       | One      | Whenever a ticket is refined                                                                  | `lunamill-refine` refines tickets                                                                                           |
 | `refine.mockups`      | A skill       | One      | Whenever a decision changes how something looks                                               | `lunamill-design` draws mockups if you set [`site`](site.md#site), and otherwise the session describes the choices in words |
-| `build.builders`      | Skills        | A list   | For a ticket with one of the builder's `labels`. Each builder needs at least one              | lunamill's own build builds every ticket                                                                                    |
-| `build.reviewers`     | Agents        | A list   | When a change touches one of the reviewer's `files`. Each reviewer needs at least one pattern | Only lunamill's own reviewers read a change                                                                                 |
+| `build.builders`      | Skills        | A list   | For a ticket with one of the builder's `labels`. Each builder needs at least one              | Lunamill's own build builds every ticket                                                                                    |
+| `build.reviewers`     | Agents        | A list   | When a change touches one of the reviewer's `files`. Each reviewer needs at least one pattern | Only Lunamill's own reviewers read a change                                                                                 |
 | `test.prover`         | A skill       | One      | Whenever a new test needs proof that it can fail                                              | `lunamill-mutate` proves each new test can fail                                                                             |
 | `test.reviewers`      | Agents        | A list   | When a change touches tests. A reviewer given `files` reads only changes to those             | `lunamill-test-reviewer` reads new tests                                                                                    |
 | `conflicts.resolvers` | Skills        | A list   | When a conflict is in one of the resolver's `files`. Each resolver needs at least one pattern | The session merges conflicts by hand, and [`commands.relock`](commands.md#commandsrelock) rebuilds the lock file            |
@@ -34,7 +34,7 @@ In [Claude Code](../../integrations/claude-code.md#skills-in-claude-code),
 a skill lives at `.claude/skills/NAME/SKILL.md` and an agent at
 `.claude/agents/NAME.md`.
 
-- **`lunamill plugins`** prints every plugin lunamill will use, its own
+- **`lunamill plugins`** prints every plugin Lunamill will use, its own
   included, one per line: skill or agent, its name, its role, and its
   files or labels. `lunamill plugins reviewer` prints one role's.
 - **A plugin can come from a [preset](presets.md#presets),** which ships its agent
@@ -78,7 +78,7 @@ plugins:
 ## `plugins.build`
 
 - **`builders`:** your own skill for building certain tickets, used
-  instead of lunamill's build for any ticket with one of its `labels`.
+  instead of Lunamill's build for any ticket with one of its `labels`.
   If two builders share a label, the first one listed builds the ticket.
 - **`reviewers`:** your own agents, each asked to read a change that
   touches a file matching its `files`. The pattern only decides who is

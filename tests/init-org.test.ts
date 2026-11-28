@@ -147,8 +147,8 @@ const ADDRESSES = [
 const ending = (because?: string) => [
   "✓ acme is set up.",
   "",
-  "Next, in each repository you want lunamill in:",
-  "  1. A developer installs lunamill once on their machine:",
+  "Next, in each repository you want Lunamill in:",
+  "  1. A developer installs Lunamill once on their machine:",
   "       npm install -g @lunamill-ai/lunamill",
   "  2. In the repository's checkout, they run:",
   "       lunamill init",
@@ -641,7 +641,7 @@ const DONE: Partial<Seed> = {
   variables: {
     LUNAMILL_APP_CLIENT_ID: "Iv23client",
   },
-  rules: ["lunamill"],
+  rules: ["Lunamill"],
   installation: INSTALLED,
 };
 
@@ -654,11 +654,11 @@ describe("lunamill init --org, what it refuses before it asks", () => {
     return s.out;
   };
 
-  it("refuses a host that is not a code host lunamill supports", async () => {
+  it("refuses a host that is not a code host Lunamill supports", async () => {
     expect(
       await refusal({ address: "https://code.acme.example/acme" }),
     ).toEqual([
-      "✗ code.acme.example is not a code host lunamill supports: GitHub.",
+      "✗ code.acme.example is not a code host Lunamill supports: GitHub.",
       "Nothing changed.",
     ]);
   });
@@ -717,7 +717,7 @@ describe("lunamill init --org, what it refuses before it asks", () => {
 
   it("stops when the coding agent is not installed, and names its own command to run again", async () => {
     expect(await refusal({ agentInstalled: false })).toEqual([
-      "lunamill runs in a coding agent, and Claude Code is not installed.",
+      "Lunamill runs in a coding agent, and Claude Code is not installed.",
       "Install it and run lunamill init --org https://github.com/acme again.",
       "Nothing changed.",
     ]);
@@ -847,7 +847,7 @@ describe("lunamill init --org, a first run", () => {
     });
     expect(await s.run()).toBe(0);
     expect(s.transcript).toEqual([
-      "Setting up lunamill for the organization acme",
+      "Setting up Lunamill for the organization acme",
       "",
       "Found",
       "  Code host        GitHub (from the address)",
@@ -867,11 +867,11 @@ describe("lunamill init --org, a first run", () => {
       '  app       Register the GitHub App "lunamill-acme" and install it',
       "  secrets   Store LUNAMILL_APP_PRIVATE_KEY, CLAUDE_CODE_OAUTH_TOKEN, and the variable LUNAMILL_APP_CLIENT_ID for acme",
       "  preset    Create acme/lunamill-config, a private repository, with the organization's preset and the poller",
-      '  rule      Require "Review verdict" on repositories set up with lunamill',
-      "  board     Create a board with lunamill's columns and fields",
+      '  rule      Require "Review verdict" on repositories set up with Lunamill',
+      "  board     Create a board with Lunamill's columns and fields",
       "? confirm: Go ahead?",
       "",
-      '✓ Created board 12, "lunamill".',
+      '✓ Created board 12, "Lunamill".',
       "✓ Created acme/lunamill-config.",
       ...STEP_1,
       CREATED,
@@ -899,7 +899,7 @@ describe("lunamill init --org, a first run", () => {
     });
     expect(await s.run()).toBe(0);
     expect(s.looks).toEqual([
-      "Setting up lunamill for the organization {name:acme}",
+      "Setting up Lunamill for the organization {name:acme}",
       "",
       "{heading:Found}",
       "  {name:Code host}        GitHub (from the address)",
@@ -915,10 +915,10 @@ describe("lunamill init --org, a first run", () => {
       '  {name:app}       Register the GitHub App "lunamill-acme" and install it',
       "  {name:secrets}   Store LUNAMILL_APP_PRIVATE_KEY, CLAUDE_CODE_OAUTH_TOKEN, and the variable LUNAMILL_APP_CLIENT_ID for acme",
       "  {name:preset}    Create acme/lunamill-config, a private repository, with the organization's preset and the poller",
-      '  {name:rule}      Require "Review verdict" on repositories set up with lunamill',
-      "  {name:board}     Create a board with lunamill's columns and fields",
+      '  {name:rule}      Require "Review verdict" on repositories set up with Lunamill',
+      "  {name:board}     Create a board with Lunamill's columns and fields",
       "",
-      '{good:✓} Created board 12, "lunamill".',
+      '{good:✓} Created board 12, "Lunamill".',
       "{good:✓} Created acme/lunamill-config.",
       "",
       '{yourTurn:Registering the GitHub App "lunamill-acme". Two steps, both in your browser.}',
@@ -942,8 +942,8 @@ describe("lunamill init --org, a first run", () => {
       "",
       "{good:✓} acme is set up.",
       "",
-      "{yourTurn:Next, in each repository you want lunamill in:}",
-      "  {yourTurn:1.} A developer installs lunamill once on their machine:",
+      "{yourTurn:Next, in each repository you want Lunamill in:}",
+      "  {yourTurn:1.} A developer installs Lunamill once on their machine:",
       "       {copy:npm install -g @lunamill-ai/lunamill}",
       "  {yourTurn:2.} In the repository's checkout, they run:",
       "       {copy:lunamill init}",
@@ -964,7 +964,7 @@ describe("lunamill init --org, a first run", () => {
     await s.run();
     expect(s.selects[0]).toEqual({
       message: "Which board?",
-      names: ["A new one, made with lunamill's columns", "7  Engineering"],
+      names: ["A new one, made with Lunamill's columns", "7  Engineering"],
       fallback: undefined,
     });
   });
@@ -1009,7 +1009,7 @@ describe("lunamill init --org, a first run", () => {
     await s.run();
     expect(s.changes()).toEqual([
       "createRepository lunamill-config private",
-      "createBoard lunamill",
+      "createBoard Lunamill",
       "addColumns 1",
       "addFields 1",
       "putFiles lunamill-config README.md lunamill-preset.yaml .github/workflows/lunamill-poller.yml",
@@ -1018,14 +1018,14 @@ describe("lunamill init --org, a first run", () => {
       "setVariable LUNAMILL_APP_CLIENT_ID Iv23client",
       "setSecret CLAUDE_CODE_OAUTH_TOKEN",
       "defineProperty lunamill on|off",
-      "requireCheckWhere lunamill Review verdict lunamill=on runner",
+      "requireCheckWhere Lunamill Review verdict lunamill=on runner",
     ]);
     expect(
       s.seed.repositories["lunamill-config"]!.files["lunamill-preset.yaml"],
     ).toContain("board: 1\n");
   });
 
-  it("creates the board with lunamill's columns and fields, and says only that it created it", async () => {
+  it("creates the board with Lunamill's columns and fields, and says only that it created it", async () => {
     const s = setup({ answers: FIRST });
     await s.run();
     expect(s.tickets.boards[0]!.columns.slice(0, 6)).toEqual([
@@ -1039,11 +1039,11 @@ describe("lunamill init --org, a first run", () => {
     ]);
     expect(s.tickets.boards[0]!.fields).toEqual(["Session", "Runs in", "Cost"]);
     expect(s.out.filter((l) => l.includes("board 1"))).toEqual([
-      '✓ Created board 1, "lunamill".',
+      '✓ Created board 1, "Lunamill".',
     ]);
   });
 
-  it("asks which ticket system once lunamill has two, in place of the row", async () => {
+  it("asks which ticket system once Lunamill has two, in place of the row", async () => {
     const s = setup({
       answers: {
         ...FIRST,
@@ -1112,7 +1112,7 @@ describe("lunamill init --org, with a board the organization already has", () =>
       "? select: Which board?",
       "",
       "Board 7 has the columns Todo, Doing, Code review, and Done.",
-      "Asking Claude Code which of them shows each of lunamill's six states...",
+      "Asking Claude Code which of them shows each of Lunamill's six states...",
       "",
       "  State      Column",
       "  backlog    Todo",
@@ -1213,7 +1213,7 @@ describe("lunamill init --org, with a board the organization already has", () =>
     ).toEqual([
       "? select: Which board?",
       "",
-      "Board 7 has a column for each of lunamill's six states:",
+      "Board 7 has a column for each of Lunamill's six states:",
       "",
       "  State      Column",
       "  backlog    Backlog",
@@ -1275,7 +1275,7 @@ describe("lunamill init --org, with a board the organization already has", () =>
       "? select: Which board?",
       "",
       "Board 7 has the columns Todo, Doing, Code review, and Done.",
-      "Asking Claude Code which of them shows each of lunamill's six states...",
+      "Asking Claude Code which of them shows each of Lunamill's six states...",
       "Claude Code's answer could not be used: it failed: Failed to authenticate: OAuth session expired and could not be refreshed.",
       "Choose the column for each state yourself.",
       "? select: Which column shows backlog?",
@@ -1369,7 +1369,7 @@ describe("lunamill init --org, what it creates in lunamill-config", () => {
     expect(files["lunamill-preset.yaml"]).toBe(PRESET);
   });
 
-  it("writes the poller's workflow at the installed lunamill's version and the interval's cron", async () => {
+  it("writes the poller's workflow at the installed Lunamill's version and the interval's cron", async () => {
     const s = setup({ answers: FIRST });
     await s.run();
     const text = s.seed.repositories["lunamill-config"]!.files[POLLER]!;
@@ -1466,7 +1466,7 @@ describe("lunamill init --org, what it creates in lunamill-config", () => {
     });
     expect(await s.run()).toBe(1);
     expect(s.transcript).toEqual([
-      "Setting up lunamill for the organization acme",
+      "Setting up Lunamill for the organization acme",
       "",
       "lunamill-preset.yaml: repository: a preset can't set this",
       "Fix it, then run init again.",
@@ -1560,7 +1560,7 @@ describe("lunamill init --org, on GitHub Free", () => {
       "  secrets   Store LUNAMILL_APP_PRIVATE_KEY, CLAUDE_CODE_OAUTH_TOKEN, and the variable LUNAMILL_APP_CLIENT_ID for acme",
       "  preset    Create acme/lunamill-config, a public repository, with the organization's preset and the poller",
       "- rule      Each repository's own: once its setup merges, an admin of it runs lunamill init",
-      "  board     Create a board with lunamill's columns and fields",
+      "  board     Create a board with Lunamill's columns and fields",
     ]);
     expect(
       s.out.slice(s.out.indexOf("✓ Stored 2 secrets and 1 variable for acme.")),
@@ -1916,7 +1916,7 @@ describe("lunamill init --org, when the code host stops answering", () => {
     const s = setup({ org: { fail: { plan: new Error("HTTP 502") } } });
     expect(await s.run()).toBe(1);
     expect(s.transcript).toEqual([
-      "Setting up lunamill for the organization acme",
+      "Setting up Lunamill for the organization acme",
       "",
       "Could not reach the code host: HTTP 502",
     ]);
@@ -2081,7 +2081,7 @@ describe("lunamill init --org, run again", () => {
     const s = setup({ org: DONE, answers: { confirm: [false] } });
     expect(await s.run()).toBe(0);
     expect(s.transcript).toEqual([
-      "Setting up lunamill for the organization acme",
+      "Setting up Lunamill for the organization acme",
       "",
       "Found",
       "  Code host        GitHub (from the address)",
@@ -2201,7 +2201,7 @@ describe("lunamill init --org, run again", () => {
       s.out.indexOf("This is everything setup will do:") + 1,
     );
     expect(plan).toEqual([
-      '  rule      Require "Review verdict" on repositories set up with lunamill',
+      '  rule      Require "Review verdict" on repositories set up with Lunamill',
       "",
       '✓ Required "Review verdict" where the property lunamill is "on".',
       "",
@@ -2209,7 +2209,7 @@ describe("lunamill init --org, run again", () => {
     ]);
     expect(s.changes()).toEqual([
       "defineProperty lunamill on|off",
-      "requireCheckWhere lunamill Review verdict lunamill=on runner",
+      "requireCheckWhere Lunamill Review verdict lunamill=on runner",
     ]);
   });
 
@@ -2355,7 +2355,7 @@ describe("lunamill init --org, a step that fails", () => {
       "  preset    Write README.md, lunamill-preset.yaml, and .github/workflows/lunamill-poller.yml in acme/lunamill-config",
     );
     expect(s.changes().slice(0, 4)).toEqual([
-      "createBoard lunamill",
+      "createBoard Lunamill",
       "addColumns 1",
       "addFields 1",
       "putFiles lunamill-config README.md lunamill-preset.yaml .github/workflows/lunamill-poller.yml",

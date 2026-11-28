@@ -69,7 +69,7 @@ const READ = [
 const SCRIPTS = ["src", "bin"];
 
 describe("the package", () => {
-  it("is @lunamill-ai/lunamill, from lunamill-ai/lunamill, with the one command lunamill", () => {
+  it("is @lunamill-ai/lunamill, from lunamill-ai/lunamill, with the one command Lunamill", () => {
     const pkg = JSON.parse(readFileSync("package.json", "utf8")) as {
       name: string;
       bin: Record<string, string>;
@@ -84,7 +84,7 @@ describe("the package", () => {
 });
 
 describe("the product's name", () => {
-  it("is lunamill in every page, skill, agent, rule, and setting a reader reads", () => {
+  it("is Lunamill in every page, skill, agent, rule, and setting a reader reads", () => {
     const found = READ.flatMap(files)
       .filter((f) => !ALLOWED.has(f))
       .flatMap((f) =>
@@ -94,11 +94,11 @@ describe("the product's name", () => {
   });
 
   it('allows "a software factory", and no other word before it', () => {
-    expect(oldNames("lunamill, a software factory")).toEqual([]);
+    expect(oldNames("Lunamill, a software factory")).toEqual([]);
     expect(oldNames("an extra software factory")).toEqual(["software factory"]);
   });
 
-  it("is lunamill in every line a command prints", { timeout: 30_000 }, () => {
+  it("is Lunamill in every line a command prints", { timeout: 30_000 }, () => {
     const found = SCRIPTS.flatMap(files)
       .filter((f) => /\.(m?ts|m?js)$/.test(f) && !/\.test\./.test(f))
       // Parsing every script takes longer than a test may, so only one
@@ -107,4 +107,67 @@ describe("the product's name", () => {
       .flatMap((f) => oldNames(literals(f)).map((name) => `${f}: ${name}`));
     expect(found).toEqual([]);
   });
+
+  it("is capitalized in the prose of every page, skill, agent, and rule", () => {
+    const found = READ.flatMap(files)
+      .filter((f) => f.endsWith(".md"))
+      .flatMap((f) =>
+        lowercaseNames(readFileSync(f, "utf8")).map((line) => `${f}: ${line}`),
+      );
+    expect(found).toEqual([]);
+  });
+
+  it("leaves the command, its files, and quoted names lowercase", () => {
+    expect(
+      lowercaseNames(
+        [
+          "Run lunamill init, then lunamill sync --check.",
+          "It reads `.claude/lunamill.yaml` and the label `lunamill`.",
+          'The skill /lunamill-build, from lunamill.ai, on lunamill-ai/lunamill, labeled "lunamill".',
+          "```bash\nlunamill doctor\n```",
+        ].join("\n"),
+      ),
+    ).toEqual([]);
+    expect(
+      lowercaseNames("Install lunamill once, and lunamill's hooks run."),
+    ).toEqual(["Install lunamill once, and lunamill's hooks run."]);
+  });
 });
+
+/** The commands that follow the name where it is typed, not said. */
+const COMMANDS = new Set(
+  `init ticket sync pr config doctor preset specs gate update status plugins
+  session build default-branch site poller workspace remove test-one guard board
+  coverage approval-policies end-to-end relock follow-up build-setup enroll
+  session-start reviewers label across merge-policy review-verdict review deps
+  handoff`.split(/\s+/),
+);
+
+/** Each line of a Markdown text whose prose writes the product's name in
+ * lowercase: outside code blocks and inline code, and where neither a
+ * command, a path, nor a quote makes it a name a person types. */
+const lowercaseNames = (text: string) => {
+  const found: string[] = [];
+  let fenced = false;
+  for (const line of text.split("\n")) {
+    if (/^\s*(```|~~~)/.test(line)) {
+      fenced = !fenced;
+      continue;
+    }
+    if (fenced) continue;
+    const prose = line.replace(/`[^`]*`/g, "``");
+    for (const m of prose.matchAll(
+      /(?<![\w./@$"'/-])lunamill(?![\w./@:"-])(?!'(?!s\b))/g,
+    )) {
+      const rest = prose.slice(m.index + "lunamill".length);
+      const next = /^ ([a-z][a-z-]*)/.exec(rest)?.[1];
+      if (next && COMMANDS.has(next)) continue;
+      if (/^ (--|[A-Z]{2,}\b)/.test(rest)) continue;
+      if (rest.startsWith(" /") || prose.slice(0, m.index).endsWith("/ "))
+        continue;
+      found.push(line);
+      break;
+    }
+  }
+  return found;
+};

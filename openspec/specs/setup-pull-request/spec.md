@@ -8,7 +8,7 @@ The pull request `lunamill init` opens: the check of the checkout before it asks
 
 ### Requirement: A checkout ahead of the default branch
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A checkout ahead of the default branch
 
@@ -17,7 +17,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: The plan's rows
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The plan's rows
 
@@ -26,7 +26,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: The gate runs before the commit
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The gate runs before the commit
 
@@ -35,16 +35,16 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: The branch, the commit, and the pull request
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The branch, the commit, and the pull request
 
 - **WHEN** `lunamill init` commits what it and the sync changed
-- **THEN** It makes the branch `set-up-lunamill`, or `set-up-lunamill-2` and so on when that name is taken here or on the remote, from the commit checked out. It commits only the files it and the sync wrote or deleted, by their paths, so anything else changed or staged stays as it was. It pushes the branch to the repository's remote, and opens a pull request into the default branch that is not a draft. The title is "Set up lunamill" when the default branch has no settings file, and "Change lunamill's settings" otherwise, and the description is the plan's rows.
+- **THEN** It makes the branch `set-up-lunamill`, or `set-up-lunamill-2` and so on when that name is taken here or on the remote, from the commit checked out. It commits only the files it and the sync wrote or deleted, by their paths, so anything else changed or staged stays as it was. It pushes the branch to the repository's remote, and opens a pull request into the default branch that is not a draft. The title is "Set up Lunamill" when the default branch has no settings file, and "Change Lunamill's settings" otherwise, and the description is the plan's rows.
 
 ### Requirement: After the pull request opens
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: After the pull request opens
 
@@ -53,7 +53,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: A commit, a push, or a pull request that fails
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A commit, a push, or a pull request that fails
 
@@ -62,7 +62,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: No file changed
 
-lunamill SHALL behave as this line says: When no file changed, it opens nothing and prints `Nothing to commit: the files already match.`
+Lunamill SHALL behave as this line says: When no file changed, it opens nothing and prints `Nothing to commit: the files already match.`
 
 #### Scenario: No file changed
 
@@ -71,7 +71,7 @@ lunamill SHALL behave as this line says: When no file changed, it opens nothing 
 
 ### Requirement: When init makes the rule
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: When init makes the rule
 
@@ -80,7 +80,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: Doctor says whether Review verdict is required
 
-lunamill SHALL behave as the scenarios below say, the first in the Spec line's own words.
+Lunamill SHALL behave as the scenarios below say, the first in the Spec line's own words.
 
 #### Scenario: Doctor says whether Review verdict is required
 

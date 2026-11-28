@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Raises a repository to the newest release of lunamill, and each preset
+// Raises a repository to the newest release of Lunamill, and each preset
 // it follows to the newest commit that changed that preset's own files.
 //
 //   lunamill update                   # in the working tree: commit what it writes
@@ -39,14 +39,14 @@ export type PresetPin = {
 };
 
 export type UpdateDeps = {
-  /** Whether the repository has lunamill's settings file. */
+  /** Whether the repository has Lunamill's settings file. */
   hasSettings: () => boolean;
-  /** lunamill's own repository, which runs its source and names no
+  /** Lunamill's own repository, which runs its source and names no
    * release. */
   own: boolean;
   /** The version the repository's lock names. */
   version: () => string;
-  /** lunamill's newest release, as `1.2.3`. */
+  /** Lunamill's newest release, as `1.2.3`. */
   newestRelease: () => Promise<string>;
   presets: {
     pins: () => PresetPin[];
@@ -113,12 +113,12 @@ const sourceOf = (branch: string) =>
 
 /** lunamill from one release to a newer one. */
 const factoryUnit = (version: string, newest: string): Unit => ({
-  title: `Update lunamill to ${newest}`,
+  title: `Update Lunamill to ${newest}`,
   branch: `${BRANCHES}lunamill-${newest}`,
   source: `${BRANCHES}lunamill`,
   version: newest,
   moves: [],
-  lines: [`lunamill ${version} → ${newest}`],
+  lines: [`Lunamill ${version} → ${newest}`],
 });
 
 /** What is behind, what is not, and what could not be read. */
@@ -174,8 +174,8 @@ async function survey(d: UpdateDeps) {
 /** The one line for a repository with nothing behind. */
 function nothing(own: boolean, version: string, pins: PresetPin[]): string {
   const factory = own
-    ? "lunamill runs from its source here"
-    : `lunamill is ${version}, the newest release`;
+    ? "Lunamill runs from its source here"
+    : `Lunamill is ${version}, the newest release`;
   const presets =
     pins.length === 0
       ? "."
@@ -252,7 +252,7 @@ async function openedBefore(d: Opening, unit: Unit): Promise<boolean> {
   return last !== null;
 }
 
-/** The description of lunamill's own pull request. */
+/** The description of Lunamill's own pull request. */
 const factoryBody = (d: Opening, unit: Unit) =>
   [
     ...unit.lines,
@@ -387,7 +387,7 @@ export async function updatePoller(
   if (!version) {
     d.out(
       say.text(
-        `✗ ${POLLER_FILE} names no release of lunamill after poller.yml@v. Write one there, such as poller.yml@v1.2.3.`,
+        `✗ ${POLLER_FILE} names no release of Lunamill after poller.yml@v. Write one there, such as poller.yml@v1.2.3.`,
       ),
     );
     return 1;
@@ -433,7 +433,7 @@ export function pollerRepository(
   return address ? repositoryOf(address) : null;
 }
 
-/** lunamill's newest release could not be read. */
+/** Lunamill's newest release could not be read. */
 export class NoRelease extends Error {}
 
 /** The settings as the files have them now, or null once `err` has said

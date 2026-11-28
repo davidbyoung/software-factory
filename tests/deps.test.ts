@@ -66,7 +66,7 @@ describe("nextStep", () => {
     );
   });
 
-  it("leaves a bump that names lunamill, whatever its state, for the Updates job's own pull request", () => {
+  it("leaves a bump that names Lunamill, whatever its state, for the Updates job's own pull request", () => {
     const named = bump({
       title:
         "Bump lunamill-ai/lunamill/.github/workflows/run.yml from 0.2.0 to 0.3.0",
@@ -77,7 +77,7 @@ describe("nextStep", () => {
     });
 
     expect(nextStep(named, "main", "lunamill-ai/lunamill")).toBe(
-      "leave (step 4): it names lunamill",
+      "leave (step 4): it names Lunamill",
     );
     expect(nextStep(bump(), "main", "lunamill-ai/lunamill")).not.toMatch(
       /step 4/,

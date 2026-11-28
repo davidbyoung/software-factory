@@ -12,7 +12,7 @@ const QUESTION = "select: Which repository are you setting up?";
 const quick = (over: Partial<Setup> = {}) =>
   init({ answers: { checkbox: [[]], confirm: [true] }, ...over });
 const FIRST_LINE = (repository: string) =>
-  `Setting up lunamill for ${repository}`;
+  `Setting up Lunamill for ${repository}`;
 
 describe("lunamill init, a repository line in the settings", () => {
   const SETTINGS = `version: 1\nrepository: acme/web\n${CODE_HOST_YAML}\n`;
@@ -228,7 +228,7 @@ describe("lunamill init, a repository chosen that is no remote yet", () => {
     expect(r.out).toEqual([
       FIRST_LINE("acme/web"),
       "",
-      "lunamill runs in a coding agent, and Claude Code is not installed.",
+      "Lunamill runs in a coding agent, and Claude Code is not installed.",
       "Install it and run lunamill init again.",
       "Nothing changed.",
     ]);
@@ -289,7 +289,7 @@ describe("lunamill init, with no remote on a code host it supports", () => {
     });
     expect(await r.run()).toBe(1);
     expect(r.out).toEqual([
-      "No remote here is on a code host lunamill supports: GitHub.",
+      "No remote here is on a code host Lunamill supports: GitHub.",
     ]);
   });
 
@@ -474,7 +474,7 @@ describe("lunamill init, a repository with no commits yet", () => {
       expect.arrayContaining(["--set-upstream", "origin", "trunk"]),
     );
     expect(r.out[0]).toBe("✓ Pushed a first commit to trunk.");
-    expect(r.out[1]).toBe("Setting up lunamill for acme/site");
+    expect(r.out[1]).toBe("Setting up Lunamill for acme/site");
   });
 
   it("carries on with that branch as the default branch", async () => {

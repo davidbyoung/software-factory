@@ -1,6 +1,6 @@
 # Work as a team
 
-For several people using lunamill on one repository, and for anyone
+For several people using Lunamill on one repository, and for anyone
 joining a repository someone has set up already, or working from another
 machine. At the end each person works as themselves, on the same
 version.
@@ -27,25 +27,25 @@ version.
   instructions from a review or a comment by an account with write
   access, and from nobody else. There is nothing to list: give a
   teammate write access, and their reviews are answered.
-- **Each person installs lunamill once,** on their own machine, as
+- **Each person installs Lunamill once,** on their own machine, as
   [Install](../get-started/install.md) shows. A machine without it
   is told so when a session starts.
 - **One version for everyone.** The repository names the version, in
   `.claude/lunamill.lock`, and each person's `lunamill` command runs that
   one. After an update merges, each person pulls, and nobody installs
-  lunamill again: the command downloads the new version the first
+  Lunamill again: the command downloads the new version the first
   time it runs.
 - **One session per ticket.** A session claims a ticket before it starts,
   and a second one is told who holds it.
-- **Only labeled tickets are lunamill's.** A teammate who works a
-  ticket by hand removes the lunamill label first, and lunamill leaves
+- **Only labeled tickets are Lunamill's.** A teammate who works a
+  ticket by hand removes the lunamill label first, and Lunamill leaves
   its card where they put it
-  ([Which tickets are lunamill's](../workflow/tickets.md#which-tickets-are-lunamills)).
+  ([Which tickets are Lunamill's](../workflow/tickets.md#which-tickets-are-lunamills)).
 - **One person merges updates.** An update changes the instructions
   everyone's sessions follow, so it always waits for a person.
   [Updating](../maintain/updating.md) describes it.
 - **Check your coding agent's plan.** Read its terms to see that it
-  covers the way your team would use lunamill, including builds that
+  covers the way your team would use Lunamill, including builds that
   run without anyone watching: nobody has tested that it does
   ([What nobody has tested](../about/limitations.md#what-nobody-has-tested)).
 
@@ -68,14 +68,14 @@ part that is off.
 
 ## In a session on another machine
 
-1. **Install lunamill there,** as [Install](../get-started/install.md)
+1. **Install Lunamill there,** as [Install](../get-started/install.md)
    shows:
 
    ```bash
    npm install -g @lunamill-ai/lunamill
    ```
 
-   A session your coding agent's vendor hosts starts without lunamill, and its hooks stop the session's commands until it is there.
+   A session your coding agent's vendor hosts starts without Lunamill, and its hooks stop the session's commands until it is there.
    Put that command in the setup of the environment the session runs in
    ([Limitations](../about/limitations.md#what-it-does-not-do)).
 

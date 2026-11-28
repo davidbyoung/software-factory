@@ -4,7 +4,7 @@
 repository. You read it and merge it.** That is all you have to do, and
 nobody installs anything afterward.
 
-Four releases ask more of you. One changes how lunamill is installed:
+Four releases ask more of you. One changes how Lunamill is installed:
 [Moving to one install on your machine](upgrade-notes.md#moving-to-one-install-on-your-machine).
 The others need lines in your settings file that it doesn't have:
 [Moving to settings version 2](upgrade-notes.md#moving-to-settings-version-2) and
@@ -28,27 +28,27 @@ that error says what to add, and then you run `lunamill update` again.
 
 ## What happens
 
-Your repository names one exact version of lunamill, in three files
-lunamill writes and you commit: `.claude/lunamill.lock`, which also
+Your repository names one exact version of Lunamill, in three files
+Lunamill writes and you commit: `.claude/lunamill.lock`, which also
 holds every setting in effect, and the two workflow files,
 `.github/workflows/lunamill.yml` and `.github/workflows/lunamill-review.yml`.
 Every `lunamill` command run there, on any machine and in the cloud, runs
 that version.
 
-1. lunamill's update job runs in your repository three times a day, at
-   01:00, 13:00, and 19:00 UTC. It asks lunamill's own repository for
+1. Lunamill's update job runs in your repository three times a day, at
+   01:00, 13:00, and 19:00 UTC. It asks Lunamill's own repository for
    its newest release, and when your repository names an older one, it
    opens one pull request.
 2. That pull request raises the version and holds every file the new
    version's [`lunamill sync`](../reference/cli.md#setting-up) wrote, the command that
-   writes lunamill's files into your repository.
+   writes Lunamill's files into your repository.
 3. You read it and merge it. It never merges itself, whatever your
    [`auto-merge`](../reference/settings/auto-merge.md#auto-merge) settings allow.
 4. The next time anyone runs `lunamill` in the repository, it downloads
    that version, once, and says so:
 
    ```text
-   Downloading lunamill 0.3.0, which this repository names. This happens once.
+   Downloading Lunamill 0.3.0, which this repository names. This happens once.
    ```
 
 The job needs [builds in the cloud](../features/cloud-builds.md), since it pushes a
@@ -63,7 +63,7 @@ App. Without them, [do it yourself](#doing-it-yourself).
   `.github/workflows/lunamill-review.yml`. The lock also holds every
   setting in effect, so a release that changes a default shows in its
   diff.
-- **lunamill's files, rewritten.** Its skills, agents, and rules live
+- **Lunamill's files, rewritten.** Its skills, agents, and rules live
   in your repository, so the diff shows exactly which instruction
   changed.
 - **A description** that names the two versions, lists the other files
@@ -71,7 +71,7 @@ App. Without them, [do it yourself](#doing-it-yourself).
   anything to do by hand:
 
   ```text
-  lunamill 0.2.0 → 0.3.0
+  Lunamill 0.2.0 → 0.3.0
 
   Changes here:
   - .claude/skills/lunamill-build/SKILL.md, rewritten
@@ -98,11 +98,11 @@ builds in the cloud:
 lunamill update
 ```
 
-It raises the repository to the newest release of lunamill and moves
+It raises the repository to the newest release of Lunamill and moves
 each preset to its newest commit, then syncs:
 
 ```text
-lunamill 0.2.0 → 0.3.0
+Lunamill 0.2.0 → 0.3.0
 acme/lunamill-config 3f2a91c → 8d04e7b
 acme/lunamill-config//node is at its newest commit, 3f2a91c.
 ✓ Wrote 9 files. Commit them on a branch and open a pull request.
@@ -111,14 +111,14 @@ acme/lunamill-config//node is at its newest commit, 3f2a91c.
 With nothing to do, it changes nothing:
 
 ```text
-✓ Nothing to update: lunamill is 0.3.0, the newest release, and both presets are at their newest commits.
+✓ Nothing to update: Lunamill is 0.3.0, the newest release, and both presets are at their newest commits.
 ```
 
 To see whether you are behind without changing anything, run
-`lunamill doctor`. When you are, its line for lunamill reads:
+`lunamill doctor`. When you are, its line for Lunamill reads:
 
 ```text
-? lunamill 0.2.0. 0.3.0 is released: merge its pull request, or run lunamill update
+? Lunamill 0.2.0. 0.3.0 is released: merge its pull request, or run lunamill update
 ```
 
 ## Staying on a version, or going back
@@ -139,7 +139,7 @@ To see whether you are behind without changing anything, run
 | `lunamill sync`   | After you edit `.claude/lunamill.yaml`, to apply the change    |
 | `lunamill doctor` | To see whether you are behind, or why something is off         |
 
-`lunamill sync` rewrites lunamill's files to match your settings and
+`lunamill sync` rewrites Lunamill's files to match your settings and
 the version your repository names. It never changes that version:
 `lunamill update` does.
 
@@ -156,9 +156,9 @@ repository names.
 
 | What you see                                                                                                               | What happened                                                                                     | What to do                                                                               |
 | -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| CI fails with "of lunamill's files don't match the settings"                                                               | A lunamill file was edited by hand, or settings changed without a sync                            | Run `lunamill sync` and commit the result                                                |
-| A command stops with `This repository names lunamill 0.3.0, and it could not be downloaded`                                | npm could not fetch that version, and the line ends with npm's reason                             | Fix what npm names, such as the network or a registry setting, and run the command again |
-| A command stops with `.claude/lunamill.lock names lunamill ..., which is not a release`                                    | The lock's `version` line holds something other than a released version, as after an edit by hand | Run `lunamill update`                                                                    |
+| CI fails with "of Lunamill's files don't match the settings"                                                               | A Lunamill file was edited by hand, or settings changed without a sync                            | Run `lunamill sync` and commit the result                                                |
+| A command stops with `This repository names Lunamill 0.3.0, and it could not be downloaded`                                | npm could not fetch that version, and the line ends with npm's reason                             | Fix what npm names, such as the network or a registry setting, and run the command again |
+| A command stops with `.claude/lunamill.lock names Lunamill ..., which is not a release`                                    | The lock's `version` line holds something other than a released version, as after an edit by hand | Run `lunamill update`                                                                    |
 | A session's commands stop with `lunamill is not installed on this machine`                                                 | This machine has no `lunamill` command                                                            | Install it once, as the line says: `npm install -g @lunamill-ai/lunamill`                |
 | A command stops with `version: must be 2`                                                                                  | The update changed the shape of the settings file                                                 | [Move the file](upgrade-notes.md#moving-to-settings-version-2)                           |
 | A command stops with [`tickets.columns: is required`](../reference/settings/tickets.md#ticketscolumns) or `have no column` | The update needs a column named for every state                                                   | [Name every column](upgrade-notes.md#naming-every-column)                                |
@@ -168,20 +168,20 @@ repository names.
 | The update pull request conflicts with your default branch                                                                 | Something else changed the same file                                                              | Close it, and run `lunamill update` on a new branch                                      |
 | `lunamill status` leaves out a ticket you expected                                                                         | It doesn't carry the lunamill label                                                               | Add the label, or run `lunamill ticket adopt N`                                          |
 
-## Never edit a lunamill file
+## Never edit a Lunamill file
 
-Every file named `lunamill-...`, and lunamill's rules, are written by
-lunamill. An edit made to one would be lost on the next update, so CI
+Every file named `lunamill-...`, and Lunamill's rules, are written by
+Lunamill. An edit made to one would be lost on the next update, so CI
 fails when one differs from what the version your repository names would
 write.
 
-To change what lunamill does:
+To change what Lunamill does:
 
 - **For your repository only:** say so in your own instructions for the
-  agent, which win over lunamill's rules, change a number under
+  agent, which win over Lunamill's rules, change a number under
   [`rules`](../reference/settings/rules.md#rules) in your settings, or put a skill or
   an agent of your own in a [plugin role](../customize/plugins.md).
-- **For everyone:** change it in lunamill, and it reaches you as an
+- **For everyone:** change it in Lunamill, and it reaches you as an
   update.
 
 [Why it works this way](../about/design.md) explains why the files are copied in

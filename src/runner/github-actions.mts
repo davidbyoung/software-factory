@@ -1,4 +1,4 @@
-// GitHub Actions as the runner: a build is a run of lunamill's workflow,
+// GitHub Actions as the runner: a build is a run of Lunamill's workflow,
 // started by a dispatch that names the job, and the review is one job of
 // the workflow a pull request starts.
 // With `src/tickets/` and `src/code-host/`, this is the only code that

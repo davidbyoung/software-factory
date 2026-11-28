@@ -2,11 +2,11 @@
 
 The board: a GitHub Project with a column for each of a ticket's states.
 
-## What lunamill uses it for
+## What Lunamill uses it for
 
 The board is a GitHub Project, owned by the account or the organization
 that owns the repository. The board sync sets the Project's own Status
-field to the ticket's column, and writes three fields of lunamill's
+field to the ticket's column, and writes three fields of Lunamill's
 own, which `init` adds when the board lacks them:
 
 | Field   | Shows                                                                    |
@@ -41,7 +41,7 @@ access token on your own account
 | Three fields, Session, Runs in, and Cost, if yours lacked them and `init` added them. The sync also sets the board's own Status field | Delete the three                             |
 | A Project `init` created, linked to the repository                                                                                    | Delete it, or keep it as an ordinary Project |
 
-A board lunamill created for you is an ordinary GitHub Project. Keep
+A board Lunamill created for you is an ordinary GitHub Project. Keep
 it or delete it.
 
 ## Tokens and secrets
@@ -51,7 +51,7 @@ The board sync writes with a GitHub access token stored as
 the one to make, and [GitHub](github.md#when-the-github-access-token-expires)
 says what to do when it expires.
 
-## What lunamill can and cannot do there
+## What Lunamill can and cannot do there
 
 The sync sets each ticket's column and writes its three fields. It never
 creates, renames, or removes a column or field: `lunamill init` adds the
@@ -60,7 +60,7 @@ ones a board lacks.
 ## Limits that come from GitHub
 
 **A field holds at most 1,024 characters.** A field you add to a Project, which shows as a column of its table, holds
-at most 1,024 characters, so it can't hold a lunamill field such as a Spec,
+at most 1,024 characters, so it can't hold a Lunamill field such as a Spec,
 which is often several thousand. Use an
 [issue field](github-issues.md#set-it-up) instead
 ([Your tickets already have fields](../features/board.md#your-tickets-already-have-fields)).
@@ -95,7 +95,7 @@ what each column means.
    repository: its Projects tab, "New project", Board layout. Link it to
    the repository from the Project's menu, so it shows on the repository's
    Projects tab. Its number is the last part of its address.
-2. **Give it lunamill's columns:** Backlog, In refinement, Ready, In
+2. **Give it Lunamill's columns:** Backlog, In refinement, Ready, In
    progress, In review, and Done, in its Status field. A new Project starts
    with Todo, In Progress, and Done. To keep columns of your own, map them
    under [`tickets.columns`](../reference/settings/tickets.md#ticketscolumns) instead.

@@ -39,7 +39,7 @@ comments and a "Review verdict" status.
   While the review is off, the status passes, reading "The automated
   review is off".
 - **Tell the reviewer about your project** in `.github/review-notes.md`,
-  which you write and lunamill leaves alone.
+  which you write and Lunamill leaves alone.
 - **Override a verdict for one commit** with the `verdict-override`
   label, which only a person adds ([Merge](../workflow/merge.md)).
 - **Each push to a pull request marked ready is reviewed again,** so a

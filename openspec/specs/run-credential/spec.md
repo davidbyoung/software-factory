@@ -8,7 +8,7 @@ The credential a run in GitHub Actions works with: the App's key `lunamill.yml` 
 
 ### Requirement: What each workflow file passes
 
-lunamill SHALL behave as this line says: When `lunamill sync` writes the two workflow files, `lunamill.yml` passes `app-key` and the other secrets to `run.yml`, and `lunamill-review.yml` passes none and has only `actions: read` and `contents: read`.
+Lunamill SHALL behave as this line says: When `lunamill sync` writes the two workflow files, `lunamill.yml` passes `app-key` and the other secrets to `run.yml`, and `lunamill-review.yml` passes none and has only `actions: read` and `contents: read`.
 
 #### Scenario: What each workflow file passes
 
@@ -17,7 +17,7 @@ lunamill SHALL behave as this line says: When `lunamill sync` writes the two wor
 
 ### Requirement: A token of the App's for the run
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A token of the App's for the run
 
@@ -26,7 +26,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: Who posts the verdict
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Who posts the verdict
 
@@ -35,7 +35,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: A session's commits under the App
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A session's commits under the App
 
@@ -44,7 +44,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: The App's key counts as the build token
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The App's key counts as the build token
 
@@ -53,7 +53,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: The App is not installed on the repository
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The App is not installed on the repository
 
@@ -62,7 +62,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: lunamill enroll on a push to the default branch
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: lunamill enroll on a push to the default branch
 
@@ -71,7 +71,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: The branch's user under the App
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The branch's user under the App
 
@@ -80,7 +80,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: A token's permissions
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A token's permissions
 
@@ -89,7 +89,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: The second token
 
-lunamill SHALL behave as this line says: When a job reads or writes another of a ticket's repositories under the App, it makes a second token for those repositories alone, which may read contents and pull requests, write issues, and start runs, and nothing else. A pull request's verdict job's may only read.
+Lunamill SHALL behave as this line says: When a job reads or writes another of a ticket's repositories under the App, it makes a second token for those repositories alone, which may read contents and pull requests, write issues, and start runs, and nothing else. A pull request's verdict job's may only read.
 
 #### Scenario: The second token
 
@@ -98,7 +98,7 @@ lunamill SHALL behave as this line says: When a job reads or writes another of a
 
 ### Requirement: The second token with no App
 
-lunamill SHALL behave as this line says: When no App's key reaches the run, the build token is used, and otherwise the board token.
+Lunamill SHALL behave as this line says: When no App's key reaches the run, the build token is used, and otherwise the board token.
 
 #### Scenario: The second token with no App
 

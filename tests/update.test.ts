@@ -169,11 +169,11 @@ const TWO = [
 ];
 
 describe("lunamill update, by hand", () => {
-  it("raises lunamill and each changed preset, syncs once at the new version, and says what it wrote", async () => {
+  it("raises Lunamill and each changed preset, syncs once at the new version, and says what it wrote", async () => {
     const u = update({ pins: TWO, changed: ["acme/lunamill-config"] });
     expect(await u.run()).toBe(0);
     expect(u.out).toEqual([
-      "lunamill 0.2.0 → 0.3.0",
+      "Lunamill 0.2.0 → 0.3.0",
       "acme/lunamill-config 3f2a91c → 8d04e7b",
       "acme/lunamill-config//node is at its newest commit, 3f2a91c.",
       "✓ Wrote 2 files and deleted 1. Commit them on a branch and open a pull request.",
@@ -188,7 +188,7 @@ describe("lunamill update, by hand", () => {
     const u = update({ pins: TWO, changed: ["acme/lunamill-config"] });
     await u.run();
     expect(u.looks.slice(0, 2)).toEqual([
-      "lunamill {skip:0.2.0} → {name:0.3.0}",
+      "Lunamill {skip:0.2.0} → {name:0.3.0}",
       "acme/lunamill-config {skip:3f2a91c} → {name:8d04e7b}",
     ]);
   });
@@ -204,7 +204,7 @@ describe("lunamill update, by hand", () => {
     });
     expect(await u.run()).toBe(1);
     expect(u.out).toEqual([
-      "lunamill 0.2.0 → 0.3.0",
+      "Lunamill 0.2.0 → 0.3.0",
       "acme/lunamill-config 3f2a91c → 8d04e7b",
       "foo/presets//bar 3f2a91c → 8d04e7b",
       "foo/presets//bar: rules.review-rounds: must be a whole number above zero",
@@ -238,12 +238,12 @@ describe("lunamill update, by hand", () => {
     const u = update({ version: "0.3.0", pins });
     expect(await u.run()).toBe(0);
     expect(u.out).toEqual([
-      `✓ Nothing to update: lunamill is 0.3.0, the newest release${end}`,
+      `✓ Nothing to update: Lunamill is 0.3.0, the newest release${end}`,
     ]);
     expect(u.calls).toEqual([]);
   });
 
-  it("does not take lunamill back from a version newer than the newest release", async () => {
+  it("does not take Lunamill back from a version newer than the newest release", async () => {
     const u = update({ version: "0.4.0" });
     await u.run();
     expect(u.calls).toEqual([]);
@@ -264,7 +264,7 @@ describe("lunamill update, by hand", () => {
     ]);
   });
 
-  it("says which preset it could not compare, and still updates lunamill and the rest", async () => {
+  it("says which preset it could not compare, and still updates Lunamill and the rest", async () => {
     const u = update({
       pins: [pin("acme/gone", OLD), TWO[0]!],
       uncompared: {
@@ -277,13 +277,13 @@ describe("lunamill update, by hand", () => {
     expect(await u.run()).toBe(0);
     expect(u.out).toEqual([
       "? acme/gone could not be read: fatal: remote error: upload-pack: not our ref 3f2a91c. To stop following it: lunamill preset remove acme/gone",
-      "lunamill 0.2.0 → 0.3.0",
+      "Lunamill 0.2.0 → 0.3.0",
       "acme/lunamill-config 3f2a91c → 8d04e7b",
       "✓ Wrote 2 files and deleted 1. Commit them on a branch and open a pull request.",
     ]);
   });
 
-  it("moves presets only in lunamill's own repository, which runs its source", async () => {
+  it("moves presets only in Lunamill's own repository, which runs its source", async () => {
     const u = update({
       own: true,
       pins: [TWO[0]!],
@@ -297,7 +297,7 @@ describe("lunamill update, by hand", () => {
     ]);
   });
 
-  it("stops where lunamill is not set up", async () => {
+  it("stops where Lunamill is not set up", async () => {
     const u = update({ settings: false });
     expect(await u.run()).toBe(1);
     expect(u.out).toEqual([
@@ -315,26 +315,26 @@ describe("lunamill update, by hand", () => {
   it("exits with the sync's code when the sync fails, and claims nothing was written", async () => {
     const u = update({ syncCode: 1 });
     expect(await u.run()).toBe(1);
-    expect(u.out).toEqual(["lunamill 0.2.0 → 0.3.0"]);
+    expect(u.out).toEqual(["Lunamill 0.2.0 → 0.3.0"]);
   });
 });
 
 describe("lunamill update --pull-requests", () => {
   const PR = ["--pull-requests"];
 
-  it("still opens lunamill's pull request when a preset's commits cannot be compared", async () => {
+  it("still opens Lunamill's pull request when a preset's commits cannot be compared", async () => {
     const u = update({
       pins: [pin("acme/gone", OLD)],
       uncompared: { "acme/gone": new Error("fatal: not our ref 3f2a91c") },
     });
     expect(await u.run(PR)).toBe(0);
     expect(u.out).toEqual([
-      "✓ Opened #41, Update lunamill to 0.3.0",
+      "✓ Opened #41, Update Lunamill to 0.3.0",
       "? acme/gone could not be read: fatal: not our ref 3f2a91c. To stop following it: lunamill preset remove acme/gone",
     ]);
   });
 
-  it("opens one pull request for lunamill and one for each preset repository, each from the default branch", async () => {
+  it("opens one pull request for Lunamill and one for each preset repository, each from the default branch", async () => {
     const u = update({
       pins: [...TWO, pin("foo/presets//bar", OLD)],
       changed: [
@@ -347,7 +347,7 @@ describe("lunamill update --pull-requests", () => {
     });
     expect(await u.run(PR)).toBe(0);
     expect(u.out).toEqual([
-      "✓ Opened #41, Update lunamill to 0.3.0",
+      "✓ Opened #41, Update Lunamill to 0.3.0",
       "✓ Opened #42, Update acme/lunamill-config to 8d04e7b",
       "✓ Opened #43, Update foo/presets to 8d04e7b",
     ]);
@@ -357,9 +357,9 @@ describe("lunamill update --pull-requests", () => {
       "sync 0.3.0",
       "git status --porcelain",
       "git add -A",
-      "git commit -m Update lunamill to 0.3.0",
+      "git commit -m Update Lunamill to 0.3.0",
       "git push -u origin lunamill-update/lunamill-0.3.0",
-      "open lunamill-update/lunamill-0.3.0: Update lunamill to 0.3.0",
+      "open lunamill-update/lunamill-0.3.0: Update Lunamill to 0.3.0",
       "git switch --detach origin/main",
       "git switch -C lunamill-update/acme-lunamill-config-8d04e7b origin/main",
       "move acme/lunamill-config,acme/lunamill-config//node 8d04e7b",
@@ -391,13 +391,13 @@ describe("lunamill update --pull-requests", () => {
     });
     expect(await u.run(PR)).toBe(1);
     expect(u.out).toEqual([
-      "✓ Opened #41, Update lunamill to 0.3.0",
+      "✓ Opened #41, Update Lunamill to 0.3.0",
       said,
       "✓ Opened #42, Update foo/presets to 8d04e7b",
       "? acme/gone could not be read: not found. To stop following it: lunamill preset remove acme/gone",
     ]);
     expect(u.calls.filter((c) => /^(open|close|move)/.test(c))).toEqual([
-      "open lunamill-update/lunamill-0.3.0: Update lunamill to 0.3.0",
+      "open lunamill-update/lunamill-0.3.0: Update Lunamill to 0.3.0",
       "move foo/presets//bar 8d04e7b",
       "open lunamill-update/foo-presets-8d04e7b: Update foo/presets to 8d04e7b",
     ]);
@@ -432,7 +432,7 @@ describe("lunamill update --pull-requests", () => {
     expect(u.calls).toEqual([]);
   });
 
-  it("describes lunamill's by its versions, each file the sync changed but the lock, and the release's notes", async () => {
+  it("describes Lunamill's by its versions, each file the sync changed but the lock, and the release's notes", async () => {
     const u = update({
       status:
         " M .claude/lunamill.lock\n M .claude/skills/lunamill-build/SKILL.md\n?? .github/workflows/lunamill.yml\n D .github/workflows/lunamill-check.yml\n",
@@ -440,7 +440,7 @@ describe("lunamill update --pull-requests", () => {
     await u.run(PR);
     expect(u.bodies).toEqual([
       [
-        "lunamill 0.2.0 → 0.3.0",
+        "Lunamill 0.2.0 → 0.3.0",
         "",
         "Changes here:",
         "- .claude/skills/lunamill-build/SKILL.md, rewritten",
@@ -476,7 +476,7 @@ describe("lunamill update --pull-requests", () => {
     });
     expect(await u.run(PR)).toBe(0);
     expect(u.out).toEqual([
-      "- Update lunamill to 0.3.0 was closed, so it is not opened again",
+      "- Update Lunamill to 0.3.0 was closed, so it is not opened again",
       "- #38, Update foo/presets to 8d04e7b, is still open",
       "- Update foo/tools to 8d04e7b was closed, so it is not opened again",
     ]);
@@ -508,7 +508,7 @@ describe("lunamill update --pull-requests", () => {
     const u = update({ version: "0.3.0", pins: TWO });
     expect(await u.run(PR)).toBe(0);
     expect(u.out).toEqual([
-      "✓ Nothing to update: lunamill is 0.3.0, the newest release, and both presets are at their newest commits.",
+      "✓ Nothing to update: Lunamill is 0.3.0, the newest release, and both presets are at their newest commits.",
     ]);
     expect(u.calls).toEqual([]);
   });
@@ -611,26 +611,26 @@ describe("lunamill update, where an organization's poller is", () => {
     ]);
   });
 
-  it("opens one pull request that rewrites the version after poller.yml@v, as an update of lunamill does", async () => {
+  it("opens one pull request that rewrites the version after poller.yml@v, as an update of Lunamill does", async () => {
     const u = poller();
 
     expect(await u.run(PR)).toBe(0);
-    expect(u.out).toEqual(["✓ Opened #9, Update lunamill to 0.5.0"]);
+    expect(u.out).toEqual(["✓ Opened #9, Update Lunamill to 0.5.0"]);
     expect(u.calls).toEqual([
       "git fetch origin main",
       "git switch -C lunamill-update/lunamill-0.5.0 origin/main",
       "write",
       "git status --porcelain",
       "git add -A",
-      "git commit -m Update lunamill to 0.5.0",
+      "git commit -m Update Lunamill to 0.5.0",
       "git push -u origin lunamill-update/lunamill-0.5.0",
-      "open lunamill-update/lunamill-0.5.0 into main: Update lunamill to 0.5.0",
+      "open lunamill-update/lunamill-0.5.0 into main: Update Lunamill to 0.5.0",
       "git switch --detach origin/main",
     ]);
     expect(u.text()).toBe(fileAt("0.5.0"));
     expect(u.bodies).toEqual([
       [
-        "lunamill 0.4.0 → 0.5.0",
+        "Lunamill 0.4.0 → 0.5.0",
         "",
         "Changes here:",
         "- .github/workflows/lunamill-poller.yml, rewritten",
@@ -654,11 +654,11 @@ describe("lunamill update, where an organization's poller is", () => {
   it.each<[{ number: number; state: "open" | "closed" | "merged" }, string]>([
     [
       { number: 7, state: "open" },
-      "- #7, Update lunamill to 0.5.0, is still open",
+      "- #7, Update Lunamill to 0.5.0, is still open",
     ],
     [
       { number: 7, state: "closed" },
-      "- Update lunamill to 0.5.0 was closed, so it is not opened again",
+      "- Update Lunamill to 0.5.0 was closed, so it is not opened again",
     ],
   ])(
     "opens none where that release's pull request is %j",
@@ -671,7 +671,7 @@ describe("lunamill update, where an organization's poller is", () => {
     },
   );
 
-  it("closes an older open pull request for lunamill, naming the one that replaced it", async () => {
+  it("closes an older open pull request for Lunamill, naming the one that replaced it", async () => {
     const u = poller({
       open: [
         { number: 5, branch: "lunamill-update/lunamill-0.4.5" },
@@ -691,7 +691,7 @@ describe("lunamill update, where an organization's poller is", () => {
     const u = poller();
 
     expect(await u.run()).toBe(0);
-    expect(u.out).toEqual(["lunamill 0.4.0 → 0.5.0"]);
+    expect(u.out).toEqual(["Lunamill 0.4.0 → 0.5.0"]);
     expect(u.calls).toEqual(["write"]);
     expect(u.text()).toBe(fileAt("0.5.0"));
   });
@@ -704,7 +704,7 @@ describe("lunamill update, where an organization's poller is", () => {
 
         expect(await u.run(argv)).toBe(0);
         expect(u.out).toEqual([
-          "✓ Nothing to update: lunamill is 0.4.0, the newest release.",
+          "✓ Nothing to update: Lunamill is 0.4.0, the newest release.",
         ]);
         expect(u.calls).toEqual([]);
       }
@@ -726,7 +726,7 @@ describe("lunamill update, where an organization's poller is", () => {
 
     expect(await u.run(PR)).toBe(1);
     expect(u.out).toEqual([
-      "✗ .github/workflows/lunamill-poller.yml names no release of lunamill after poller.yml@v. Write one there, such as poller.yml@v1.2.3.",
+      "✗ .github/workflows/lunamill-poller.yml names no release of Lunamill after poller.yml@v. Write one there, such as poller.yml@v1.2.3.",
     ]);
     expect(u.calls).toEqual([]);
   });
@@ -771,7 +771,7 @@ describe("the settings lunamill update reads", () => {
   });
 });
 
-describe("lunamill update, the command, in lunamill's own repository", () => {
+describe("lunamill update, the command, in Lunamill's own repository", () => {
   it("reads the settings, the lock, and its pins, and finds nothing to move", () => {
     const r = spawnSync(
       "node",
@@ -780,7 +780,7 @@ describe("lunamill update, the command, in lunamill's own repository", () => {
     );
     expect({ code: r.status, out: r.stdout, err: r.stderr }).toEqual({
       code: 0,
-      out: "✓ Nothing to update: lunamill runs from its source here.\n",
+      out: "✓ Nothing to update: Lunamill runs from its source here.\n",
       err: "",
     });
   });

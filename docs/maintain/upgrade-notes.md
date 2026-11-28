@@ -6,10 +6,10 @@ these only when it does. A repository coming from an old release takes
 them oldest first, from the bottom of the page up, as
 [Updating](updating.md) says.
 
-## Moving to lunamill
+## Moving to Lunamill
 
 For a repository that uses the software factory, `@davidbyoung/software-factory`,
-whose owner wants it on lunamill, the same product under its new name. At the
+whose owner wants it on Lunamill, the same product under its new name. At the
 end the repository runs `lunamill`, its files and checks carry the new name,
 and its updates come again.
 
@@ -36,7 +36,7 @@ deletes them.
    **It worked when** `lunamill`, run in any folder, prints the list of its
    commands.
 
-2. Make a branch, and rename the two settings files lunamill reads: your
+2. Make a branch, and rename the two settings files Lunamill reads: your
    settings, and the lock, which names the version your repository runs.
 
    ```bash
@@ -55,7 +55,7 @@ deletes them.
    **It worked when** `git status` lists each file as renamed.
 
 3. In `.claude/lunamill.yaml`, change the first line, `version: 2`, to
-   `version: 1`: lunamill counts its settings versions from 1 again, and the
+   `version: 1`: Lunamill counts its settings versions from 1 again, and the
    shape is the same. Until you do, every `lunamill` command that reads the
    settings stops with:
 
@@ -74,7 +74,7 @@ deletes them.
    ```
 
 4. In `.claude/settings.json`, delete what the old command wrote, since
-   lunamill does not recognize it as its own, and keep every entry of your
+   Lunamill does not recognize it as its own, and keep every entry of your
    own. The update in the next step writes the new ones.
    - Under `hooks`, each entry whose `command` runs `factory`, such as
      `factory session-start`, `factory guard`, or
@@ -97,7 +97,7 @@ deletes them.
    ```
 
    ```text
-   lunamill 0.1.21 → 0.2.0
+   Lunamill 0.1.21 → 0.2.0
    ✓ Wrote 24 files. Commit them on a branch and open a pull request.
    ```
 
@@ -119,7 +119,7 @@ deletes them.
 
 7. Before you merge it, on GitHub:
    - **The label.** If your settings name it under `tickets.labels`,
-     which step 3 kept, leave the label alone. Otherwise lunamill now looks
+     which step 3 kept, leave the label alone. Otherwise Lunamill now looks
      for the label `lunamill`, so rename yours, which keeps it on every
      ticket: `gh label edit factory --name lunamill`.
    - **Secrets and variables.** List the ones you have:
@@ -129,11 +129,11 @@ deletes them.
      cannot rename a secret or show its value, so you paste each one again,
      from wherever you keep it. `CLAUDE_CODE_OAUTH_TOKEN` and
      `ANTHROPIC_API_KEY` keep their names.
-   - **A rule you made yourself.** The ruleset lunamill makes requires
+   - **A rule you made yourself.** The ruleset Lunamill makes requires
      "Review verdict", whose name stays the same. A rule of your own may
      require one of the old checks by name. Under Settings, Rules,
      change `review / Factory files in step` to
-     `review / lunamill files in step`, and a name that starts `factory /`,
+     `review / Lunamill files in step`, and a name that starts `factory /`,
      such as `factory / Pull request / Record the verdict`, to the same
      name starting `lunamill /`.
    - **A poller you host.** If you [host the poller](../features/hosting-the-poller.md#hosting-the-poller-own-server),
@@ -181,7 +181,7 @@ to move: set one up with `lunamill init --org`, as
 
 **It worked when** [`lunamill doctor`](../reference/cli.md), which checks the whole
 setup, passes in the repository, and each pull request opened after the merge
-lists the new checks, such as `review / lunamill files in step`.
+lists the new checks, such as `review / Lunamill files in step`.
 
 ## Grouped checks
 

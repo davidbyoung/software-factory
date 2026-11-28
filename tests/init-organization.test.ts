@@ -80,7 +80,7 @@ describe("lunamill init, in an organization's repository that is set up", () => 
     const r = dev();
     expect(await r.run()).toBe(0);
     expect(r.transcript).toEqual([
-      "Setting up lunamill for acme/web",
+      "Setting up Lunamill for acme/web",
       "",
       "Found",
       "  Code host        GitHub (from your git remote)",
@@ -105,19 +105,19 @@ describe("lunamill init, in an organization's repository that is set up", () => 
       "",
       "This is everything setup will do:",
       "  settings      Write .claude/lunamill.yaml and .claude/lunamill.lock",
-      "  files         Copy lunamill's skills, agents, rules, and guards, and acme's own reviewer and skill",
+      "  files         Copy Lunamill's skills, agents, rules, and guards, and acme's own reviewer and skill",
       "  workflows     Write .github/workflows/lunamill.yml and lunamill-review.yml",
       "  pull request  Push the branch set-up-lunamill and open a pull request",
       "? confirm: Go ahead?",
       "",
       "✓ npm run check passes here.",
-      '✓ Opened acme/web#1, "Set up lunamill".',
+      '✓ Opened acme/web#1, "Set up Lunamill".',
       "Merge it to finish. Nothing else is left to do.",
       "",
       "After it merges:",
       "  1. Come back to main and bring it up to date:",
       "       git switch main && git pull",
-      "  2. Start a new session of your coding agent here. It loads lunamill from the files now in your repository.",
+      "  2. Start a new session of your coding agent here. It loads Lunamill from the files now in your repository.",
       "  3. Refine a ticket with /lunamill-refine N, then build it with /lunamill-build N.",
       "The steps in full:",
       "     https://github.com/lunamill-ai/lunamill/blob/v0.2.0/docs/get-started/quick-start.md#4-open-a-ticket",
@@ -131,7 +131,7 @@ describe("lunamill init, in an organization's repository that is set up", () => 
     const r = dev();
     expect(await r.run()).toBe(0);
     expect(r.looks).toEqual([
-      "Setting up lunamill for {name:acme/web}",
+      "Setting up Lunamill for {name:acme/web}",
       "",
       "{heading:Found}",
       "  {name:Code host}        GitHub (from your git remote)",
@@ -154,18 +154,18 @@ describe("lunamill init, in an organization's repository that is set up", () => 
       "",
       "{heading:This is everything setup will do:}",
       "  {name:settings}      Write .claude/lunamill.yaml and .claude/lunamill.lock",
-      "  {name:files}         Copy lunamill's skills, agents, rules, and guards, and acme's own reviewer and skill",
+      "  {name:files}         Copy Lunamill's skills, agents, rules, and guards, and acme's own reviewer and skill",
       "  {name:workflows}     Write .github/workflows/lunamill.yml and lunamill-review.yml",
       "  {name:pull request}  Push the branch set-up-lunamill and open a pull request",
       "",
       "{good:✓} npm run check passes here.",
-      '{good:✓} Opened {name:acme/web#1}, "Set up lunamill".',
+      '{good:✓} Opened {name:acme/web#1}, "Set up Lunamill".',
       "{yourTurn:Merge it to finish. Nothing else is left to do.}",
       "",
       "{yourTurn:After it merges:}",
       "  {yourTurn:1.} Come back to main and bring it up to date:",
       "       {copy:git switch main && git pull}",
-      "  {yourTurn:2.} Start a new session of your coding agent here. It loads lunamill from the files now in your repository.",
+      "  {yourTurn:2.} Start a new session of your coding agent here. It loads Lunamill from the files now in your repository.",
       "  {yourTurn:3.} Refine a ticket with {copy:/lunamill-refine N}, then build it with {copy:/lunamill-build N}.",
       "The steps in full:",
       "     {copy:https://github.com/lunamill-ai/lunamill/blob/v0.2.0/docs/get-started/quick-start.md#4-open-a-ticket}",
@@ -1034,7 +1034,7 @@ describe("lunamill init, in a repository a person owns", () => {
     expect(await r.run()).toBe(0);
     const rows = r.out.slice(0, r.out.indexOf("", 2));
     expect(rows).toEqual([
-      "Setting up lunamill for sam/api",
+      "Setting up Lunamill for sam/api",
       "",
       "Found",
       "  Code host      GitHub (from your git remote)",

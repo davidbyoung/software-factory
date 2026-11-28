@@ -1,6 +1,6 @@
 # Your commands
 
-For someone telling lunamill how to check a change in their
+For someone telling Lunamill how to check a change in their
 repository. At the end a build runs your tests, your linter, and one test
 at a time, as you do. Every key is on
 [`commands`](../reference/settings/commands.md#commands).

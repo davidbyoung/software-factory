@@ -33,16 +33,16 @@ const review = (over: Partial<WorkflowOptions> = {}) =>
   parse(reviewWorkflow(options(over)));
 
 describe("lunamill.yml", () => {
-  it("calls lunamill's run.yml at the version the lock names, from one job", () => {
+  it("calls Lunamill's run.yml at the version the lock names, from one job", () => {
     const file = factory();
-    expect(file.name).toBe("lunamill");
+    expect(file.name).toBe("Lunamill");
     expect(Object.keys(file.jobs)).toEqual(["lunamill"]);
     expect(file.jobs.lunamill.uses).toBe(
       "lunamill-ai/lunamill/.github/workflows/run.yml@v0.3.0",
     );
   });
 
-  it("calls the copy in the same commit in lunamill's own repository", () => {
+  it("calls the copy in the same commit in Lunamill's own repository", () => {
     expect(factory({ version: null }).jobs.lunamill.uses).toBe(
       "./.github/workflows/run.yml",
     );
@@ -111,7 +111,7 @@ describe("lunamill.yml", () => {
     );
   });
 
-  it("grants what lunamill's jobs post with, and no more", () => {
+  it("grants what Lunamill's jobs post with, and no more", () => {
     expect(factory().permissions).toEqual({
       actions: "read",
       checks: "read",
@@ -185,9 +185,9 @@ describe("lunamill.yml", () => {
 });
 
 describe("lunamill-review.yml", () => {
-  it("calls lunamill's review.yml on a pull request, from a job of another name", () => {
+  it("calls Lunamill's review.yml on a pull request, from a job of another name", () => {
     const file = review({ parts: ["review", "dependabot"] });
-    expect(file.name).toBe("lunamill review");
+    expect(file.name).toBe("Lunamill review");
     expect(file.on).toEqual({
       pull_request: {
         types: ["opened", "reopened", "synchronize", "ready_for_review"],
@@ -270,7 +270,7 @@ describe("lunamill-poller.yml", () => {
     );
   });
 
-  it("calls lunamill's poller.yml from one job, with the app's key as its one secret", () => {
+  it("calls Lunamill's poller.yml from one job, with the app's key as its one secret", () => {
     const file = parse(text);
     expect(Object.keys(file.jobs)).toEqual(["poller"]);
     expect(file.jobs.poller.secrets).toEqual({

@@ -1877,7 +1877,7 @@ describe("a ticket opened with a bare tag in its title", () => {
   });
 });
 
-describe("tickets whose lunamill fields sit in ticket fields", () => {
+describe("tickets whose Lunamill fields sit in ticket fields", () => {
   const FIELDS: TicketField[] = [
     { name: "Priority", description: null, text: false },
     { name: "Acceptance criteria", description: null, text: true },
@@ -2101,7 +2101,7 @@ describe("answers", () => {
   const STRANGER = said(12, "mallory", "Do C instead.", 2);
   const TWENTY_EIGHT = { number: 28, comments: [ROUND, REPLY, STRANGER] };
 
-  it("prints each comment by someone who may decide, without lunamill's mark, as view prints a comment", async () => {
+  it("prints each comment by someone who may decide, without Lunamill's mark, as view prints a comment", async () => {
     const { d, out } = deps([TWENTY_EIGHT], { deciders: ["alice"] });
 
     expect(await main(["answers", "28"], d)).toBe(0);
@@ -2529,7 +2529,7 @@ describe("the lunamill label", () => {
       await main([command, "PROJ-7"], d);
       expect(memory.state.get("PROJ-7")!.labels).toEqual(["lunamill"]);
       expect(out[0]).toBe(
-        "PROJ-7 had no lunamill label: added it, so lunamill now tracks PROJ-7",
+        "PROJ-7 had no lunamill label: added it, so Lunamill now tracks PROJ-7",
       );
     },
   );
@@ -2613,7 +2613,7 @@ describe("lunamill ticket adopt", () => {
     const { d, out, memory, files } = deps(tickets, { labeled: false });
     files.set(
       "old.lock",
-      "settings:\n  tickets:\n    labels:\n      lunamill: lunamill  # default\n",
+      "settings:\n  tickets:\n    labels:\n      lunamill: Lunamill  # default\n",
     );
 
     expect(

@@ -1,8 +1,8 @@
 # Add it to an existing repository
 
-For someone adding lunamill to a repository that already has a
+For someone adding Lunamill to a repository that already has a
 toolchain, a board, instructions for a coding agent, a team, or several
-packages. At the end you know what lunamill leaves alone, and which
+packages. At the end you know what Lunamill leaves alone, and which
 page covers your case.
 
 ## Try it without committing to it
@@ -28,7 +28,7 @@ have already merged.
 ## You already have agent instructions, settings, or CI workflows
 
 - **Your agent's instructions file:** one line is added at the end,
-  importing lunamill's rules. Nothing else in it changes. Your own rules
+  importing Lunamill's rules. Nothing else in it changes. Your own rules
   win where the two disagree.
 - **Your agent's settings:** a few hooks are added, and the agent's
   attribution lines are turned off, so a session's commits and pull
@@ -37,9 +37,9 @@ have already merged.
   ([Builds in the cloud](../features/cloud-builds.md)). If your settings already
   say how to attribute, that stays. Your existing hooks, permissions, and
   settings stay as they are.
-- **Your skills and agents:** untouched. Everything lunamill adds is
+- **Your skills and agents:** untouched. Everything Lunamill adds is
   named `lunamill-...`, so nothing collides.
-- **Your CI workflows:** untouched. lunamill's are two files,
+- **Your CI workflows:** untouched. Lunamill's are two files,
   `lunamill.yml` and `lunamill-review.yml`.
 - **`lunamill init` says what it will write** before it writes, as three
   rows of its plan, `settings`, `files`, and `workflows`, and changes
@@ -50,7 +50,7 @@ The coding agent's page lists each file setup adds
 
 ## What it does to your repository, in short
 
-[What it changes](../maintain/removing.md) says what kinds of things lunamill adds,
+[What it changes](../maintain/removing.md) says what kinds of things Lunamill adds,
 and how to undo each. The short version:
 
 - Files it owns, all named `lunamill-...`, and its rules.
@@ -62,8 +62,8 @@ and how to undo each. The short version:
   commands. They apply to agent sessions on a machine, not to your own
   terminal, and not in the cloud.
 - Two CI workflow files, `lunamill.yml` and `lunamill-review.yml`. Their
-  jobs check that lunamill's files are in step, run sessions in the
-  cloud, open lunamill's updates as pull requests, and run each
+  jobs check that Lunamill's files are in step, run sessions in the
+  cloud, open Lunamill's updates as pull requests, and run each
   optional part you turn on. A job whose part is off is skipped.
 - Comments on tickets it works, and a ticket for each
   [follow-up](../workflow/follow-ups.md) you tick in a pull request.

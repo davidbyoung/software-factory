@@ -1,6 +1,6 @@
 # Troubleshooting
 
-For anyone whom lunamill surprised. Start with
+For anyone whom Lunamill surprised. Start with
 `lunamill doctor`, run in your repository's checkout. If its output does not settle it, find what you saw
 among the headings below: each says what to do, or which page owns the
 fix.
@@ -50,7 +50,7 @@ Run `/lunamill-refine 12` again, or edit the ticket.
 
 Run `/lunamill-address-review 15`. It reads the failure and fixes it.
 
-## The session does not know lunamill's skills
+## The session does not know Lunamill's skills
 
 The setup is not merged, or the session started before it was. Merge
 the setup's pull request, bring your default branch up to date, and start

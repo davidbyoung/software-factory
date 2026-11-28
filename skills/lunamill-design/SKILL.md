@@ -107,7 +107,7 @@ depends on the one before.
    ```
 
    The comparison installs the default branch's side, not this one, and
-   lunamill, the browser, and `site.start` all run from the scratch
+   Lunamill, the browser, and `site.start` all run from the scratch
    worktree.
 
 3. **Picture it,** from the scratch worktree:

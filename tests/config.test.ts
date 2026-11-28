@@ -1221,7 +1221,7 @@ describe("parseSettings", () => {
   });
 });
 
-describe("lunamill's own approval policy", () => {
+describe("Lunamill's own approval policy", () => {
   const CREDENTIALS = {
     name: "credentials",
     run: "node .claude/approval-policies/credentials/find.mts",
@@ -1400,7 +1400,7 @@ describe("pluginsOf", () => {
       (p) => `${p.kind} ${p.name} ${p.role}`,
     );
 
-  it("gives lunamill's refiner, prover, and test reviewer to a file that names none", () => {
+  it("gives Lunamill's refiner, prover, and test reviewer to a file that names none", () => {
     expect(lines({})).toEqual([
       "skill lunamill-refine refiner",
       "skill lunamill-mutate prover",
@@ -1408,7 +1408,7 @@ describe("pluginsOf", () => {
     ]);
   });
 
-  it("lists every plugin in the roles' order, yours in place of lunamill's", () => {
+  it("lists every plugin in the roles' order, yours in place of Lunamill's", () => {
     const plugins = {
       conflicts: { resolvers: [{ skill: "regen", files: ["gen/**"] }] },
       test: {
@@ -1729,7 +1729,7 @@ describe("lunamill config explain", () => {
       "  url: http://localhost:$PORT",
     ]);
     expect(r.out).toContain("  # design-guide: none (default)");
-    expect(r.out).toContain("  # pages: found by lunamill (default)");
+    expect(r.out).toContain("  # pages: found by Lunamill (default)");
   });
 
   it("prints the ticket-side fields without a board, and no columns or board fields", async () => {
@@ -1909,7 +1909,7 @@ describe("lunamill config explain", () => {
         .slice(out.indexOf("plugins:"), out.indexOf("auto-merge:"))
         .map((l) => l.replace(/ +# default$/, " # default"));
 
-    it("prints them by phase, lunamill's own marked as defaults and the empty lists written out", async () => {
+    it("prints them by phase, Lunamill's own marked as defaults and the empty lists written out", async () => {
       const r = await explain([
         "version: 1",
         "repository: owner/name",
@@ -2313,7 +2313,7 @@ describe("main", () => {
       return { code, out: r.out, err: r.err };
     };
 
-    it("prints each plugin lunamill will use: its kind, name, and role, then its files or labels", async () => {
+    it("prints each plugin Lunamill will use: its kind, name, and role, then its files or labels", async () => {
       expect((await run([])).out).toEqual([
         "skill lunamill-refine refiner",
         "skill mock mockups",
@@ -2346,7 +2346,7 @@ describe("main", () => {
       },
     );
 
-    it("prints lunamill's refiner when the settings name none", async () => {
+    it("prints Lunamill's refiner when the settings name none", async () => {
       expect((await run(["refiner"], BARE)).out).toEqual([
         "skill lunamill-refine refiner",
       ]);
@@ -2359,7 +2359,7 @@ describe("main", () => {
       ]);
     });
 
-    it("prints lunamill's prover when the settings name none", async () => {
+    it("prints Lunamill's prover when the settings name none", async () => {
       expect((await run(["prover"], BARE)).out).toEqual([
         "skill lunamill-mutate prover",
       ]);
@@ -2370,7 +2370,7 @@ describe("main", () => {
       expect((await run(["prover"], file)).out).toEqual(["skill ours prover"]);
     });
 
-    it("prints lunamill's test reviewer when the list is not written", async () => {
+    it("prints Lunamill's test reviewer when the list is not written", async () => {
       expect((await run(["test-reviewer"], BARE)).out).toEqual([
         "agent lunamill-test-reviewer test-reviewer",
       ]);
@@ -2384,7 +2384,7 @@ describe("main", () => {
       ]);
     });
 
-    it("prints lunamill's test reviewer when a written list names it", async () => {
+    it("prints Lunamill's test reviewer when a written list names it", async () => {
       const file = `${BARE}plugins:\n  test:\n    reviewers:\n      - agent: lunamill-test-reviewer\n      - agent: ours\n`;
       expect((await run(["test-reviewer"], file)).out).toEqual([
         "agent lunamill-test-reviewer test-reviewer",
@@ -2539,7 +2539,7 @@ describe("main", () => {
     expect(await main(["repository"], d)).toBe(1);
     expect(out).toEqual([]);
     expect(err).toEqual([
-      "lunamill's settings cannot be read until dependencies are installed: run npm ci.",
+      "Lunamill's settings cannot be read until dependencies are installed: run npm ci.",
     ]);
   });
 });

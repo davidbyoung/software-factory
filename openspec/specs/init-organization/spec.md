@@ -8,7 +8,7 @@ What `lunamill init` prints and asks in a repository an organization owns, by wh
 
 ### Requirement: An organization that is set up
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: An organization that is set up
 
@@ -17,7 +17,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: An organization that is not set up here
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: An organization that is not set up here
 
@@ -26,7 +26,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: The parts left to turn on
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The parts left to turn on
 
@@ -35,7 +35,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: The rows in a person's repository
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The rows in a person's repository
 
@@ -44,7 +44,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: A preset's part the plan keeps from working
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A preset's part the plan keeps from working
 
@@ -53,7 +53,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: The parts the stop names
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The parts the stop names
 
@@ -62,7 +62,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: What the stop leaves undone
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: What the stop leaves undone
 
@@ -71,7 +71,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: The repository's own secrets meet the parts
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The repository's own secrets meet the parts
 
@@ -80,7 +80,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: However the presets are named
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: However the presets are named
 
@@ -89,7 +89,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: A part the repository's own settings turn on
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A part the repository's own settings turn on
 
@@ -98,7 +98,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: The repository's secrets that cannot be listed
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The repository's secrets that cannot be listed
 
@@ -107,7 +107,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: The line on what stays off under the plan
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The line on what stays off under the plan
 
@@ -116,7 +116,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: No line on what stays off with a credential stored
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: No line on what stays off with a credential stored
 
@@ -125,7 +125,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: The plan's second sign
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The plan's second sign
 
@@ -134,7 +134,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: A plan that withholds nothing
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A plan that withholds nothing
 
@@ -143,7 +143,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: The stop where the secrets do not reach
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The stop where the secrets do not reach
 
@@ -152,7 +152,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: What the stop lists
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: What the stop lists
 
@@ -161,7 +161,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: The stop in an organization that is not set up
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The stop in an organization that is not set up
 
@@ -170,7 +170,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: An organization that is not set up, on a plan that keeps its secrets back
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: An organization that is not set up, on a plan that keeps its secrets back
 
@@ -179,7 +179,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: An organization whose secrets cannot be listed
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: An organization whose secrets cannot be listed
 
@@ -188,7 +188,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: Nothing said to stay off where the secrets cannot be listed
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Nothing said to stay off where the secrets cannot be listed
 
@@ -197,7 +197,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: The line on what stays off where the secrets do not reach
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The line on what stays off where the secrets do not reach
 
@@ -206,7 +206,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: The line on what stays off in an organization that is not set up
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The line on what stays off in an organization that is not set up
 
@@ -215,7 +215,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: Builds in the cloud under a preset's builds from the board
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Builds in the cloud under a preset's builds from the board
 
@@ -224,7 +224,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: Every variable the organization shares
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Every variable the organization shares
 
@@ -233,16 +233,16 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: The organization's setup
 
-lunamill SHALL behave as this line says: When `lunamill init --org ORG` runs, it creates the repository `ORG/lunamill-config`, described as "lunamill's settings for every ORG repository", the board "lunamill", and the custom property `lunamill`, and registers the GitHub App `lunamill-ORG`, lowercase, whose install address is `https://github.com/apps/lunamill-ORG/installations/new`.
+Lunamill SHALL behave as this line says: When `lunamill init --org ORG` runs, it creates the repository `ORG/lunamill-config`, described as "Lunamill's settings for every ORG repository", the board "Lunamill", and the custom property `lunamill`, and registers the GitHub App `lunamill-ORG`, lowercase, whose install address is `https://github.com/apps/lunamill-ORG/installations/new`.
 
 #### Scenario: The organization's setup
 
 - **WHEN** `lunamill init --org ORG` runs
-- **THEN** it creates the repository `ORG/lunamill-config`, described as "lunamill's settings for every ORG repository", the board "lunamill", and the custom property `lunamill`, and registers the GitHub App `lunamill-ORG`, lowercase, whose install address is `https://github.com/apps/lunamill-ORG/installations/new`.
+- **THEN** it creates the repository `ORG/lunamill-config`, described as "Lunamill's settings for every ORG repository", the board "Lunamill", and the custom property `lunamill`, and registers the GitHub App `lunamill-ORG`, lowercase, whose install address is `https://github.com/apps/lunamill-ORG/installations/new`.
 
 ### Requirement: An organization's preset
 
-lunamill SHALL behave as this line says: When a repository names an organization's preset, it names it `ORG/lunamill-config//NAME`, and the preset's file is `lunamill-preset.yaml`.
+Lunamill SHALL behave as this line says: When a repository names an organization's preset, it names it `ORG/lunamill-config//NAME`, and the preset's file is `lunamill-preset.yaml`.
 
 #### Scenario: An organization's preset
 

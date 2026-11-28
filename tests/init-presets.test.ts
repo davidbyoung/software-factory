@@ -340,7 +340,7 @@ describe("lunamill init, what the presets answer", () => {
     expect(r.checkboxes[0]!.names).toEqual([
       "Builds in the cloud",
       "Pull requests that merge themselves",
-      "Signed commits on lunamill's updates",
+      "Signed commits on Lunamill's updates",
     ]);
     expect(r.out.join("\n")).not.toContain("turn off");
   });

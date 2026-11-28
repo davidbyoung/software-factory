@@ -49,7 +49,7 @@ const cached = (version: string) =>
   `${CACHE}/versions/${version}/node_modules/${NAME}/dist/cli.mjs`;
 
 describe("chooseEntry", () => {
-  it("runs lunamill's own source in lunamill's repository, from a global install", () => {
+  it("runs Lunamill's own source in Lunamill's repository, from a global install", () => {
     expect(
       choose({
         cwd: "/repo/src",
@@ -120,7 +120,7 @@ describe("chooseEntry", () => {
       }),
     ).toEqual({
       fault:
-        "✗ .claude/lunamill.lock names lunamill 0.0.0-development, which is not a release. Run: lunamill update",
+        "✗ .claude/lunamill.lock names Lunamill 0.0.0-development, which is not a release. Run: lunamill update",
     });
   });
 

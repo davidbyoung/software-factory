@@ -42,12 +42,12 @@ export function isMajor(title: string): boolean {
 
 /** What the skill does with a bump, in the order its steps take them.
  * `branch` is the default branch, which a conflicting bump merges, and
- * `lunamill` the name a bump of lunamill's own workflows carries: such a
+ * `lunamill` the name a bump of Lunamill's own workflows carries: such a
  * one is left for the Updates job's pull request, which also holds the
  * files that version writes. */
 export function nextStep(bump: Bump, branch: string, factory = ""): string {
   if (factory && bump.title.includes(factory))
-    return "leave (step 4): it names lunamill";
+    return "leave (step 4): it names Lunamill";
   if (bump.mergeableState === "unknown") return "leave: state not computed yet";
   if (bump.checks.some((c) => c.status !== "completed"))
     return "leave: checks still running";
@@ -164,7 +164,7 @@ export async function main(
   }
 }
 
-/** lunamill's own repository, as a bump of its workflows names it. */
+/** Lunamill's own repository, as a bump of its workflows names it. */
 async function factoryName(): Promise<string> {
   const { readFileSync } = await import("node:fs");
   const { join } = await import("node:path");

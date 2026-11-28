@@ -1,7 +1,7 @@
 # The jobs of run.yml's "Pull request" group: what judges a pull request's
 # commit. run.yml calls this file only on the events one of them starts on,
 # so on any other a pull request's checks list it as one skipped row.
-name: lunamill pull request
+name: Lunamill pull request
 
 on:
   workflow_call:
@@ -75,7 +75,7 @@ jobs:
           node-version: 22
 
       - &install
-        name: Install lunamill
+        name: Install Lunamill
         run: |
           if [ "$(jq -r '.name // empty' package.json 2> /dev/null)" = "@lunamill-ai/lunamill" ]; then
             npm ci --ignore-scripts
@@ -83,7 +83,7 @@ jobs:
           else
             version="$(sed -n 's/^version: *//p' .claude/lunamill.lock | head -n 1)"
             if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-              echo "::error::.claude/lunamill.lock names no release of lunamill. Run lunamill sync, and commit what it writes."
+              echo "::error::.claude/lunamill.lock names no release of Lunamill. Run lunamill sync, and commit what it writes."
               exit 1
             fi
             npm install --global --no-audit --no-fund "@lunamill-ai/lunamill@$version"
@@ -399,7 +399,7 @@ jobs:
         name: Say that the app is not installed
         if: failure() && steps.app.outcome == 'failure'
         run: |
-          echo "::error::lunamill's app for $GITHUB_REPOSITORY_OWNER is not installed on $GITHUB_REPOSITORY. An owner of $GITHUB_REPOSITORY_OWNER adds it: $GITHUB_SERVER_URL/organizations/$GITHUB_REPOSITORY_OWNER/settings/installations"
+          echo "::error::Lunamill's app for $GITHUB_REPOSITORY_OWNER is not installed on $GITHUB_REPOSITORY. An owner of $GITHUB_REPOSITORY_OWNER adds it: $GITHUB_SERVER_URL/organizations/$GITHUB_REPOSITORY_OWNER/settings/installations"
 
       - name: Classify
         id: classify
@@ -420,7 +420,7 @@ jobs:
             jq -r '.reasons[] | "- \(.)"' <<<"$result"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      # Through lunamill's command, which reaches the label the way
+      # Through Lunamill's command, which reaches the label the way
       # GitHub serves it, so nothing here calls the issues API.
       - name: Label
         env:

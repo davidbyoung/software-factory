@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { guard } from "../src/guard.mts";
 
 const REASON =
-  "lunamill's credentials file is not for sessions to read. Its commands read it themselves: run the lunamill command you need, such as lunamill ticket view.";
+  "Lunamill's credentials file is not for sessions to read. Its commands read it themselves: run the Lunamill command you need, such as lunamill ticket view.";
 
 /** A call to `tool` as the hook gets it: Bash through `lunamill guard`, and
  * the file tools through `lunamill guard credentials`. */

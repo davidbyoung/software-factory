@@ -3,7 +3,7 @@
 What `lunamill init --org` does on GitHub for an organization, and what to
 do when an organization's secrets do not reach a repository.
 
-## What lunamill uses it for
+## What Lunamill uses it for
 
 One setup that every repository of the organization shares: a GitHub
 App, the Claude token, a preset of settings, a board, and a rule that
@@ -39,12 +39,12 @@ lists them in the order to delete them.
 
 | What `lunamill init --org` adds                                                                                                                                           | Where to find it                                                                      |
 | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| The GitHub App "lunamill for acme", registered by the organization and installed on the repositories its owner chose                                                      | The organization's Settings, Developer settings, GitHub Apps                          |
+| The GitHub App "Lunamill for acme", registered by the organization and installed on the repositories its owner chose                                                      | The organization's Settings, Developer settings, GitHub Apps                          |
 | The secret `LUNAMILL_APP_PRIVATE_KEY`, the variable `LUNAMILL_APP_CLIENT_ID`, and the secret `CLAUDE_CODE_OAUTH_TOKEN`, or `ANTHROPIC_API_KEY`, each for every repository | The organization's Settings, Secrets and variables, Actions                           |
 | The repository `acme/lunamill-config`, with `lunamill-preset.yaml`, `.github/workflows/lunamill-poller.yml`, and a `README.md`                                            | Among the organization's repositories                                                 |
 | The property `lunamill`, with the values `on` and `off`, which the first workflow run after a repository's setup merges sets to `on` for it                               | The organization's Settings, Custom properties                                        |
 | The rule "lunamill", which requires "Review verdict" before a merge to the default branch of each repository whose property is `on`                                       | The organization's Settings, Rules. Not on GitHub's Free plan, which has no such rule |
-| A board, or whichever of lunamill's columns and fields the board the owner chose still lacked                                                                             | The organization's Projects                                                           |
+| A board, or whichever of Lunamill's columns and fields the board the owner chose still lacked                                                                             | The organization's Projects                                                           |
 
 ## Tokens and secrets
 
@@ -81,7 +81,7 @@ GitHub CLI needs the `admin:org` permission for step 2, which
 ticket that is ready, gets past the step "Sign in" of its Prepare job. A
 wrong key fails the run at that step.
 
-## What lunamill can and cannot do there
+## What Lunamill can and cannot do there
 
 Each job that needs a token makes one from the App's key, and the token
 lasts an hour. It reaches only the repositories the App is installed on,
@@ -93,7 +93,7 @@ property is `on` ([What setup adds](#what-setup-adds)).
 ## Limits that come from GitHub
 
 - **An organization is set up on github.com only.** GitHub Enterprise
-  Server is not supported: its servers cannot call lunamill's
+  Server is not supported: its servers cannot call Lunamill's
   workflows on github.com. `lunamill init --org` refuses any other
   address.
 - **Dependabot's pull requests do not merge themselves under the App, as
@@ -155,7 +155,7 @@ repositories:
 
 ## When something goes wrong
 
-When a later release of lunamill needs a new permission for the App,
+When a later release of Lunamill needs a new permission for the App,
 GitHub shows a request to review beside the App, in the organization's
 Settings, GitHub Apps. An owner accepts it.
 
@@ -219,7 +219,7 @@ are done on GitHub's site instead.
 ### Taking the App out
 
 In the organization's Settings, under GitHub Apps, uninstall the App
-whose name starts "lunamill for". Then, under Developer settings,
+whose name starts "Lunamill for". Then, under Developer settings,
 GitHub Apps, delete it. Do this only once each repository has had
 `lunamill remove` run and merged, as
 [Taking an organization's setup out](../maintain/removing.md#taking-an-organizations-setup-out)

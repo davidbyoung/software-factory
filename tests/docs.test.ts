@@ -361,12 +361,12 @@ const FEATURE_SHAPE = [
 /** An integration page's `##` headings, in order. "Limits that come from"
  * is followed by the tool's name. */
 const INTEGRATION_SHAPE = [
-  "What lunamill uses it for",
+  "What Lunamill uses it for",
   "You need",
   "Set it up",
   "What setup adds",
   "Tokens and secrets",
-  "What lunamill can and cannot do there",
+  "What Lunamill can and cannot do there",
   "Limits that come from",
   "When something goes wrong",
   "By hand",
@@ -1098,8 +1098,8 @@ describe("the docs, for settings version 2", () => {
     const [, page, anchor] = /\/docs\/(\S+\.md)#(\S+)$/.exec(refusal)!;
 
     expect(page).toBe("maintain/upgrade-notes.md");
-    expect(read(`docs/${page}`).split("\n")).toContain("## Moving to lunamill");
-    expect(anchor).toBe(headingSlug("Moving to lunamill"));
+    expect(read(`docs/${page}`).split("\n")).toContain("## Moving to Lunamill");
+    expect(anchor).toBe(headingSlug("Moving to Lunamill"));
   });
 
   it.each([
@@ -1152,11 +1152,11 @@ describe("the docs, for settings version 2", () => {
     expect(row).toContain("`--check`");
   });
 
-  it("list no lunamill migrate under What is built in docs/developing.md", () => {
+  it("list no Lunamill migrate under What is built in docs/developing.md", () => {
     const built = sectionOf(read("docs/developing.md"), "## What is built");
 
     expect(built).toContain("| Part ");
-    expect(built).not.toContain("lunamill migrate");
+    expect(built).not.toContain("Lunamill migrate");
   });
 
   const ORDER = "The order of the workflow is fixed";
@@ -1299,7 +1299,7 @@ describe("the docs on an organization's branch names", () => {
   });
 });
 
-describe("the docs on lunamill's own approval policy", () => {
+describe("the docs on Lunamill's own approval policy", () => {
   const flatly = (page: string, heading: string) =>
     flat(sectionOf(read(page), heading));
 
@@ -1312,11 +1312,11 @@ describe("the docs on lunamill's own approval policy", () => {
     expect(agent).not.toContain("name: credentials");
   });
 
-  it("say in the settings that lunamill adds credentials, which off: true turns off", () => {
+  it("say in the settings that Lunamill adds credentials, which off: true turns off", () => {
     expect(
       flatly(settingsPage("approval-policies"), "# `approval-policies`"),
     ).toContain(
-      "lunamill adds one policy of its own, `credentials` ([lunamill's own policy](../../features/credentials-policy.md#lunamills-own-policy)), which `off: true` turns off.",
+      "Lunamill adds one policy of its own, `credentials` ([Lunamill's own policy](../../features/credentials-policy.md#lunamills-own-policy)), which `off: true` turns off.",
     );
   });
 
@@ -1330,7 +1330,7 @@ describe("the docs on lunamill's own approval policy", () => {
     expect(
       flatly("docs/features/credentials-policy.md", "### What it reads"),
     ).toContain(
-      "In two repositories that use lunamill, it picked 31 of 259 merged changes, about 1 in 8.",
+      "In two repositories that use Lunamill, it picked 31 of 259 merged changes, about 1 in 8.",
     );
   });
 });
@@ -1385,10 +1385,10 @@ describe("the pages the commands print", () => {
 describe("the README", () => {
   const readme = read("README.md");
 
-  it("says who lunamill is for, warns it is early, installs it, and links to the docs site, in that order", () => {
+  it("says who Lunamill is for, warns it is early, installs it, and links to the docs site, in that order", () => {
     const headings = readme.split("\n").filter((line) => line.startsWith("#"));
     expect(headings).toEqual([
-      "# lunamill",
+      "# Lunamill",
       "## Install",
       "## Next",
       "## License",
@@ -1425,7 +1425,7 @@ describe("the upgrade notes", () => {
       .map((line) => line.slice(3));
 
     expect(headings).toEqual([
-      "Moving to lunamill",
+      "Moving to Lunamill",
       "Grouped checks",
       "The poller reads your settings",
       "Follow-ups in the pull request",

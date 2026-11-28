@@ -29,9 +29,9 @@ pull request that changes only those files has the `merge-automatic` label and m
 
 ## How it works
 
-- **Some files always wait for you,** whatever you allow: lunamill's
+- **Some files always wait for you,** whatever you allow: Lunamill's
   own files, every `CLAUDE.md` and `AGENTS.md`, and the spec tool's
-  settings. A change to how lunamill works is a person's call.
+  settings. A change to how Lunamill works is a person's call.
 - **`deny` carves exceptions out of `allow`,** and always wins.
 - **Your own check can hold one,** as a command that exits other than 0.
 - **The merge policy runs from your default branch,** so a pull request

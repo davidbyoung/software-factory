@@ -1,6 +1,6 @@
 // What `lunamill init` and `lunamill init --org` both do: ask at the
 // terminal, read a secret or a credential until it is taken or left empty,
-// and give a board lunamill's columns and fields.
+// and give a board Lunamill's columns and fields.
 import { spawn, spawnSync } from "node:child_process";
 import { accessSync, constants, statSync } from "node:fs";
 import { delimiter, join } from "node:path";

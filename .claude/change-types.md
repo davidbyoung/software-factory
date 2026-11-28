@@ -9,7 +9,7 @@ as they stand, so this file never restates them.
 
 | Kind                                                                             | Example                                                         |
 | -------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| A command's behavior a lunamill user sees: output, exit, what it writes          | `lunamill` running the version a repository's lock names        |
+| A command's behavior a Lunamill user sees: output, exit, what it writes          | `lunamill` running the version a repository's lock names        |
 | A setting: a new key, a default, or what a value means                           | `pr-review` and its `commands`                                  |
 | A skill, an agent, or the rules: what every repository's sessions do             | `lunamill-address-review` waiting for no review where it is off |
 | A workflow every repository calls: what runs in its CI                           | the review job of `run.yml`, or the check of `review.yml`       |

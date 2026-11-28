@@ -8,7 +8,7 @@ What `lunamill init`, `lunamill doctor`, and `lunamill config check` ask of each
 
 ### Requirement: Init is unchanged with today's tools
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Init is unchanged with today's tools
 
@@ -58,7 +58,7 @@ again.
 
 ### Requirement: A secret left for later
 
-lunamill SHALL behave as this line says: When nothing is pasted for a tool's secret, `init` prints the tool's line for that, followed by `Run lunamill init again to add it.`
+Lunamill SHALL behave as this line says: When nothing is pasted for a tool's secret, `init` prints the tool's line for that, followed by `Run lunamill init again to add it.`
 
 #### Scenario: A secret left for later
 
@@ -92,12 +92,12 @@ them.
 
 #### Scenario: An unsupported code host
 
-- **WHEN** no remote is on a code host lunamill supports
+- **WHEN** no remote is on a code host Lunamill supports
 - **THEN** `init` says so and names every one it supports, as a list ("A, B, and C").
 
 ### Requirement: Doctor is unchanged with today's tools
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Doctor is unchanged with today's tools
 
@@ -106,7 +106,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: A tool's secret not set
 
-lunamill SHALL behave as this line says: When a secret a tool needs is not set, `doctor` fails `NAME is not set, for PARTS` with the fix `Run lunamill init`.
+Lunamill SHALL behave as this line says: When a secret a tool needs is not set, `doctor` fails `NAME is not set, for PARTS` with the fix `Run lunamill init`.
 
 #### Scenario: A tool's secret not set
 
@@ -145,7 +145,7 @@ system does not declare.
 
 ### Requirement: Where the poller runs
 
-lunamill SHALL behave as this line says: When the part "Builds that start when you move a card to Ready" is chosen, `init` asks "Where does the poller run?", with "A schedule on GitHub Actions, every 5 minutes, nothing to host" first and "A server you host, within a minute" second, and writes `builds.trigger` as `github-action` or `own-server`.
+Lunamill SHALL behave as this line says: When the part "Builds that start when you move a card to Ready" is chosen, `init` asks "Where does the poller run?", with "A schedule on GitHub Actions, every 5 minutes, nothing to host" first and "A server you host, within a minute" second, and writes `builds.trigger` as `github-action` or `own-server`.
 
 #### Scenario: Where the poller runs
 
@@ -154,7 +154,7 @@ lunamill SHALL behave as this line says: When the part "Builds that start when y
 
 ### Requirement: How often, on a private repository
 
-lunamill SHALL behave as this line says: When the schedule is chosen on a private repository, `init` asks "How often?", listing each interval with its runs a month (5: 8,640; 10: 4,320; 15: 2,880; 30: 1,440; 60: 720) and the line "Each run bills at least one Actions minute on a private repository.", with 30 chosen by default. It writes `builds.poll-minutes` unless the answer is 5.
+Lunamill SHALL behave as this line says: When the schedule is chosen on a private repository, `init` asks "How often?", listing each interval with its runs a month (5: 8,640; 10: 4,320; 15: 2,880; 30: 1,440; 60: 720) and the line "Each run bills at least one Actions minute on a private repository.", with 30 chosen by default. It writes `builds.poll-minutes` unless the answer is 5.
 
 #### Scenario: How often, on a private repository
 
@@ -163,7 +163,7 @@ lunamill SHALL behave as this line says: When the schedule is chosen on a privat
 
 ### Requirement: No interval on a public repository
 
-lunamill SHALL behave as this line says: When the schedule is chosen on a public repository, `init` asks no interval and writes no `builds.poll-minutes`.
+Lunamill SHALL behave as this line says: When the schedule is chosen on a public repository, `init` asks no interval and writes no `builds.poll-minutes`.
 
 #### Scenario: No interval on a public repository
 
@@ -172,7 +172,7 @@ lunamill SHALL behave as this line says: When the schedule is chosen on a public
 
 ### Requirement: The poller's questions on a re-run
 
-lunamill SHALL behave as this line says: When a re-run finds `builds.trigger` already `github-action` or `own-server`, `init` asks neither "Where does the poller run?" nor "How often?".
+Lunamill SHALL behave as this line says: When a re-run finds `builds.trigger` already `github-action` or `own-server`, `init` asks neither "Where does the poller run?" nor "How often?".
 
 #### Scenario: The poller's questions on a re-run
 
@@ -181,7 +181,7 @@ lunamill SHALL behave as this line says: When a re-run finds `builds.trigger` al
 
 ### Requirement: The interval goes with the schedule
 
-lunamill SHALL behave as this line says: When the part is turned off, or the server is chosen, `init` removes `builds.poll-minutes` from the settings.
+Lunamill SHALL behave as this line says: When the part is turned off, or the server is chosen, `init` removes `builds.poll-minutes` from the settings.
 
 #### Scenario: The interval goes with the schedule
 
@@ -190,7 +190,7 @@ lunamill SHALL behave as this line says: When the part is turned off, or the ser
 
 ### Requirement: Nothing to host with the schedule
 
-lunamill SHALL behave as this line says: When the schedule is chosen, "Left to do" has no step about hosting a poller.
+Lunamill SHALL behave as this line says: When the schedule is chosen, "Left to do" has no step about hosting a poller.
 
 #### Scenario: Nothing to host with the schedule
 
@@ -199,16 +199,16 @@ lunamill SHALL behave as this line says: When the schedule is chosen, "Left to d
 
 ### Requirement: The image to host
 
-lunamill SHALL behave as this line says: When the server is chosen, "Left to do" reads "Run the poller's image, ghcr.io/lunamill-ai/lunamill-poller:VERSION, where you host it, with:" followed by the variables "Init prints the poller's two variables" in board-poller names, VERSION being the installed lunamill's version.
+Lunamill SHALL behave as this line says: When the server is chosen, "Left to do" reads "Run the poller's image, ghcr.io/lunamill-ai/lunamill-poller:VERSION, where you host it, with:" followed by the variables "Init prints the poller's two variables" in board-poller names, VERSION being the installed Lunamill's version.
 
 #### Scenario: The image to host
 
 - **WHEN** the server is chosen
-- **THEN** "Left to do" reads "Run the poller's image, ghcr.io/lunamill-ai/lunamill-poller:VERSION, where you host it, with:" followed by the variables "Init prints the poller's two variables" in board-poller names, VERSION being the installed lunamill's version.
+- **THEN** "Left to do" reads "Run the poller's image, ghcr.io/lunamill-ai/lunamill-poller:VERSION, where you host it, with:" followed by the variables "Init prints the poller's two variables" in board-poller names, VERSION being the installed Lunamill's version.
 
 ### Requirement: The part's description
 
-lunamill SHALL behave as this line says: The part's description in `init`'s list reads "a schedule on GitHub Actions, or a small server you host".
+Lunamill SHALL behave as this line says: The part's description in `init`'s list reads "a schedule on GitHub Actions, or a small server you host".
 
 #### Scenario: The part's description
 
@@ -217,7 +217,7 @@ lunamill SHALL behave as this line says: The part's description in `init`'s list
 
 ### Requirement: The hosted poller is left by hand
 
-lunamill SHALL behave as this line says: When `builds.trigger` is `own-server`, `lunamill remove`'s list of what is left by hand includes "The poller you host".
+Lunamill SHALL behave as this line says: When `builds.trigger` is `own-server`, `lunamill remove`'s list of what is left by hand includes "The poller you host".
 
 #### Scenario: The hosted poller is left by hand
 
@@ -226,7 +226,7 @@ lunamill SHALL behave as this line says: When `builds.trigger` is `own-server`, 
 
 ### Requirement: Left to do names the gate
 
-lunamill SHALL behave as this line says: When `commands.gate` is empty and `init`'s question for the gate was left empty, `init`'s "Left to do" includes `Add the commands that check a change, under commands.gate in .claude/lunamill.yaml`.
+Lunamill SHALL behave as this line says: When `commands.gate` is empty and `init`'s question for the gate was left empty, `init`'s "Left to do" includes `Add the commands that check a change, under commands.gate in .claude/lunamill.yaml`.
 
 #### Scenario: Left to do names the gate
 
@@ -235,7 +235,7 @@ lunamill SHALL behave as this line says: When `commands.gate` is empty and `init
 
 ### Requirement: Doctor shows a missing gate
 
-lunamill SHALL behave as this line says: When `commands.gate` is empty, `lunamill doctor` prints one more line, shown as off, reading `commands.gate is not set: a build cannot finish until it is`, and its exit status is what it would be without that line.
+Lunamill SHALL behave as this line says: When `commands.gate` is empty, `lunamill doctor` prints one more line, shown as off, reading `commands.gate is not set: a build cannot finish until it is`, and its exit status is what it would be without that line.
 
 #### Scenario: Doctor shows a missing gate
 
@@ -244,16 +244,16 @@ lunamill SHALL behave as this line says: When `commands.gate` is empty, `lunamil
 
 ### Requirement: An organization's Actions secret counts
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: An organization's Actions secret counts
 
-- **WHEN** a repository an organization owns has a secret lunamill reads that is not set on the repository, but the organization shares an Actions secret of that name with it
-- **THEN** `init` and `doctor` count it as set, for every secret lunamill reads. `doctor`'s line then reads `NAME is set by the organization, for ...`. Where the organization's Dependabot secrets can be listed and one of that name is shared with the repository, `init` counts the Dependabot copy as set too, and asks nothing for it. Which secrets `init` offers to delete when a part is turned off, and what `lunamill remove` reads, stay the repository's own.
+- **WHEN** a repository an organization owns has a secret Lunamill reads that is not set on the repository, but the organization shares an Actions secret of that name with it
+- **THEN** `init` and `doctor` count it as set, for every secret Lunamill reads. `doctor`'s line then reads `NAME is set by the organization, for ...`. Where the organization's Dependabot secrets can be listed and one of that name is shared with the repository, `init` counts the Dependabot copy as set too, and asks nothing for it. Which secrets `init` offers to delete when a part is turned off, and what `lunamill remove` reads, stay the repository's own.
 
 ### Requirement: An organization's Dependabot secret
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: An organization's Dependabot secret
 
@@ -262,7 +262,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: A person's repository
 
-lunamill SHALL behave as this line says: On a repository a person owns, a secret not set on the repository is not set: no `?` line.
+Lunamill SHALL behave as this line says: On a repository a person owns, a secret not set on the repository is not set: no `?` line.
 
 #### Scenario: A person's repository
 
@@ -271,7 +271,7 @@ lunamill SHALL behave as this line says: On a repository a person owns, a secret
 
 ### Requirement: Secrets that can't be listed
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Secrets that can't be listed
 
@@ -280,7 +280,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: An unknown check
 
-lunamill SHALL behave as this line says: When a check's state is unknown, `doctor` prints it with a leading `? `, and it does not make `doctor` exit 1.
+Lunamill SHALL behave as this line says: When a check's state is unknown, `doctor` prints it with a leading `? `, and it does not make `doctor` exit 1.
 
 #### Scenario: An unknown check
 
@@ -289,7 +289,7 @@ lunamill SHALL behave as this line says: When a check's state is unknown, `docto
 
 ### Requirement: Init requires the coding agent
 
-lunamill SHALL behave as this line says: When `lunamill init` runs and the coding agent's command isn't installed, init prints `Setting up lunamill for <repository>`, a blank line, then `lunamill runs in a coding agent, and <label> is not installed.`, `Install it and run lunamill init again.`, and `Nothing changed.`, and exits 1. It asks nothing but which repository, where the remotes leave that open, writes no file, and changes no board and no secret.
+Lunamill SHALL behave as this line says: When `lunamill init` runs and the coding agent's command isn't installed, init prints `Setting up lunamill for <repository>`, a blank line, then `lunamill runs in a coding agent, and <label> is not installed.`, `Install it and run lunamill init again.`, and `Nothing changed.`, and exits 1. It asks nothing but which repository, where the remotes leave that open, writes no file, and changes no board and no secret.
 
 #### Scenario: Init requires the coding agent
 
@@ -298,7 +298,7 @@ lunamill SHALL behave as this line says: When `lunamill init` runs and the codin
 
 ### Requirement: Init asks for the branch name
 
-lunamill SHALL behave as this line says: When `lunamill init` runs and the settings in effect have no `code-host.branch-name`, it asks `How should a build name its branch? Use {ticket}, and {user} for the GitHub account:` with `{ticket}` filled in, right after the ticket system and the runner are chosen.
+Lunamill SHALL behave as this line says: When `lunamill init` runs and the settings in effect have no `code-host.branch-name`, it asks `How should a build name its branch? Use {ticket}, and {user} for the GitHub account:` with `{ticket}` filled in, right after the ticket system and the runner are chosen.
 
 #### Scenario: Init asks for the branch name
 
@@ -307,7 +307,7 @@ lunamill SHALL behave as this line says: When `lunamill init` runs and the setti
 
 ### Requirement: Init writes the branch name
 
-lunamill SHALL behave as this line says: When the person answers, `lunamill init` writes a `code-host` block to `.claude/lunamill.yaml` holding `type: github` and `branch-name:` with the answer in double quotes.
+Lunamill SHALL behave as this line says: When the person answers, `lunamill init` writes a `code-host` block to `.claude/lunamill.yaml` holding `type: github` and `branch-name:` with the answer in double quotes.
 
 #### Scenario: Init writes the branch name
 
@@ -316,7 +316,7 @@ lunamill SHALL behave as this line says: When the person answers, `lunamill init
 
 ### Requirement: Init refuses a faulty pattern
 
-lunamill SHALL behave as this line says: When the answer breaks any of lines 4 to 8, `lunamill init` prints that line's reason, the text after `code-host.branch-name: `, and asks again.
+Lunamill SHALL behave as this line says: When the answer breaks any of lines 4 to 8, `lunamill init` prints that line's reason, the text after `code-host.branch-name: `, and asks again.
 
 #### Scenario: Init refuses a faulty pattern
 
@@ -325,7 +325,7 @@ lunamill SHALL behave as this line says: When the answer breaks any of lines 4 t
 
 ### Requirement: Init keeps a branch name already set
 
-lunamill SHALL behave as this line says: When a re-run finds `code-host.branch-name` in the settings in effect, from the file or a preset, `lunamill init` does not ask for it and leaves it as it is.
+Lunamill SHALL behave as this line says: When a re-run finds `code-host.branch-name` in the settings in effect, from the file or a preset, `lunamill init` does not ask for it and leaves it as it is.
 
 #### Scenario: Init keeps a branch name already set
 
@@ -334,7 +334,7 @@ lunamill SHALL behave as this line says: When a re-run finds `code-host.branch-n
 
 ### Requirement: Init fills in a missing branch name
 
-lunamill SHALL behave as this line says: When a re-run finds settings whose only faults are a missing `code-host.branch-name` and any states #53 lets init fill in, `lunamill init` does not stop with "Fix it, then run init again.", keeps every other value, and asks line 18's question.
+Lunamill SHALL behave as this line says: When a re-run finds settings whose only faults are a missing `code-host.branch-name` and any states #53 lets init fill in, `lunamill init` does not stop with "Fix it, then run init again.", keeps every other value, and asks line 18's question.
 
 #### Scenario: Init fills in a missing branch name
 
@@ -343,7 +343,7 @@ lunamill SHALL behave as this line says: When a re-run finds settings whose only
 
 ### Requirement: Init asks for the spec tool
 
-lunamill SHALL behave as this line says: When `lunamill init` runs and the settings in effect, from the file or a preset, have no `specs`, it asks `Which spec tool do you use?` right after the branch-name question, or where that question would be when it is not asked, offering `None: each ticket holds its own spec` first and selected, then `OpenSpec: each ticket holds its spec, and each build also keeps it in openspec/specs/`.
+Lunamill SHALL behave as this line says: When `lunamill init` runs and the settings in effect, from the file or a preset, have no `specs`, it asks `Which spec tool do you use?` right after the branch-name question, or where that question would be when it is not asked, offering `None: each ticket holds its own spec` first and selected, then `OpenSpec: each ticket holds its spec, and each build also keeps it in openspec/specs/`.
 
 #### Scenario: Init asks for the spec tool
 
@@ -352,7 +352,7 @@ lunamill SHALL behave as this line says: When `lunamill init` runs and the setti
 
 ### Requirement: Init writes no spec tool
 
-lunamill SHALL behave as this line says: When the person chooses None, `lunamill init` writes `specs: none` to `.claude/lunamill.yaml`.
+Lunamill SHALL behave as this line says: When the person chooses None, `lunamill init` writes `specs: none` to `.claude/lunamill.yaml`.
 
 #### Scenario: Init writes no spec tool
 
@@ -361,7 +361,7 @@ lunamill SHALL behave as this line says: When the person chooses None, `lunamill
 
 ### Requirement: Init writes OpenSpec
 
-lunamill SHALL behave as this line says: When the person chooses OpenSpec, `lunamill init` writes `specs: openspec` to `.claude/lunamill.yaml`.
+Lunamill SHALL behave as this line says: When the person chooses OpenSpec, `lunamill init` writes `specs: openspec` to `.claude/lunamill.yaml`.
 
 #### Scenario: Init writes OpenSpec
 
@@ -370,7 +370,7 @@ lunamill SHALL behave as this line says: When the person chooses OpenSpec, `luna
 
 ### Requirement: Init keeps a spec tool already set
 
-lunamill SHALL behave as this line says: When the settings in effect already have `specs`, `lunamill init` does not ask line 17's question and leaves `specs` as it is.
+Lunamill SHALL behave as this line says: When the settings in effect already have `specs`, `lunamill init` does not ask line 17's question and leaves `specs` as it is.
 
 #### Scenario: Init keeps a spec tool already set
 
@@ -379,7 +379,7 @@ lunamill SHALL behave as this line says: When the settings in effect already hav
 
 ### Requirement: Init plans the spec tool's install
 
-lunamill SHALL show an `install` row in init's plan, after every row but a `turn off` row and the `pull request` row, when the spec tool the settings name is not installed, as the scenario says.
+Lunamill SHALL show an `install` row in init's plan, after every row but a `turn off` row and the `pull request` row, when the spec tool the settings name is not installed, as the scenario says.
 
 #### Scenario: Init plans the spec tool's install
 
@@ -388,7 +388,7 @@ lunamill SHALL show an `install` row in init's plan, after every row but a `turn
 
 ### Requirement: Init installs the spec tool
 
-lunamill SHALL behave as this line says: When the person answers yes to "Go ahead?" with line 21's row in the plan, `lunamill init` runs the adapter's install command, for OpenSpec `npm install --save-dev @fission-ai/openspec`, from the repository's root, after writing `package.json` when there was none, and prints `Installed ` and the package, for OpenSpec `Installed @fission-ai/openspec.`
+Lunamill SHALL behave as this line says: When the person answers yes to "Go ahead?" with line 21's row in the plan, `lunamill init` runs the adapter's install command, for OpenSpec `npm install --save-dev @fission-ai/openspec`, from the repository's root, after writing `package.json` when there was none, and prints `Installed ` and the package, for OpenSpec `Installed @fission-ai/openspec.`
 
 #### Scenario: Init installs the spec tool
 
@@ -397,7 +397,7 @@ lunamill SHALL behave as this line says: When the person answers yes to "Go ahea
 
 ### Requirement: Init carries on when the install fails
 
-lunamill SHALL, when the spec tool's install fails, print the failure and the last five lines of its standard error, carry on with the rest of init, and put the install first under "Left to do", as the scenario says.
+Lunamill SHALL, when the spec tool's install fails, print the failure and the last five lines of its standard error, carry on with the rest of init, and put the install first under "Left to do", as the scenario says.
 
 #### Scenario: Init carries on when the install fails
 
@@ -406,7 +406,7 @@ lunamill SHALL, when the spec tool's install fails, print the failure and the la
 
 ### Requirement: Init installs nothing when it is not needed
 
-lunamill SHALL behave as this line says: When the adapter says its tool is installed, or `specs` is `none`, init's plan has no `install` row and init installs nothing. Lines 17 to 24 are the only change to what `lunamill init` prints and asks with today's tools.
+Lunamill SHALL behave as this line says: When the adapter says its tool is installed, or `specs` is `none`, init's plan has no `install` row and init installs nothing. Lines 17 to 24 are the only change to what `lunamill init` prints and asks with today's tools.
 
 #### Scenario: Init installs nothing when it is not needed
 
@@ -415,7 +415,7 @@ lunamill SHALL behave as this line says: When the adapter says its tool is insta
 
 ### Requirement: A credential of several parts
 
-lunamill SHALL behave as this line says: When a ticket system's credential has more than one part, `lunamill init` asks for each in the tool's order with the tool's prompt, masked only where the tool says, then checks them together with the tool's check.
+Lunamill SHALL behave as this line says: When a ticket system's credential has more than one part, `lunamill init` asks for each in the tool's order with the tool's prompt, masked only where the tool says, then checks them together with the tool's check.
 
 #### Scenario: A credential of several parts
 
@@ -424,7 +424,7 @@ lunamill SHALL behave as this line says: When a ticket system's credential has m
 
 ### Requirement: A refused credential at setup
 
-lunamill SHALL behave as this line says: When the ticket system answers the check with `401`, `init` prints the tool's refusal line with REASON, such as `Jira refused that email and token: 401 Unauthorized. Paste another.`, and asks again from the first masked part. Any other failure prints the tool's message, and asks again the same way.
+Lunamill SHALL behave as this line says: When the ticket system answers the check with `401`, `init` prints the tool's refusal line with REASON, such as `Jira refused that email and token: 401 Unauthorized. Paste another.`, and asks again from the first masked part. Any other failure prints the tool's message, and asks again the same way.
 
 #### Scenario: A refused credential at setup
 
@@ -433,7 +433,7 @@ lunamill SHALL behave as this line says: When the ticket system answers the chec
 
 ### Requirement: The plan stores the credential
 
-lunamill SHALL behave as this line says: When `init` will store a credential kept on the machine, its plan has a `store` row after the tools' `secrets` row: the label, padded to 12, two spaces, and `your LABEL credential on this machine, in PATH`. In a repository a person owns, the row first lists the code host's token and the coding agent's credential that `init` will keep there, as in `your GitHub token and your LABEL credential on this machine, in PATH`.
+Lunamill SHALL behave as this line says: When `init` will store a credential kept on the machine, its plan has a `store` row after the tools' `secrets` row: the label, padded to 12, two spaces, and `your LABEL credential on this machine, in PATH`. In a repository a person owns, the row first lists the code host's token and the coding agent's credential that `init` will keep there, as in `your GitHub token and your LABEL credential on this machine, in PATH`.
 
 #### Scenario: The plan stores the credential
 
@@ -442,7 +442,7 @@ lunamill SHALL behave as this line says: When `init` will store a credential kep
 
 ### Requirement: A pasted credential is stored in both places
 
-lunamill SHALL behave as this line says: When a credential is pasted on a first setup, `init` stores it under each of its secret names through the runner and in the file, and prints `It belongs to ACCOUNT. Stored as NAMES, and on this machine.`, ACCOUNT being what the tool's check names.
+Lunamill SHALL behave as this line says: When a credential is pasted on a first setup, `init` stores it under each of its secret names through the runner and in the file, and prints `It belongs to ACCOUNT. Stored as NAMES, and on this machine.`, ACCOUNT being what the tool's check names.
 
 #### Scenario: A pasted credential is stored in both places
 
@@ -451,7 +451,7 @@ lunamill SHALL behave as this line says: When a credential is pasted on a first 
 
 ### Requirement: A credential copied from this machine
 
-lunamill SHALL behave as this line says: When the file already holds a credential for the site on a first setup and the tool's check accepts it, `init` stores those values as the repository's secrets with no prompt, and prints `It belongs to ACCOUNT. Stored as NAMES, from this machine.` When the check refuses it, `init` asks as in line 15.
+Lunamill SHALL behave as this line says: When the file already holds a credential for the site on a first setup and the tool's check accepts it, `init` stores those values as the repository's secrets with no prompt, and prints `It belongs to ACCOUNT. Stored as NAMES, from this machine.` When the check refuses it, `init` asks as in line 15.
 
 #### Scenario: A credential copied from this machine
 
@@ -460,7 +460,7 @@ lunamill SHALL behave as this line says: When the file already holds a credentia
 
 ### Requirement: The file's modes
 
-lunamill SHALL behave as this line says: When `init` writes the file, the folder is created `700`, or set to `700` when it is looser, the file is `600` before any value is in it, every other entry is kept, and the file is replaced whole, so a failed write leaves the old one.
+Lunamill SHALL behave as this line says: When `init` writes the file, the folder is created `700`, or set to `700` when it is looser, the file is `600` before any value is in it, every other entry is kept, and the file is replaced whole, so a failed write leaves the old one.
 
 #### Scenario: The file's modes
 
@@ -469,7 +469,7 @@ lunamill SHALL behave as this line says: When `init` writes the file, the folder
 
 ### Requirement: This machine's row
 
-lunamill SHALL behave as this line says: When `.claude/lunamill.yaml` exists and the ticket system in use keeps a credential on the machine, `Found` has a `This machine` row reading `LABEL credential for SITE`, `no LABEL credential for SITE`, or `LABEL refused the credential for SITE`. It is the last row of `Found`, but for the tokens' `This machine` row, which follows it in a repository a person owns.
+Lunamill SHALL behave as this line says: When `.claude/lunamill.yaml` exists and the ticket system in use keeps a credential on the machine, `Found` has a `This machine` row reading `LABEL credential for SITE`, `no LABEL credential for SITE`, or `LABEL refused the credential for SITE`. It is the last row of `Found`, but for the tokens' `This machine` row, which follows it in a repository a person owns.
 
 #### Scenario: This machine's row
 
@@ -478,7 +478,7 @@ lunamill SHALL behave as this line says: When `.claude/lunamill.yaml` exists and
 
 ### Requirement: An unreadable file stops init
 
-lunamill SHALL behave as this line says: When the file can be read by others, or is not valid YAML, `init` prints line 4's message, or `PATH is not valid YAML: REASON. Fix or delete it, then run lunamill init again.`, after `Found` and any line under it about the organization, asks nothing more, and exits 1. In a repository a person owns it does so whatever the ticket system, since the tokens are kept in that file.
+Lunamill SHALL behave as this line says: When the file can be read by others, or is not valid YAML, `init` prints line 4's message, or `PATH is not valid YAML: REASON. Fix or delete it, then run lunamill init again.`, after `Found` and any line under it about the organization, asks nothing more, and exits 1. In a repository a person owns it does so whatever the ticket system, since the tokens are kept in that file.
 
 #### Scenario: An unreadable file stops init
 
@@ -487,7 +487,7 @@ lunamill SHALL behave as this line says: When the file can be read by others, or
 
 ### Requirement: Init asks for this machine's credential
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Init asks for this machine's credential
 
@@ -496,7 +496,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: No change to the parts
 
-lunamill SHALL behave as this line says: When the answer to line 20's question is no, `init` prints `Nothing else changed.` and exits 0, writing nothing else and changing no secret.
+Lunamill SHALL behave as this line says: When the answer to line 20's question is no, `init` prints `Nothing else changed.` and exits 0, writing nothing else and changing no secret.
 
 #### Scenario: No change to the parts
 
@@ -505,7 +505,7 @@ lunamill SHALL behave as this line says: When the answer to line 20's question i
 
 ### Requirement: A change to the parts
 
-lunamill SHALL behave as this line says: When the answer is yes, `init` carries on from listing the secrets as it does today.
+Lunamill SHALL behave as this line says: When the answer is yes, `init` carries on from listing the secrets as it does today.
 
 #### Scenario: A change to the parts
 
@@ -514,7 +514,7 @@ lunamill SHALL behave as this line says: When the answer is yes, `init` carries 
 
 ### Requirement: Secrets that cannot be listed after this machine's credential
 
-lunamill SHALL behave as this line says: When `init` cannot list the repository's secrets after line 20, it prints `Could not list the repository's secrets, so the parts are left as they are: REASON` and exits 0.
+Lunamill SHALL behave as this line says: When `init` cannot list the repository's secrets after line 20, it prints `Could not list the repository's secrets, so the parts are left as they are: REASON` and exits 0.
 
 #### Scenario: Secrets that cannot be listed after this machine's credential
 
@@ -523,7 +523,7 @@ lunamill SHALL behave as this line says: When `init` cannot list the repository'
 
 ### Requirement: No machine credential with GitHub's tickets
 
-lunamill SHALL behave as this line says: When the ticket system in use keeps nothing on the machine, as GitHub's does not, `init` prints no `This machine` row for a ticket system's credential and asks no line 20 question. In a repository a person owns, `Found` still has the tokens' `This machine` row, such as `no GitHub token for cloud runs`.
+Lunamill SHALL behave as this line says: When the ticket system in use keeps nothing on the machine, as GitHub's does not, `init` prints no `This machine` row for a ticket system's credential and asks no line 20 question. In a repository a person owns, `Found` still has the tokens' `This machine` row, such as `no GitHub token for cloud runs`.
 
 #### Scenario: No machine credential with GitHub's tickets
 
@@ -532,7 +532,7 @@ lunamill SHALL behave as this line says: When the ticket system in use keeps not
 
 ### Requirement: Doctor checks this machine's credential
 
-lunamill SHALL print, when the ticket system in use keeps a credential on the machine, one `lunamill doctor` line about it under the ticket system's heading: accepted, from the file or the environment, or the failure with its fix.
+Lunamill SHALL print, when the ticket system in use keeps a credential on the machine, one `lunamill doctor` line about it under the ticket system's heading: accepted, from the file or the environment, or the failure with its fix.
 
 #### Scenario: Doctor checks this machine's credential
 
@@ -541,7 +541,7 @@ lunamill SHALL print, when the ticket system in use keeps a credential on the ma
 
 ### Requirement: The ticket system opened through the registry
 
-lunamill SHALL behave as this line says: When a ticket system other than GitHub is registered, as Fake Tickets is in a test, and the settings name it in `tickets.type`, every `lunamill ticket` command, `lunamill status`, the board sync, and `lunamill poller --once` open it through the registry. A poller run with no settings, as one someone hosts, opens the default ticket system.
+Lunamill SHALL behave as this line says: When a ticket system other than GitHub is registered, as Fake Tickets is in a test, and the settings name it in `tickets.type`, every `lunamill ticket` command, `lunamill status`, the board sync, and `lunamill poller --once` open it through the registry. A poller run with no settings, as one someone hosts, opens the default ticket system.
 
 #### Scenario: The ticket system opened through the registry
 
@@ -550,7 +550,7 @@ lunamill SHALL behave as this line says: When a ticket system other than GitHub 
 
 ### Requirement: Init writes no package.json
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Init writes no package.json
 
@@ -559,25 +559,25 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: The specs that name a workflow file
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The specs that name a workflow file
 
-- **WHEN** a line of a spec this requirement lists names an old workflow file, `npm ci` for lunamill, or `npx --no-install lunamill`
-- **THEN** Each line of `board-poller`, `board-columns`, `board-sync-trigger`, `default-branch`, `labels-setting`, `npm-registry-secrets`, `ticket-keys`, `tool-setup`, and `cli-output` that names an old workflow file, `npm ci` for lunamill, or `npx --no-install lunamill` names `lunamill.yml` or `lunamill-review.yml`, its job, or `lunamill`. A secret `.npmrc` names still reaches each job that installs or runs a session, and doctor's poller lines name `lunamill.yml`, or `lunamill-poller.yml` for the poller a preset's repository runs.
+- **WHEN** a line of a spec this requirement lists names an old workflow file, `npm ci` for Lunamill, or `npx --no-install lunamill`
+- **THEN** Each line of `board-poller`, `board-columns`, `board-sync-trigger`, `default-branch`, `labels-setting`, `npm-registry-secrets`, `ticket-keys`, `tool-setup`, and `cli-output` that names an old workflow file, `npm ci` for Lunamill, or `npx --no-install lunamill` names `lunamill.yml` or `lunamill-review.yml`, its job, or `lunamill`. A secret `.npmrc` names still reaches each job that installs or runs a session, and doctor's poller lines name `lunamill.yml`, or `lunamill-poller.yml` for the poller a preset's repository runs.
 
-### Requirement: Signed commits on lunamill's updates
+### Requirement: Signed commits on Lunamill's updates
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
-#### Scenario: Signed commits on lunamill's updates
+#### Scenario: Signed commits on Lunamill's updates
 
 - **WHEN** `lunamill init` offers signed commits
-- **THEN** `lunamill init` offers signed commits as "Signed commits on lunamill's updates", and `LUNAMILL_SIGNING_KEY` is read only by the updates' job.
+- **THEN** `lunamill init` offers signed commits as "Signed commits on Lunamill's updates", and `LUNAMILL_SIGNING_KEY` is read only by the updates' job.
 
 ### Requirement: What CI's own token may do
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: What CI's own token may do
 
@@ -586,7 +586,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: A secret the plan withholds
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A secret the plan withholds
 
@@ -595,7 +595,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: A disabled lunamill.yml
 
-lunamill SHALL behave as this line says: When `lunamill.yml` is disabled on GitHub Actions, `lunamill doctor` fails with `lunamill.yml is disabled` and the fix `Enable it on the Actions tab, or run: gh workflow enable lunamill.yml`, whatever `builds.trigger` is.
+Lunamill SHALL behave as this line says: When `lunamill.yml` is disabled on GitHub Actions, `lunamill doctor` fails with `lunamill.yml is disabled` and the fix `Enable it on the Actions tab, or run: gh workflow enable lunamill.yml`, whatever `builds.trigger` is.
 
 #### Scenario: A disabled lunamill.yml
 
@@ -604,7 +604,7 @@ lunamill SHALL behave as this line says: When `lunamill.yml` is disabled on GitH
 
 ### Requirement: An enabled lunamill.yml
 
-lunamill SHALL behave as this line says: When `lunamill.yml` is enabled on GitHub Actions, `lunamill doctor` prints `✓ lunamill.yml is enabled`, whatever `builds.trigger` is.
+Lunamill SHALL behave as this line says: When `lunamill.yml` is enabled on GitHub Actions, `lunamill doctor` prints `✓ lunamill.yml is enabled`, whatever `builds.trigger` is.
 
 #### Scenario: An enabled lunamill.yml
 
@@ -613,7 +613,7 @@ lunamill SHALL behave as this line says: When `lunamill.yml` is enabled on GitHu
 
 ### Requirement: A lunamill.yml not on the default branch yet
 
-lunamill SHALL behave as this line says: When `lunamill.yml` is not on the default branch, `lunamill doctor` prints `- lunamill.yml is not on the default branch yet`, whatever `builds.trigger` is, and fails nothing for it.
+Lunamill SHALL behave as this line says: When `lunamill.yml` is not on the default branch, `lunamill doctor` prints `- lunamill.yml is not on the default branch yet`, whatever `builds.trigger` is, and fails nothing for it.
 
 #### Scenario: A lunamill.yml not on the default branch yet
 
@@ -622,7 +622,7 @@ lunamill SHALL behave as this line says: When `lunamill.yml` is not on the defau
 
 ### Requirement: A lunamill.yml whose state cannot be read
 
-lunamill SHALL behave as this line says: When the state of `lunamill.yml` cannot be read, `lunamill doctor` prints `? Could not tell whether lunamill.yml is enabled: REASON`, fails nothing for it, and prints its other checks. REASON is the error in GitHub's words, as doctor's other "Could not tell" lines about the repository give it, such as `Bad Gateway (HTTP 502)`.
+Lunamill SHALL behave as this line says: When the state of `lunamill.yml` cannot be read, `lunamill doctor` prints `? Could not tell whether lunamill.yml is enabled: REASON`, fails nothing for it, and prints its other checks. REASON is the error in GitHub's words, as doctor's other "Could not tell" lines about the repository give it, such as `Bad Gateway (HTTP 502)`.
 
 #### Scenario: A lunamill.yml whose state cannot be read
 
@@ -631,7 +631,7 @@ lunamill SHALL behave as this line says: When the state of `lunamill.yml` cannot
 
 ### Requirement: A disabled workflow of a preset's poller
 
-lunamill SHALL behave as this line says: When a preset's repository, OWNER/NAME, runs the poller and its workflow is disabled, `lunamill doctor` fails with `lunamill-poller.yml is disabled in OWNER/NAME` and the fix `Enable it on the Actions tab of OWNER/NAME`.
+Lunamill SHALL behave as this line says: When a preset's repository, OWNER/NAME, runs the poller and its workflow is disabled, `lunamill doctor` fails with `lunamill-poller.yml is disabled in OWNER/NAME` and the fix `Enable it on the Actions tab of OWNER/NAME`.
 
 #### Scenario: A disabled workflow of a preset's poller
 
@@ -640,7 +640,7 @@ lunamill SHALL behave as this line says: When a preset's repository, OWNER/NAME,
 
 ### Requirement: A preset's poller not on the default branch
 
-lunamill SHALL behave as this line says: When a preset's repository, OWNER/NAME, runs the poller and `lunamill-poller.yml` is not on its default branch, `lunamill doctor` fails with `lunamill-poller.yml is not on the default branch of OWNER/NAME` and the fix `An owner of OWNER runs lunamill init --org again`.
+Lunamill SHALL behave as this line says: When a preset's repository, OWNER/NAME, runs the poller and `lunamill-poller.yml` is not on its default branch, `lunamill doctor` fails with `lunamill-poller.yml is not on the default branch of OWNER/NAME` and the fix `An owner of OWNER runs lunamill init --org again`.
 
 #### Scenario: A preset's poller not on the default branch
 
@@ -649,7 +649,7 @@ lunamill SHALL behave as this line says: When a preset's repository, OWNER/NAME,
 
 ### Requirement: A re-run names the settings file once
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A re-run names the settings file once
 
@@ -658,7 +658,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: A re-run on a file that is not YAML
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A re-run on a file that is not YAML
 
@@ -667,7 +667,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: A re-run where a pinned preset is not valid
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A re-run where a pinned preset is not valid
 
@@ -676,7 +676,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: Doctor gives the Claude token's day
 
-lunamill SHALL behave as this line says: When `lunamill doctor` prints `CLAUDE_CODE_OAUTH_TOKEN is set` or `CLAUDE_CODE_OAUTH_TOKEN is set by the organization`, for a part or for the approval policies' agents, it prints one more line under the runner's heading, right after that one, saying the day it stops working.
+Lunamill SHALL behave as this line says: When `lunamill doctor` prints `CLAUDE_CODE_OAUTH_TOKEN is set` or `CLAUDE_CODE_OAUTH_TOKEN is set by the organization`, for a part or for the approval policies' agents, it prints one more line under the runner's heading, right after that one, saying the day it stops working.
 
 #### Scenario: Doctor gives the Claude token's day
 
@@ -685,7 +685,7 @@ lunamill SHALL behave as this line says: When `lunamill doctor` prints `CLAUDE_C
 
 ### Requirement: The date the token's day counts from
 
-lunamill SHALL behave as this line says: The date it counts from is the secret's `updated_at` in the repository's list, or, for a secret only the organization sets, in the organization's list of secrets shared with the repository. In a repository a person owns, when the credentials file holds a `pasted` day under `claude-code` for the repository's owner and it is earlier, that day counts instead.
+Lunamill SHALL behave as this line says: The date it counts from is the secret's `updated_at` in the repository's list, or, for a secret only the organization sets, in the organization's list of secrets shared with the repository. In a repository a person owns, when the credentials file holds a `pasted` day under `claude-code` for the repository's owner and it is earlier, that day counts instead.
 
 #### Scenario: The date the token's day counts from
 
@@ -694,7 +694,7 @@ lunamill SHALL behave as this line says: The date it counts from is the secret's
 
 ### Requirement: The token's day more than 30 days off
 
-lunamill SHALL behave as this line says: More than 30 days before DAY, the line is `✓ CLAUDE_CODE_OAUTH_TOKEN stops working by DAY, a year after it was stored`, ending `a year after you pasted it` when the file's day counted, or `a year after ORG stored it` for the organization's.
+Lunamill SHALL behave as this line says: More than 30 days before DAY, the line is `✓ CLAUDE_CODE_OAUTH_TOKEN stops working by DAY, a year after it was stored`, ending `a year after you pasted it` when the file's day counted, or `a year after ORG stored it` for the organization's.
 
 #### Scenario: The token's day more than 30 days off
 
@@ -703,7 +703,7 @@ lunamill SHALL behave as this line says: More than 30 days before DAY, the line 
 
 ### Requirement: The token's day within 30 days
 
-lunamill SHALL behave as this line says: From 30 days before DAY through DAY, the line is `? CLAUDE_CODE_OAUTH_TOKEN stops working by DAY, WHEN, a year after it was stored. Run lunamill init to replace it`, with line 3's other two endings, and for the organization's ending `a year after ORG stored it. An owner of ORG runs lunamill init --org to replace it`. It does not change `doctor`'s exit status.
+Lunamill SHALL behave as this line says: From 30 days before DAY through DAY, the line is `? CLAUDE_CODE_OAUTH_TOKEN stops working by DAY, WHEN, a year after it was stored. Run lunamill init to replace it`, with line 3's other two endings, and for the organization's ending `a year after ORG stored it. An owner of ORG runs lunamill init --org to replace it`. It does not change `doctor`'s exit status.
 
 #### Scenario: The token's day within 30 days
 
@@ -712,7 +712,7 @@ lunamill SHALL behave as this line says: From 30 days before DAY through DAY, th
 
 ### Requirement: The token's day passed
 
-lunamill SHALL behave as this line says: After DAY, the line is `✗ CLAUDE_CODE_OAUTH_TOKEN stopped working by DAY, a year after it was stored. Run lunamill init`, with line 3's other endings, and for the organization's `✗ CLAUDE_CODE_OAUTH_TOKEN stopped working by DAY, a year after ORG stored it: an owner of ORG runs lunamill init --org`. `doctor` exits 1.
+Lunamill SHALL behave as this line says: After DAY, the line is `✗ CLAUDE_CODE_OAUTH_TOKEN stopped working by DAY, a year after it was stored. Run lunamill init`, with line 3's other endings, and for the organization's `✗ CLAUDE_CODE_OAUTH_TOKEN stopped working by DAY, a year after ORG stored it: an owner of ORG runs lunamill init --org`. `doctor` exits 1.
 
 #### Scenario: The token's day passed
 
@@ -721,7 +721,7 @@ lunamill SHALL behave as this line says: After DAY, the line is `✗ CLAUDE_CODE
 
 ### Requirement: No day line without the token's set line
 
-lunamill SHALL behave as this line says: When `doctor` prints no such `is set` line, as when `ANTHROPIC_API_KEY` is the name set, the secrets cannot be listed, nothing reads the credential, or the organization's copy does not reach a private repository, it prints no line about the token's day.
+Lunamill SHALL behave as this line says: When `doctor` prints no such `is set` line, as when `ANTHROPIC_API_KEY` is the name set, the secrets cannot be listed, nothing reads the credential, or the organization's copy does not reach a private repository, it prints no line about the token's day.
 
 #### Scenario: No day line without the token's set line
 
@@ -730,7 +730,7 @@ lunamill SHALL behave as this line says: When `doctor` prints no such `is set` l
 
 ### Requirement: Doctor gives the GitHub access token's day
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Doctor gives the GitHub access token's day
 
@@ -739,7 +739,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: The access token's day more than 30 days off
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The access token's day more than 30 days off
 
@@ -748,7 +748,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: The access token's day within 30 days
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The access token's day within 30 days
 
@@ -757,7 +757,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: The access token's day passed
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The access token's day passed
 
@@ -766,7 +766,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: Secrets older than the access token on the machine
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Secrets older than the access token on the machine
 
@@ -775,7 +775,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: No access token line
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: No access token line
 
@@ -784,7 +784,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: Init writes version 1
 
-lunamill SHALL behave as this line says: When `lunamill init` or `lunamill init --org` writes a settings file that has no `version`, it writes `version: 1`, and the lock it writes records `version: 1`.
+Lunamill SHALL behave as this line says: When `lunamill init` or `lunamill init --org` writes a settings file that has no `version`, it writes `version: 1`, and the lock it writes records `version: 1`.
 
 #### Scenario: Init writes version 1
 

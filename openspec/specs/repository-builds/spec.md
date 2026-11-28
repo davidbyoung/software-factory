@@ -8,7 +8,7 @@ How a ticket that names several repositories is built in the cloud: which reposi
 
 ### Requirement: The next to build
 
-lunamill SHALL behave as this line says: When a build's Prepare runs for a ticket that names other repositories, the next to build is the first in merge order, the listed order where none merges after another, with no open pull request for the ticket and none merged that counts (line 52).
+Lunamill SHALL behave as this line says: When a build's Prepare runs for a ticket that names other repositories, the next to build is the first in merge order, the listed order where none merges after another, with no open pull request for the ticket and none merged that counts (line 52).
 
 #### Scenario: The next to build
 
@@ -17,7 +17,7 @@ lunamill SHALL behave as this line says: When a build's Prepare runs for a ticke
 
 ### Requirement: Building the next
 
-lunamill SHALL behave as this line says: When that is this repository, the build goes on as any build's.
+Lunamill SHALL behave as this line says: When that is this repository, the build goes on as any build's.
 
 #### Scenario: Building the next
 
@@ -26,7 +26,7 @@ lunamill SHALL behave as this line says: When that is this repository, the build
 
 ### Requirement: Starting another repository's build
 
-lunamill SHALL behave as this line says: When it is another, Prepare makes the checks of lines 18, 42, 47, and 75 as it would here, then claims and records nothing, starts that repository's build, prints `Started the build in acme/web.`, and hands nothing over.
+Lunamill SHALL behave as this line says: When it is another, Prepare makes the checks of lines 18, 42, 47, and 75 as it would here, then claims and records nothing, starts that repository's build, prints `Started the build in acme/web.`, and hands nothing over.
 
 #### Scenario: Starting another repository's build
 
@@ -35,7 +35,7 @@ lunamill SHALL behave as this line says: When it is another, Prepare makes the c
 
 ### Requirement: Nothing left to build
 
-lunamill SHALL behave as this line says: When every repository has a pull request, it prints `Every repository of #12 has a pull request.` and hands nothing over.
+Lunamill SHALL behave as this line says: When every repository has a pull request, it prints `Every repository of #12 has a pull request.` and hands nothing over.
 
 #### Scenario: Nothing left to build
 
@@ -44,7 +44,7 @@ lunamill SHALL behave as this line says: When every repository has a pull reques
 
 ### Requirement: Private and public repositories
 
-lunamill SHALL behave as this line says: When some of the ticket's repositories, its own included, are private and others public, it stops the ticket with `acme/web is public and acme/api is private, so no build in the cloud reads both: build it on your computer`, naming the first of each.
+Lunamill SHALL behave as this line says: When some of the ticket's repositories, its own included, are private and others public, it stops the ticket with `acme/web is public and acme/api is private, so no build in the cloud reads both: build it on your computer`, naming the first of each.
 
 #### Scenario: Private and public repositories
 
@@ -53,7 +53,7 @@ lunamill SHALL behave as this line says: When some of the ticket's repositories,
 
 ### Requirement: What a build is handed
 
-lunamill SHALL behave as this line says: When a build or an answer of such a ticket is prepared, each other repository is handed over as it is on its pull request's branch, or on its default branch with none, without its history, and the session can read it and not write it.
+Lunamill SHALL behave as this line says: When a build or an answer of such a ticket is prepared, each other repository is handed over as it is on its pull request's branch, or on its default branch with none, without its history, and the session can read it and not write it.
 
 #### Scenario: What a build is handed
 
@@ -62,7 +62,7 @@ lunamill SHALL behave as this line says: When a build or an answer of such a tic
 
 ### Requirement: What a review is handed
 
-lunamill SHALL behave as this line says: When a review of a pull request that is part of a ticket across repositories is prepared, the same is handed over. In a run of a public repository nothing of a private one is, its ticket included.
+Lunamill SHALL behave as this line says: When a review of a pull request that is part of a ticket across repositories is prepared, the same is handed over. In a run of a public repository nothing of a private one is, its ticket included.
 
 #### Scenario: What a review is handed
 
@@ -71,7 +71,7 @@ lunamill SHALL behave as this line says: When a review of a pull request that is
 
 ### Requirement: Starting the next build
 
-lunamill SHALL behave as this line says: When Publish opens a pull request and another repository is next, it records on the ticket `Built in acme/api: acme/api#88. Starting the build in acme/web.`, which ends this run's claim and starts the next's, then starts that build. A start that is refused is recorded as the poller records one.
+Lunamill SHALL behave as this line says: When Publish opens a pull request and another repository is next, it records on the ticket `Built in acme/api: acme/api#88. Starting the build in acme/web.`, which ends this run's claim and starts the next's, then starts that build. A start that is refused is recorded as the poller records one.
 
 #### Scenario: Starting the next build
 
@@ -80,7 +80,7 @@ lunamill SHALL behave as this line says: When Publish opens a pull request and a
 
 ### Requirement: The pull request's link
 
-lunamill SHALL behave as this line says: When Publish opens a pull request for such a ticket, its body has the link line of line 20 whether or not the session wrote it, and a body or a commit that says it closes the ticket is refused as one that closes another ticket is.
+Lunamill SHALL behave as this line says: When Publish opens a pull request for such a ticket, its body has the link line of line 20 whether or not the session wrote it, and a body or a commit that says it closes the ticket is refused as one that closes another ticket is.
 
 #### Scenario: The pull request's link
 
@@ -89,7 +89,7 @@ lunamill SHALL behave as this line says: When Publish opens a pull request for s
 
 ### Requirement: A repository the run cannot reach
 
-lunamill SHALL behave as this line says: When the App is not installed on one of the repositories, or a token cannot see one, the build stops the ticket with `lunamill's app for acme is not installed on acme/web`, or `The build token can't see acme/web`.
+Lunamill SHALL behave as this line says: When the App is not installed on one of the repositories, or a token cannot see one, the build stops the ticket with `lunamill's app for acme is not installed on acme/web`, or `The build token can't see acme/web`.
 
 #### Scenario: A repository the run cannot reach
 

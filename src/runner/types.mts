@@ -1,5 +1,5 @@
 // The one interface every runner's implementation fills: where an
-// unattended build runs. lunamill's commands start a build and read its
+// unattended build runs. Lunamill's commands start a build and read its
 // runs only through it. The job files a runner needs, such as GitHub
 // Actions' workflows, are its own and no part of this.
 
@@ -82,7 +82,7 @@ export type Runner = {
    * is the caller's: `lunamill pr failed` takes those `wait-checks` waits on. */
   failedJobs(run: number): Promise<FailedJob[]>;
   /** The run that keeps the artifact `name`, as its newest one not
-   * expired, when that run is of lunamill's own workflow, by its file
+   * expired, when that run is of Lunamill's own workflow, by its file
    * name, started by a pull request's event on the default branch's copy:
    * only such a run can be trusted for what it kept. Null otherwise. */
   keptBy(name: string, file: string): Promise<number | null>;

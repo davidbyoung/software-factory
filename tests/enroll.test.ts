@@ -148,10 +148,10 @@ describe("with a person's build token", () => {
     const { lines, host } = run("person");
 
     expect(await lines()).toEqual([
-      '✓ Required "Review verdict" before a merge to main, as the rule "lunamill".',
+      '✓ Required "Review verdict" before a merge to main, as the rule "Lunamill".',
     ]);
     expect(host.settings.rules).toEqual([
-      { name: "lunamill", check: "Review verdict", source: "runner" },
+      { name: "Lunamill", check: "Review verdict", source: "runner" },
     ]);
   });
 
@@ -181,7 +181,7 @@ describe("with a person's build token", () => {
     );
 
     expect(await lines()).toEqual([
-      '✓ Required "Review verdict" before a merge to trunk, as the rule "lunamill".',
+      '✓ Required "Review verdict" before a merge to trunk, as the rule "Lunamill".',
     ]);
   });
 });
@@ -339,7 +339,7 @@ describe("the approval policies' status", () => {
       { reviewOn: false, policiesOn: true },
     );
     expect(await lines()).toEqual([
-      '✓ Required "Approval policies" before a merge to main, as the rule "lunamill".',
+      '✓ Required "Approval policies" before a merge to main, as the rule "Lunamill".',
     ]);
     expect(host.settings.rules.map((r) => r.check)).toEqual([
       "Approval policies",

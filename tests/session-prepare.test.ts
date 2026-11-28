@@ -521,12 +521,12 @@ describe("a build of a ticket across repositories", () => {
     w.d.reach = async (name) => {
       if (name === REPOSITORY) return w.host.codeHost;
       throw new Error(
-        "lunamill's app for acme is not installed on acme/web. An owner of acme adds it: PAGE",
+        "Lunamill's app for acme is not installed on acme/web. An owner of acme adds it: PAGE",
       );
     };
     expect(await prepare("build", "12", w.d)).toBeNull();
     expect(last(w)).toContain(
-      "Stopped without a pull request: lunamill's app for acme is not installed on acme/web.",
+      "Stopped without a pull request: Lunamill's app for acme is not installed on acme/web.",
     );
   });
 

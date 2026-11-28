@@ -1,6 +1,6 @@
 # Tokens and secrets
 
-For anyone who sets lunamill up, joins a repository that already uses
+For anyone who sets Lunamill up, joins a repository that already uses
 it, or works in a [session](../reference/glossary.md) on another machine.
 At the end you know who handles each token and where it is kept, and
 `lunamill doctor` shows each works. Each tool's page says how to make and
@@ -35,10 +35,10 @@ the code host's.
   two places.** One is the code host's access token, which your own
   account needs in place of an app
   ([GitHub](../integrations/github.md#tokens-and-secrets) says why). It
-  expires on the day you choose when you make it, and lunamill warns
+  expires on the day you choose when you make it, and Lunamill warns
   you in its last month
   ([When the GitHub access token expires](../integrations/github.md#when-the-github-access-token-expires)).
-  The other is the coding agent's token, and lunamill warns you in its
+  The other is the coding agent's token, and Lunamill warns you in its
   last month too
   ([When the Claude token's year is up](../integrations/claude-code.md#when-the-claude-tokens-year-is-up)).
   `lunamill init` stores both in each repository's
@@ -52,7 +52,7 @@ the code host's.
   which account on the code host it acts as.
 
 **Who a run acts as, in an organization.** A build acts as the App: its
-pull request and comments are from "lunamill for acme", and its
+pull request and comments are from "Lunamill for acme", and its
 commits name the coding agent as their author and the app's bot,
 `lunamill-acme[bot]`, as their committer. They are not
 signed
@@ -64,7 +64,7 @@ from the review's own run, so a build cannot pass its own review.
 ## Secrets
 
 Everything here is stored on the repository with `gh secret set NAME`,
-which asks for the value. Nothing lunamill runs on your machine needs
+which asks for the value. Nothing Lunamill runs on your machine needs
 one; each is for something that runs in GitHub Actions.
 
 In an organization that is set up, nobody stores a secret on a
@@ -86,10 +86,10 @@ since no App's key reaches its runs. What you store on a repository:
 | Secret                     | Needed for                                                                             | Make it                                                                                                                                                    |
 | -------------------------- | -------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `CLAUDE_CODE_OAUTH_TOKEN`  | The automated review, and builds in the cloud                                          | `claude setup-token`, on your machine. It bills your Claude subscription, and lasts a year                                                                 |
-| `LUNAMILL_BOARD_TOKEN`     | A board. Also builds in the cloud, when `LUNAMILL_BUILD_TOKEN` is not set              | [A classic token](https://github.com/settings/tokens/new?scopes=repo,project,workflow&description=lunamill%20board) with `repo`, `project`, and `workflow` |
-| `LUNAMILL_BUILD_TOKEN`     | Builds in the cloud. Optional with a board token; used instead of it when both are set | [A classic token](https://github.com/settings/tokens/new?scopes=repo,workflow&description=lunamill%20builds) with `repo` and `workflow`                    |
-| `LUNAMILL_AUTOMERGE_TOKEN` | Pull requests that merge themselves                                                    | [A classic token](https://github.com/settings/tokens/new?scopes=repo&description=lunamill%20auto-merge) with `repo`                                        |
-| `LUNAMILL_SIGNING_KEY`     | Signed commits on lunamill's updates. Read by the updates' job alone                   | [Signed commits on lunamill's updates](../integrations/github.md#signed-commits-on-lunamills-updates)                                                      |
+| `LUNAMILL_BOARD_TOKEN`     | A board. Also builds in the cloud, when `LUNAMILL_BUILD_TOKEN` is not set              | [A classic token](https://github.com/settings/tokens/new?scopes=repo,project,workflow&description=Lunamill%20board) with `repo`, `project`, and `workflow` |
+| `LUNAMILL_BUILD_TOKEN`     | Builds in the cloud. Optional with a board token; used instead of it when both are set | [A classic token](https://github.com/settings/tokens/new?scopes=repo,workflow&description=Lunamill%20builds) with `repo` and `workflow`                    |
+| `LUNAMILL_AUTOMERGE_TOKEN` | Pull requests that merge themselves                                                    | [A classic token](https://github.com/settings/tokens/new?scopes=repo&description=Lunamill%20auto-merge) with `repo`                                        |
+| `LUNAMILL_SIGNING_KEY`     | Signed commits on Lunamill's updates. Read by the updates' job alone                   | [Signed commits on Lunamill's updates](../integrations/github.md#signed-commits-on-lunamills-updates)                                                      |
 
 Each token link opens GitHub's page with the scopes checked; choose an
 expiry date and generate it. The account that makes a token is the one
@@ -133,7 +133,7 @@ Two optional settings:
 - **The model a cloud session uses:** `gh variable set LUNAMILL_BUILD_MODEL`.
   This is a variable, not a secret.
 
-Everything lunamill owns starts with `LUNAMILL_`. The other two keep the
+Everything Lunamill owns starts with `LUNAMILL_`. The other two keep the
 names Claude Code gives them, since your other workflows may use them too.
 
 **Which secrets reach which job.** The job of each run that runs Claude
@@ -231,17 +231,17 @@ The two tokens are read from the file alone: a variable of the same name in your
 environment does not stand in for either. A repository an organization
 owns keeps neither here.
 
-- **lunamill refuses a file others can read,** as `ssh` refuses a
+- **Lunamill refuses a file others can read,** as `ssh` refuses a
   private key, and prints the `chmod` that fixes it.
-- **A session cannot read it.** lunamill's commands read it
-  themselves, and lunamill stops a session that tries to open the
+- **A session cannot read it.** Lunamill's commands read it
+  themselves, and Lunamill stops a session that tries to open the
   file itself.
 
 Beside it, `presets.yaml` records the [presets](../customize/presets.md) you last
 followed for each account or organization, which `lunamill init` offers
 in your next repository there. It holds no token.
 
-## Removing lunamill
+## Removing Lunamill
 
 `lunamill remove` lists each token on your machine among what is left to
 do by hand, since another repository may use it: a ticket system's own,

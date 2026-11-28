@@ -884,7 +884,7 @@ describe("the poller you host", () => {
     [
       "no lock on the default branch",
       { lock: { status: 404, body: { message: "Not Found" } } },
-      "no .claude/lunamill.lock on trunk yet. Merge the pull request that sets lunamill up.",
+      "no .claude/lunamill.lock on trunk yet. Merge the pull request that sets Lunamill up.",
     ],
     [
       "a manual trigger",
@@ -909,7 +909,7 @@ describe("the poller you host", () => {
     [
       "a cap it can't read, from another release",
       { lock: lockOf({ max: 0, version: "0.3.0" }) },
-      ".claude/lunamill.lock on trunk: builds.max-per-hour: must be a whole number, 1 or more (written by lunamill 0.3.0, and this poller is 0.2.0: run ghcr.io/lunamill-ai/lunamill-poller:0.3.0)",
+      ".claude/lunamill.lock on trunk: builds.max-per-hour: must be a whole number, 1 or more (written by Lunamill 0.3.0, and this poller is 0.2.0: run ghcr.io/lunamill-ai/lunamill-poller:0.3.0)",
     ],
     [
       "a ready column of none",
@@ -919,7 +919,7 @@ describe("the poller you host", () => {
     [
       "a lock with no settings",
       { lock: "version: 0.1.0\npresets: []\n" },
-      ".claude/lunamill.lock on trunk: is from an earlier version of lunamill. Run: lunamill sync (written by lunamill 0.1.0, and this poller is 0.2.0: run ghcr.io/lunamill-ai/lunamill-poller:0.1.0)",
+      ".claude/lunamill.lock on trunk: is from an earlier version of Lunamill. Run: lunamill sync (written by Lunamill 0.1.0, and this poller is 0.2.0: run ghcr.io/lunamill-ai/lunamill-poller:0.1.0)",
     ],
   ])("starts nothing with %s, and says why", async (_, answers, reason) => {
     const { d, state, logs, comments, dispatches } = host(answers);
@@ -970,7 +970,7 @@ describe("the poller you host", () => {
     expect(logs[0]).not.toContain("\n");
   });
 
-  it("names lunamill's own version when the test gives none", async () => {
+  it("names Lunamill's own version when the test gives none", async () => {
     const own = JSON.parse(readFileSync("package.json", "utf8")).version;
     const { d, state, logs } = host({
       lock: lockOf({ max: 0, version: "9.9.9" }),
@@ -1020,7 +1020,7 @@ describe("the poller you host", () => {
     await hosted(d, state);
 
     expect(logs).toEqual([
-      "not polling: no .claude/lunamill.lock on trunk yet. Merge the pull request that sets lunamill up.",
+      "not polling: no .claude/lunamill.lock on trunk yet. Merge the pull request that sets Lunamill up.",
       MANUAL,
     ]);
   });
@@ -1384,7 +1384,7 @@ describe("poller.Dockerfile", () => {
   const file = readFileSync("poller.Dockerfile", "utf8");
   const name = JSON.parse(readFileSync("package.json", "utf8")).name as string;
 
-  it("installs lunamill's published version the build names, without its dev tools", () => {
+  it("installs Lunamill's published version the build names, without its dev tools", () => {
     expect(file).toMatch(/^ARG VERSION$/m);
     expect(file).toContain(`npm install --omit=dev`);
     expect(file).toContain(`"${name}@\${VERSION}"`);

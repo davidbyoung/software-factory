@@ -1,6 +1,6 @@
 # Quick start
 
-For someone with a repository and a coding agent who has never used lunamill. At the end you have a pull request built from one of your
+For someone with a repository and a coding agent who has never used Lunamill. At the end you have a pull request built from one of your
 tickets. You run a few commands, answer the questions `lunamill init`
 asks as it sets your repository up, which step 2 lists, write one
 ticket, and settle the decisions your coding agent asks you about it. It
@@ -39,7 +39,7 @@ npm install -g @lunamill-ai/lunamill
 Nothing is installed in your repository, unless you choose a spec tool
 that npm installs in step 2 ([`specs`](../reference/settings/specs.md#specs) says
 what). Once it is set up, it names the
-version of lunamill it uses, and `lunamill` runs that version there
+version of Lunamill it uses, and `lunamill` runs that version there
 ([Updating](../maintain/updating.md#what-happens)).
 
 **It worked when** `lunamill`, run in your repository, prints the list of
@@ -63,7 +63,7 @@ cloud". For this first ticket, uncheck those three:
 each needs a token or a secret you set up later, and this page needs
 none. Keep them checked instead if you want the full setup now. If
 your repository belongs to an organization, and one of its owners has
-already run lunamill's setup for the whole organization, init asks
+already run Lunamill's setup for the whole organization, init asks
 less, and for no token:
 [In an organization](../setup/repository.md#in-an-organization) shows what you
 see.
@@ -101,14 +101,14 @@ runs the command you gave, commits what it wrote on a new branch,
 
 ```text
 ✓ npm test passes here.
-✓ Opened your-name/your-repo#1, "Set up lunamill".
+✓ Opened your-name/your-repo#1, "Set up Lunamill".
 Merge it to finish. Nothing else is left to do.
 ```
 
 When the command fails, init says so and commits nothing. Fix what
 failed, or change the command in `.claude/lunamill.yaml`, and run
 `lunamill init` again. On a public repository init also adds a policy
-that lets lunamill's workflow run, which needs admin rights on the
+that lets Lunamill's workflow run, which needs admin rights on the
 repository ([A public repository](../integrations/github.md#a-public-repository)).
 [What it changes](../maintain/removing.md) lists every file.
 
@@ -127,7 +127,7 @@ pull request's line, `init` printed what comes next:
 After it merges:
   1. Come back to main and bring it up to date:
        git switch main && git pull
-  2. Start a new session of your coding agent here. It loads lunamill from the files now in your repository.
+  2. Start a new session of your coding agent here. It loads Lunamill from the files now in your repository.
   3. Refine a ticket with /lunamill-refine N, then build it with /lunamill-build N.
 ```
 
@@ -222,9 +222,9 @@ optional, stands alone, and can come later.
   from the board, and pull requests that merge themselves.** Run
   `lunamill init` again and check the parts you want. It asks for a token
   or two, sets everything else up, and opens a pull request titled
-  "Change lunamill's settings" with the files it changed,
+  "Change Lunamill's settings" with the files it changed,
   and says how to bring your default branch up to date once it merges. In
-  an organization whose owner has run lunamill's setup for it, init
+  an organization whose owner has run Lunamill's setup for it, init
   asks for no token.
   [Set up a repository](../setup/repository.md#run-lunamill-init) says what each
   part gives you and what it asks.

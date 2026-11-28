@@ -182,10 +182,10 @@ describe("what colors itself in a line", () => {
       "Usage: lunamill preset add NAME [--yes] [--dry-run]",
       "Usage: {copy:lunamill preset add NAME [--yes] [--dry-run]}",
     ],
-    ["Setting up lunamill for acme", "Setting up lunamill for acme"],
+    ["Setting up Lunamill for acme", "Setting up Lunamill for acme"],
     [
-      "lunamill is not installed on this machine",
-      "lunamill is not installed on this machine",
+      "Lunamill is not installed on this machine",
+      "Lunamill is not installed on this machine",
     ],
     [
       "in .claude/skills/lunamill-build/SKILL.md",

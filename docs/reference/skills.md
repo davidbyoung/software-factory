@@ -3,19 +3,19 @@
 A skill is a set of instructions an agent session follows when you ask for
 it. An agent, in this page's sense, is a separate reviewer a session
 launches, which reads and reports and changes nothing. This page lists
-every skill and agent lunamill brings, and links each skill to its
+every skill and agent Lunamill brings, and links each skill to its
 entry on the page about the work it does.
 
 You call a skill by typing its name as a slash command in a session, with
 the ticket or pull request number after it: `/lunamill-refine 12`. Slash
 commands are how [Claude Code](../integrations/claude-code.md#skills-in-claude-code),
-the one coding agent lunamill supports today, calls a skill. Asking in
+the one coding agent Lunamill supports today, calls a skill. Asking in
 plain words, such as "refine ticket 12", usually calls the same skill, but
 the session decides which one fits, so the command is the sure way.
 
 ## Which ones a repository gets
 
-lunamill's core is what its own steps call, and every repository gets
+Lunamill's core is what its own steps call, and every repository gets
 it. Everything else is written only when a setting or a file turns it on,
 and `lunamill sync` removes it again when that is undone.
 
@@ -61,7 +61,7 @@ refiner, builder, prover, test reviewers, and conflict resolvers.
 
 Each skill's link goes to its entry, on the page about the work it does.
 Typing `/lunamill` in a session lists them, which is also how to check that
-a session picked lunamill up.
+a session picked Lunamill up.
 
 ## `lunamill-diagnose`
 

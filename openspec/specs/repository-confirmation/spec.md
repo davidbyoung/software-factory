@@ -8,7 +8,7 @@ Whose list of a ticket's repositories counts: the note that records who made it,
 
 ### Requirement: The confirming note
 
-lunamill SHALL behave as this line says: When `--set` or `--add` records a list, a note on the ticket, posted as the person signed in, says `Repositories: acme/api, acme/web (after acme/api).`, several after it joined by commas.
+Lunamill SHALL behave as this line says: When `--set` or `--add` records a list, a note on the ticket, posted as the person signed in, says `Repositories: acme/api, acme/web (after acme/api).`, several after it joined by commas.
 
 #### Scenario: The confirming note
 
@@ -17,7 +17,7 @@ lunamill SHALL behave as this line says: When `--set` or `--add` records a list,
 
 ### Requirement: A list that counts
 
-lunamill SHALL behave as this line says: When a list is read by a claim, a cloud run, or a status, it counts only when the newest such note by an account that can write to every repository it names is the same list as the section's, in the same order with the same pairs. A change to the section by hand, or a note by anyone else, does not count.
+Lunamill SHALL behave as this line says: When a list is read by a claim, a cloud run, or a status, it counts only when the newest such note by an account that can write to every repository it names is the same list as the section's, in the same order with the same pairs. A change to the section by hand, or a note by anyone else, does not count.
 
 #### Scenario: A list that counts
 
@@ -26,7 +26,7 @@ lunamill SHALL behave as this line says: When a list is read by a claim, a cloud
 
 ### Requirement: A list that does not count
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A list that does not count
 
@@ -35,7 +35,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: A check that cannot be made
 
-lunamill SHALL behave as this line says: When whether an account can write cannot be read, the list does not count, with `could not check who confirmed #12's repositories` as the reason.
+Lunamill SHALL behave as this line says: When whether an account can write cannot be read, the list does not count, with `could not check who confirmed #12's repositories` as the reason.
 
 #### Scenario: A check that cannot be made
 
@@ -44,7 +44,7 @@ lunamill SHALL behave as this line says: When whether an account can write canno
 
 ### Requirement: Someone who cannot write to one
 
-lunamill SHALL behave as this line says: When `--set` or `--add` is run by an account that cannot write to one of the repositories, the repository's line is `✗ acme/web   you can't write to it, so you can't put it on the list`, nothing is recorded, and it exits 1.
+Lunamill SHALL behave as this line says: When `--set` or `--add` is run by an account that cannot write to one of the repositories, the repository's line is `✗ acme/web   you can't write to it, so you can't put it on the list`, nothing is recorded, and it exits 1.
 
 #### Scenario: Someone who cannot write to one
 
@@ -53,7 +53,7 @@ lunamill SHALL behave as this line says: When `--set` or `--add` is run by an ac
 
 ### Requirement: The list from a cloud session
 
-lunamill SHALL behave as this line says: When a cloud session asks for `lunamill ticket repositories` with `--set` or `--add`, it is refused as any write it may not make. The plain read answers as any read does.
+Lunamill SHALL behave as this line says: When a cloud session asks for `lunamill ticket repositories` with `--set` or `--add`, it is refused as any write it may not make. The plain read answers as any read does.
 
 #### Scenario: The list from a cloud session
 

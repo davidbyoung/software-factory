@@ -102,7 +102,7 @@ export function ask(argv: string[], readFile: (path: string) => string): Asked {
   return { argv, files };
 }
 
-/** The text with lunamill's hidden markers, which are HTML comments,
+/** The text with Lunamill's hidden markers, which are HTML comments,
  * taken out, so a session cannot post one that a command takes as a record.
  * One in code stays readable and stops being a comment. */
 export function withoutMarkers(text: string): string {

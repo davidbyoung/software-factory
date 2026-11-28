@@ -206,7 +206,7 @@ async function runPrepare(argv: string[], env: Env): Promise<number> {
 
 /** Has the runner take nothing this process prints as a command to it, since
  * what a session wrote is printed here. What it returns holds a line of the
- * lunamill's own until commands resume, as the process exits. */
+ * Lunamill's own until commands resume, as the process exits. */
 export function quietlyWith(o: {
   actions: boolean;
   token: string;

@@ -151,7 +151,7 @@ describe("the app's name", () => {
 });
 
 describe("the manifest", () => {
-  it("describes a private app with no webhook and lunamill's permissions", () => {
+  it("describes a private app with no webhook and Lunamill's permissions", () => {
     expect(manifestOf("lunamill-acme", `${ORIGIN}/registered`)).toEqual({
       name: "lunamill-acme",
       url: "https://github.com/lunamill-ai/lunamill",
@@ -563,7 +563,7 @@ describe("a run's token under the app", () => {
     ]);
 
     await expect(made).rejects.toThrow(
-      /^lunamill's app for acme is not installed on acme\/web\. An owner of acme adds it: https:\/\/github\.com\/organizations\/acme\/settings\/installations$/,
+      /^Lunamill's app for acme is not installed on acme\/web\. An owner of acme adds it: https:\/\/github\.com\/organizations\/acme\/settings\/installations$/,
     );
     expect(calls.map((c) => c.method)).toEqual(["GET"]);
   });
@@ -808,7 +808,7 @@ describe("a token for another of a ticket's repositories", () => {
     const g = github([[/installation$/, {}, 404]]);
     await expect(
       acrossTransport("acme/five", "read", APP, { fetch: g.fetch, now }),
-    ).rejects.toThrow("lunamill's app for acme is not installed on acme/five");
+    ).rejects.toThrow("Lunamill's app for acme is not installed on acme/five");
   });
 
   it("is the build token where no app's key reaches the run, and none with neither", async () => {

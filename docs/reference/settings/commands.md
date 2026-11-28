@@ -1,7 +1,7 @@
 # `commands`
 
 The commands that are your project's own: how a session checks a change,
-runs one test, and so on. lunamill's skills never name a test runner or
+runs one test, and so on. Lunamill's skills never name a test runner or
 a linter. They run `lunamill gate`, `lunamill test-one`, and the like, which
 run what you write here.
 
@@ -87,7 +87,7 @@ commands:
 - **`$BASE`** is set for every command: the commit your branch started
   from on your default branch, or the last commit for `before-commit`,
   for a tool that finds what changed itself, such as Nx.
-- **When lunamill can't find that commit,** such as in a shallow
+- **When Lunamill can't find that commit,** such as in a shallow
   clone, `$BASE` is empty and every command runs. `lunamill gate` says so
   first, with the command that fetches it, such as
   `Fetch it with: git fetch origin main`. A tool given an empty `$BASE`
@@ -351,7 +351,7 @@ commands:
 ```
 
 - **Default:** none. Leave it out if you have no end-to-end tests.
-- **Setting it makes `lunamill-e2e-reviewer` available,** lunamill's
+- **Setting it makes `lunamill-e2e-reviewer` available,** Lunamill's
   reviewer for browser tests. To use it, run `lunamill sync`, then list it
   under [`plugins.test.reviewers`](plugins.md#pluginstest). That list replaces the
   default, so list `lunamill-test-reviewer` there too.

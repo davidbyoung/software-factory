@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// lunamill's settings, from `.claude/lunamill.yaml`. This is the one place
+// Lunamill's settings, from `.claude/lunamill.yaml`. This is the one place
 // they are read: a command loads them once when it starts and passes down
 // what its functions need, and nothing under src/lib/ loads them.
 //
@@ -234,7 +234,7 @@ export type Settings = {
     ignore: string[];
   };
   /** The plugins the settings name, in the roles' order. `pluginsOf` adds
-   * lunamill's own for each role left out. */
+   * Lunamill's own for each role left out. */
   plugins: Plugin[];
   /** Whether `plugins.test.reviewers` is written. Written, it is the whole
    * list of test reviewers, even when it is empty. */
@@ -722,7 +722,7 @@ function ticketFieldsOf(o: Obj): FieldMapping {
 }
 
 /** Each state's columns: a name, a list of names, or none. With a board,
- * every state is written, since lunamill's own names describe one
+ * every state is written, since Lunamill's own names describe one
  * board and a state left to them would read any other wrong. Without one,
  * each state keeps its own name, for the comments and `lunamill status`.
  * `partial` lets a board's block leave states out, each read as no column
@@ -1143,8 +1143,8 @@ export const LUNAMILL_POLICY: ApprovalPolicy = {
 };
 
 /** `approval-policies` as written, those turned off with `off: true` left
- * out, and lunamill's own after them when nothing names it. An agent's
- * file is checked as a plugin's is, but lunamill's own, which the sync
+ * out, and Lunamill's own after them when nothing names it. An agent's
+ * file is checked as a plugin's is, but Lunamill's own, which the sync
  * writes after reading these. */
 function approvalPoliciesOf(
   v: unknown,
@@ -1418,7 +1418,7 @@ export function parseSettings(
   const sites = parseSites(top.site, exists, preset);
   const commands = commandsOf(top.commands, preset, exists);
   const { plugins, testReviewersWritten } = pluginsWritten(top.plugins);
-  // What an agent of lunamill's needs comes before its file: the sync
+  // What an agent of Lunamill's needs comes before its file: the sync
   // writes the file only once the setting is there.
   const lists = (agent: string) =>
     plugins.some((p) => p.kind === "agent" && p.name === agent);
@@ -1661,7 +1661,7 @@ export type Deps = {
 };
 
 export const NO_DEPENDENCIES =
-  "lunamill's settings cannot be read until dependencies are installed: run npm ci.";
+  "Lunamill's settings cannot be read until dependencies are installed: run npm ci.";
 
 /** js-yaml is loaded when needed, so a checkout without dependencies gets
  * one line saying what to do rather than a stack trace. */
@@ -1744,11 +1744,11 @@ export function readYaml(text: string, name: string, load: YamlLoad): unknown {
   }
 }
 
-/** The settings combined from lunamill's defaults, each preset in
+/** The settings combined from Lunamill's defaults, each preset in
  * `presets` as the lock pins it, and `.claude/lunamill.yaml`, as
  * `lunamill sync` combines them into the lock. No preset's repository is
  * read. `factoryFile` and `ownFile` say which preset files are kept back:
- * lunamill's own, and the repository's own. */
+ * Lunamill's own, and the repository's own. */
 export async function resolveFiles(
   d: Deps,
   {
@@ -2124,13 +2124,13 @@ const COMMAND_KEYS: Record<
  * nothing. */
 const UNSET_PRINTS_NONE = ["test-one", "end-to-end", "coverage", "relock"];
 
-/** lunamill's design skill, which `lunamill sync` writes where there is a
+/** Lunamill's design skill, which `lunamill sync` writes where there is a
  * site. */
 const DESIGN_SKILL = ".claude/skills/lunamill-design/SKILL.md";
 
 /** Every plugin lunamill will use, in the roles' order: the settings'
- * own, and lunamill's for each role they leave out. The refiner and the
- * prover are always there. lunamill's test reviewer is there unless the
+ * own, and Lunamill's for each role they leave out. The refiner and the
+ * prover are always there. Lunamill's test reviewer is there unless the
  * settings write the list. Its design skill is the mockups plugin of a
  * site that names none, once it is synced. */
 export function pluginsOf(

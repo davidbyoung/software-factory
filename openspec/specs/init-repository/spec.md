@@ -8,7 +8,7 @@ Which repository `lunamill init` sets up: the `repository` line when the setting
 
 ### Requirement: The repository line is used
 
-lunamill SHALL behave as this line says: When `.claude/lunamill.yaml` has a `repository` line, `lunamill init` uses it and reads no remote.
+Lunamill SHALL behave as this line says: When `.claude/lunamill.yaml` has a `repository` line, `lunamill init` uses it and reads no remote.
 
 #### Scenario: The repository line is used
 
@@ -17,7 +17,7 @@ lunamill SHALL behave as this line says: When `.claude/lunamill.yaml` has a `rep
 
 ### Requirement: The remotes are a proposal
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The remotes are a proposal
 
@@ -26,7 +26,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: A repository that is no remote
 
-lunamill SHALL behave as this line says: When the repository chosen is no remote, it adds it as the remote `upstream`, or `upstream-2` when that name is taken, and prints `Added the remote upstream, REPOSITORY.`
+Lunamill SHALL behave as this line says: When the repository chosen is no remote, it adds it as the remote `upstream`, or `upstream-2` when that name is taken, and prints `Added the remote upstream, REPOSITORY.`
 
 #### Scenario: A repository that is no remote
 
@@ -35,16 +35,16 @@ lunamill SHALL behave as this line says: When the repository chosen is no remote
 
 ### Requirement: No remote on a supported code host
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: No remote on a supported code host
 
-- **WHEN** no remote is on a code host lunamill supports
+- **WHEN** no remote is on a code host Lunamill supports
 - **THEN** No remote on a supported code host stops it, as today.
 
 ### Requirement: The remote the default branch is read from
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The remote the default branch is read from
 
@@ -53,7 +53,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: The setup's steps in full
 
-lunamill SHALL behave as this line says: When `lunamill init` has opened the setup's pull request, the line after `The steps in full:` is the address of "4. Open a ticket" in `docs/get-started/quick-start.md` at the installed release.
+Lunamill SHALL behave as this line says: When `lunamill init` has opened the setup's pull request, the line after `The steps in full:` is the address of "4. Open a ticket" in `docs/get-started/quick-start.md` at the installed release.
 
 #### Scenario: The setup's steps in full
 
@@ -62,18 +62,18 @@ lunamill SHALL behave as this line says: When `lunamill init` has opened the set
 
 ### Requirement: Init's pull request
 
-lunamill SHALL behave as this line says: When `lunamill init` sets a repository up, its first line is `Setting up lunamill for OWNER/NAME`, its pull request comes from the branch `set-up-lunamill` and is titled "Set up lunamill", the ruleset it makes is named "lunamill", and the signing key it makes is titled "lunamill builds".
+Lunamill SHALL behave as this line says: When `lunamill init` sets a repository up, its first line is `Setting up lunamill for OWNER/NAME`, its pull request comes from the branch `set-up-lunamill` and is titled "Set up Lunamill", the ruleset it makes is named "lunamill", and the signing key it makes is titled "Lunamill builds".
 
 #### Scenario: Init's pull request
 
 - **WHEN** `lunamill init` sets a repository up
-- **THEN** its first line is `Setting up lunamill for OWNER/NAME`, its pull request comes from the branch `set-up-lunamill` and is titled "Set up lunamill", the ruleset it makes is named "lunamill", and the signing key it makes is titled "lunamill builds".
+- **THEN** its first line is `Setting up lunamill for OWNER/NAME`, its pull request comes from the branch `set-up-lunamill` and is titled "Set up Lunamill", the ruleset it makes is named "lunamill", and the signing key it makes is titled "Lunamill builds".
 
 ### Requirement: A settings change's pull request
 
-lunamill SHALL behave as this line says: When `lunamill init` changes a repository's settings, its pull request is titled "Change lunamill's settings".
+Lunamill SHALL behave as this line says: When `lunamill init` changes a repository's settings, its pull request is titled "Change Lunamill's settings".
 
 #### Scenario: A settings change's pull request
 
 - **WHEN** `lunamill init` changes a repository's settings
-- **THEN** its pull request is titled "Change lunamill's settings".
+- **THEN** its pull request is titled "Change Lunamill's settings".

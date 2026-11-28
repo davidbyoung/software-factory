@@ -71,7 +71,7 @@ export const APP_CLIENT_ID = "LUNAMILL_APP_CLIENT_ID";
  * repository that holds the organization's preset and poller. */
 export const PROPERTY = "lunamill";
 export const CONFIG = "lunamill-config";
-const BOARD_TITLE = "lunamill";
+const BOARD_TITLE = "Lunamill";
 /** The two ways to pay for sessions in the cloud, as the question names
  * them. */
 const SUBSCRIPTION = "A Claude subscription";
@@ -109,7 +109,7 @@ const readme = (org: string) =>
   [
     `# ${CONFIG}`,
     "",
-    `lunamill's settings for every ${org} repository, written by`,
+    `Lunamill's settings for every ${org} repository, written by`,
     "`lunamill init --org`. Both files are yours to edit.",
     "",
     `- \`${PRESET_FILE}\` is ${org}'s preset: the ticket system, the board, its`,
@@ -200,7 +200,7 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
   );
   if (!hostName)
     return stop(
-      `✗ ${url.host} is not a code host lunamill supports: ${listed(Object.values(d.hosts).map((h) => h.label))}.`,
+      `✗ ${url.host} is not a code host Lunamill supports: ${listed(Object.values(d.hosts).map((h) => h.label))}.`,
       NOTHING,
     );
   const host = d.hosts[hostName]!;
@@ -219,7 +219,7 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
   const agent = d.tools.agent[agentName]!;
   if (!agent.agent.installed(d.hasCommand))
     return stop(
-      `lunamill runs in a coding agent, and ${agent.label} is not installed.`,
+      `Lunamill runs in a coding agent, and ${agent.label} is not installed.`,
       `Install it and run ${command} again.`,
       NOTHING,
     );
@@ -260,7 +260,7 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
     await d.interactive(lacks.fix);
   }
 
-  d.out(say.text("Setting up lunamill for the organization ", say.name(org)));
+  d.out(say.text("Setting up Lunamill for the organization ", say.name(org)));
   d.out(say.BLANK);
 
   const ticketNames = Object.keys(d.tools.tickets);
@@ -390,7 +390,7 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
       return stop(`Could not reach the code host: ${message(e)}`);
     }
     const choice = await d.ask.select("Which board?", [
-      { name: "A new one, made with lunamill's columns", value: "new" },
+      { name: "A new one, made with Lunamill's columns", value: "new" },
       ...existing.map((b) => ({
         name: `${b.number}  ${b.title}`,
         value: String(b.number),
@@ -549,10 +549,10 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
   if (plan.rules && !ruled)
     rows.push([
       "rule",
-      `Require "${REVIEW_VERDICT}" on repositories set up with lunamill`,
+      `Require "${REVIEW_VERDICT}" on repositories set up with Lunamill`,
     ]);
   if (board === "new")
-    rows.push(["board", "Create a board with lunamill's columns and fields"]);
+    rows.push(["board", "Create a board with Lunamill's columns and fields"]);
   else if (board !== null)
     rows.push([
       "board",
@@ -599,7 +599,7 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
       await step(`create ${repository}`, () =>
         organization.createRepository(CONFIG, {
           isPrivate,
-          description: `lunamill's settings for every ${org} repository`,
+          description: `Lunamill's settings for every ${org} repository`,
         }),
       );
     if (board !== null) {
@@ -843,8 +843,8 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
   d.out(say.BLANK);
   d.out(say.text(`✓ ${org} is set up.`));
   d.out(say.BLANK);
-  d.out(say.action("Next, in each repository you want lunamill in:"));
-  d.out(say.step(1, "A developer installs lunamill once on their machine:"));
+  d.out(say.action("Next, in each repository you want Lunamill in:"));
+  d.out(say.step(1, "A developer installs Lunamill once on their machine:"));
   d.out(say.text("       ", say.copy(`npm install -g ${d.packageName}`)));
   d.out(say.step(2, "In the repository's checkout, they run:"));
   d.out(say.text("       lunamill init"));

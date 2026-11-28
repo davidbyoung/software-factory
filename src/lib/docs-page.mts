@@ -1,4 +1,4 @@
-// The address of a page of lunamill's own docs. The docs are not in
+// The address of a page of Lunamill's own docs. The docs are not in
 // the package or in a user's repository, so a command that names a page
 // prints its address on the code host.
 
@@ -21,7 +21,7 @@ export const DOCS_PAGES = {
   commandsRunForYou: "reference/cli-internal.md",
 } as const;
 
-/** A page of lunamill's own docs as the installed version has it: at
+/** A page of Lunamill's own docs as the installed version has it: at
  * the release's tag, or on `main` for a version that is no release. */
 export function docsPage(version: string, page: string): string {
   const [owner, name] = LUNAMILL_REPOSITORY.split("/") as [string, string];

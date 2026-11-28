@@ -161,7 +161,7 @@ describe("lunamill ticket repositories N", () => {
     [
       "has an older factory",
       { lock: OLD_LOCK },
-      "on lunamill 0.5.0, which can't build a ticket from another repository: run lunamill update in acme/web",
+      "on Lunamill 0.5.0, which can't build a ticket from another repository: run lunamill update in acme/web",
     ],
     ["cannot be seen", { unseen: true }, "not found, or you can't see it"],
   ])("marks a repository that %s, and exits 1", async (_, place, text) => {
@@ -448,7 +448,7 @@ describe("lunamill ticket claim", () => {
     [
       "one's factory is too old",
       { places: { "acme/api": {}, "acme/web": { lock: OLD_LOCK } } },
-      "#12 names acme/web, whose lunamill is too old: run lunamill update in acme/web",
+      "#12 names acme/web, whose Lunamill is too old: run lunamill update in acme/web",
     ],
     [
       "one cannot be seen",

@@ -1,12 +1,12 @@
 # Your own skills and agents
 
-For someone who wants lunamill to use a skill or an agent of their own:
+For someone who wants Lunamill to use a skill or an agent of their own:
 a reviewer for one part of the code, a builder for one kind of ticket, or
-their own way of refining a ticket. At the end, lunamill calls it at a
+their own way of refining a ticket. At the end, Lunamill calls it at a
 set moment of every build, and `lunamill plugins` lists it.
 
-lunamill knows how to refine, build, and review a ticket. It does not
-know your project. A plugin is one of your own skills or agents that lunamill calls at a set moment, so what only your project knows is part of
+Lunamill knows how to refine, build, and review a ticket. It does not
+know your project. A plugin is one of your own skills or agents that Lunamill calls at a set moment, so what only your project knows is part of
 every build.
 
 ## The idea
@@ -14,7 +14,7 @@ every build.
 You write a skill or an agent the way your coding agent expects one, in
 the folder it reads them from
 ([on Claude Code](../integrations/claude-code.md#skills-in-claude-code)). Then you add
-a few lines to `.claude/lunamill.yaml` saying where lunamill calls it:
+a few lines to `.claude/lunamill.yaml` saying where Lunamill calls it:
 
 ```yaml
 plugins:
@@ -25,7 +25,7 @@ plugins:
           - db/migrations/**
 ```
 
-That is the whole of it. lunamill never copies over your files, and an
+That is the whole of it. Lunamill never copies over your files, and an
 update never touches them.
 
 ## The roles
@@ -111,7 +111,7 @@ refiner that leaves one out leaves a ticket that cannot be built.
   groups of checkboxes, as the change's `tasks.md` has them.
 
 **The check is a script's.** `lunamill ticket refined N` refuses to post
-its marker on a body missing one of those sections, for lunamill's own
+its marker on a body missing one of those sections, for Lunamill's own
 refiner as for yours. It prints one line for each, such as
 `missing: ### Tasks under ## For the builder`, and exits 1.
 `lunamill ticket refined N --check` makes the same check and posts nothing:
@@ -127,14 +127,14 @@ from a copy of `lunamill-refine` under your own name.
 
 **To add questions, not replace the refiner,** write them in your own
 instructions for the agent, under a heading "Refining: this repository" in
-`CLAUDE.md`. The refining session reads `CLAUDE.md`, and it wins over lunamill's rules, so no plugin is needed for that.
+`CLAUDE.md`. The refining session reads `CLAUDE.md`, and it wins over Lunamill's rules, so no plugin is needed for that.
 
 ### `mockups`
 
 Makes pictures to choose from when a decision changes how something looks.
 
 A repository with [`site`](../reference/settings/site.md#site) in its settings has one
-already: lunamill's own `lunamill-design` skill, which `lunamill sync`
+already: Lunamill's own `lunamill-design` skill, which `lunamill sync`
 writes, is its `mockups` plugin unless you name one of your own.
 
 ```yaml
@@ -272,7 +272,7 @@ plugins:
   exceptions that run every one listed, one with `files` only when the
   change touches a matching file: a change to tests alone, and code that
   builds what is sent to an outside service.
-- **`lunamill-e2e-reviewer`** ships with lunamill and reads browser
+- **`lunamill-e2e-reviewer`** ships with Lunamill and reads browser
   end-to-end tests. `lunamill sync` writes it once
   [`commands.end-to-end`](../reference/settings/commands.md#commandsend-to-end) is set, and
   it runs only where it is listed, as above.
@@ -345,7 +345,7 @@ skipped.
 
 **Write the description as a condition.** "Reviews database migrations"
 says what the agent is. "Use when a change adds or alters a migration's
-SQL" says when to call it, which is what lunamill needs.
+SQL" says when to call it, which is what Lunamill needs.
 
 ## A worked example
 
@@ -386,7 +386,7 @@ again, the description does not, and the pull request says:
 "`migration-reviewer`: skipped, only a comment changed."
 
 The team's rules for what makes a migration safe stay in their own
-instructions for the agent and in the agent itself. lunamill holds none of them.
+instructions for the agent and in the agent itself. Lunamill holds none of them.
 
 ## Adding one
 
@@ -398,7 +398,7 @@ instructions for the agent and in the agent itself. lunamill holds none of them.
    missing, or the role takes a skill and you named an agent.
 5. Run `lunamill sync`. Every command reads your settings from
    `.claude/lunamill.lock`, which the sync writes.
-6. Run `lunamill plugins` to see the list lunamill will use, the
+6. Run `lunamill plugins` to see the list Lunamill will use, the
    built-in ones included:
 
    ```text

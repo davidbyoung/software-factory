@@ -641,7 +641,7 @@ describe("the board job of run.yml's Tickets group", () => {
     ).toBeUndefined();
   });
 
-  it("runs when lunamill starts it, on pull request events, and nightly, never on a ticket's own events", () => {
+  it("runs when Lunamill starts it, on pull request events, and nightly, never on a ticket's own events", () => {
     expect([...events].sort()).toEqual([
       "pull_request_target",
       "schedule",

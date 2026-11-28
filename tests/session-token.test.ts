@@ -15,7 +15,7 @@ const KEY = privateKey.export({ type: "pkcs1", format: "pem" }).toString();
 const NOW = Date.UTC(2026, 10, 23, 12, 0, 0);
 const MINUTE = 60 * 1000;
 const NOT_INSTALLED =
-  "lunamill's app for acme is not installed on acme/web. An owner of acme adds it: https://github.com/organizations/acme/settings/installations";
+  "Lunamill's app for acme is not installed on acme/web. An owner of acme adds it: https://github.com/organizations/acme/settings/installations";
 
 type Answer = { status: number; body: unknown };
 const ok = (body: unknown): Answer => ({ status: 200, body });

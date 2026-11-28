@@ -1,13 +1,13 @@
 # GitHub Actions
 
 The cloud runner: the workflows that run the automated review, the board
-sync, builds in the cloud, and lunamill's other jobs.
+sync, builds in the cloud, and Lunamill's other jobs.
 
-## What lunamill uses it for
+## What Lunamill uses it for
 
 Every run that does not need your machine: the automated review and its
 verdict, who merges, the board sync, the poller, builds in the cloud, the
-answers to a review, the conflict sweep, dependency updates, and lunamill's own updates ([The jobs](#the-jobs)).
+answers to a review, the conflict sweep, dependency updates, and Lunamill's own updates ([The jobs](#the-jobs)).
 
 ## You need
 
@@ -32,12 +32,12 @@ always, whichever parts are on:
 | File                  | What the jobs it calls do                                                                                                                                                                 |
 | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `lunamill.yml`        | Everything else: the runs that use Claude Code, and everything that is judged from your default branch's copy, so a pull request cannot change how it is judged                           |
-| `lunamill-review.yml` | The check that lunamill's files are in step, which has to read a pull request's own code. GitHub runs this file from the pull request's copy, so it is given no secret, and may only read |
+| `lunamill-review.yml` | The check that Lunamill's files are in step, which has to read a pull request's own code. GitHub runs this file from the pull request's copy, so it is given no secret, and may only read |
 
 Neither file holds those jobs. Each has one calling job, which calls a
-workflow in lunamill's own repository, `lunamill-ai/lunamill`,
+workflow in Lunamill's own repository, `lunamill-ai/lunamill`,
 at the version your `.claude/lunamill.lock` names, so an update changes
-one line of each. The jobs in the table below are the ones in lunamill's workflow that it calls. What `lunamill sync` writes into the
+one line of each. The jobs in the table below are the ones in Lunamill's workflow that it calls. What `lunamill sync` writes into the
 two files comes from your
 settings: your default branch, which parts are on, the poller's
 schedule, each session's minutes, and the names of your own secrets.
@@ -49,14 +49,14 @@ UTC.
 
 | Job                                | File that starts it                                  | Starts on                                                                                                                                                                                                      | Runs when                                                                                                                                                                                |
 | ---------------------------------- | ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| lunamill files in step             | `lunamill-review.yml`, and `lunamill.yml` for a push | Every pull request, and a push to the default branch                                                                                                                                                           | Always                                                                                                                                                                                   |
+| Lunamill files in step             | `lunamill-review.yml`, and `lunamill.yml` for a push | Every pull request, and a push to the default branch                                                                                                                                                           | Always                                                                                                                                                                                   |
 | Review                             | `lunamill.yml`                                       | A pull request marked ready, each push after, and a change of its base branch                                                                                                                                  | [`pr-review`](../reference/settings/pr-review.md#pr-review) is on, and the pull request is from this repository. One of Dependabot's is reviewed only once someone else has pushed to it |
 | Dependabot's auto-merge            | `lunamill.yml`                                       | Dependabot's pull requests                                                                                                                                                                                     | `.github/dependabot.yml` exists                                                                                                                                                          |
 | The review's verdict               | `lunamill.yml`                                       | A pull request opened, pushed to, marked ready, or given another base branch, the `verdict-override` label, and a run in another repository that it [waits for](../workflow/across-repositories.md#merge-them) | Always                                                                                                                                                                                   |
 | Telling the other repositories     | `lunamill.yml`                                       | A pull request opened, reopened, or closed                                                                                                                                                                     | Its text says it is part of a ticket, and it is from this repository                                                                                                                     |
 | Requiring the verdict              | `lunamill.yml`                                       | A push to the default branch                                                                                                                                                                                   | `pr-review` is on                                                                                                                                                                        |
 | Who merges                         | `lunamill.yml`                                       | Pull request events                                                                                                                                                                                            | [`auto-merge.allow`](../reference/settings/auto-merge.md#auto-merge) is set                                                                                                              |
-| The board sync                     | `lunamill.yml`                                       | lunamill's commands, pull request events, and 07:00                                                                                                                                                            | [`tickets.board`](../reference/settings/tickets.md#tickets) is set                                                                                                                       |
+| The board sync                     | `lunamill.yml`                                       | Lunamill's commands, pull request events, and 07:00                                                                                                                                                            | [`tickets.board`](../reference/settings/tickets.md#tickets) is set                                                                                                                       |
 | Open the ticked tickets            | `lunamill.yml`                                       | A pull request from the repository merged, with a list of [follow-ups](../workflow/follow-ups.md)                                                                                                              | Always. It opens a ticket only for each follow-up that is ticked                                                                                                                         |
 | The poller                         | `lunamill.yml`                                       | Every [`builds.poll-minutes`](../reference/settings/builds.md#builds) minutes, or by hand                                                                                                                      | `builds.trigger` is `github-action`, unless a [preset](../customize/presets.md) you follow is in a repository that runs the poller, as an organization's `lunamill-config` does          |
 | Build                              | `lunamill.yml`                                       | The poller, `lunamill build N`, or by hand                                                                                                                                                                     | Always                                                                                                                                                                                   |
@@ -72,7 +72,7 @@ What the less obvious ones do:
 - **Build, Review, Answer, Conflict, and Dependency** are the runs that use
   Claude Code. Each is three jobs, Prepare, Session, and Publish
   ([What a cloud run is](../security/cloud-runs.md#what-a-cloud-run-is)).
-- **lunamill files in step** fails when lunamill's files differ from
+- **Lunamill files in step** fails when Lunamill's files differ from
   what your settings and the version your repository names would write,
   or when `lunamill config check` fails. On a pull request it also fails
   while `lunamill.yml` is disabled, since nothing then posts "Review
@@ -93,7 +93,7 @@ What the less obvious ones do:
 
 - **Dependabot's auto-merge** lets one of Dependabot's pull requests
   merge itself once its checks pass, unless it is a major version or
-  names lunamill ([Dependency bots](../features/dependency-updates.md#dependency-bots)).
+  names Lunamill ([Dependency bots](../features/dependency-updates.md#dependency-bots)).
 - **The review's verdict** posts the "Review verdict" status, as the
   review's own Publish does when a review ends. It goes by the "Automated
   review" status that Publish set on the commit, and by no comment.
@@ -114,10 +114,10 @@ What the less obvious ones do:
   starts with `?` says who does the rest by hand:
 
   ```text
-  ✓ Set lunamill to "on" for acme/web, so acme's rule requires "Review verdict" here.
-  ✓ Required "Review verdict" before a merge to main, as the rule "lunamill".
+  ✓ Set Lunamill to "on" for acme/web, so acme's rule requires "Review verdict" here.
+  ✓ Required "Review verdict" before a merge to main, as the rule "Lunamill".
   ? "Review verdict" is not required before a merge to main, and this run's token cannot require it. An admin of sam/api runs: lunamill init
-  ? Could not set lunamill to "on" for acme/web: 403 Resource not accessible by integration. An owner of acme sets it under the organization's Settings, Custom properties.
+  ? Could not set Lunamill to "on" for acme/web: 403 Resource not accessible by integration. An owner of acme sets it under the organization's Settings, Custom properties.
   ```
 
 - **Who merges** labels a pull request `merge-automatic` or
@@ -125,12 +125,12 @@ What the less obvious ones do:
 - **Dependency** runs a session that moves one of Dependabot's pull
   requests along, with the [`lunamill-deps`](../features/dependency-updates.md#lunamill-deps)
   skill.
-- **Updates** opens a pull request for a newer release of lunamill,
+- **Updates** opens a pull request for a newer release of Lunamill,
   and for a preset that changed ([Updating](../maintain/updating.md#what-happens)).
   It is a script, and runs no session.
 
 In a pull request's list of checks, a job's name follows the name of the
-file's calling job: `review / lunamill files in step` from
+file's calling job: `review / Lunamill files in step` from
 `lunamill-review.yml`, and `lunamill / Review / Session` from `lunamill.yml`.
 Most of `lunamill.yml`'s other jobs are in a group, and the group's name
 comes next, as in `lunamill / Pull request / Record the verdict`. Each job
@@ -141,7 +141,7 @@ is listed here by the name its row shows:
 | None             | Review and Answer, each three jobs, and Approve what an approval policy found                                                                                                                                                                                                                                                |
 | `Pull request`   | Record the verdict, the [approval policies](../features/approval-policies.md)' Read the change for the approval policies, Run the approval policies' commands, Run an approval policy's agent, and Post the approval policies' status, Classify risk (Who merges), and Enable auto-merge (Dependabot's auto-merge)           |
 | `Tickets`        | Tell the other repositories, Sync the board, and Open the ticked tickets                                                                                                                                                                                                                                                     |
-| `Default branch` | lunamill files in step, Require the verdict, Build, Find the conflicts, Conflict, Find the dependency pull requests, Dependency, Open the updates' pull requests, Start the Ready tickets, and Unknown job, which fails a run started by hand with a job it doesn't know ([Starting a job by hand](#starting-a-job-by-hand)) |
+| `Default branch` | Lunamill files in step, Require the verdict, Build, Find the conflicts, Conflict, Find the dependency pull requests, Dependency, Open the updates' pull requests, Start the Ready tickets, and Unknown job, which fails a run started by hand with a job it doesn't know ([Starting a job by hand](#starting-a-job-by-hand)) |
 
 A build's rows read `lunamill / Default branch / Build / Session`. A group
 with nothing to do on an event shows as one skipped row with the group's
@@ -194,7 +194,7 @@ off shows as a skipped job, or as one that passes having done nothing.
 
 #### What a job installs
 
-Each job installs the version of lunamill your repository names. The
+Each job installs the version of Lunamill your repository names. The
 Session job also installs your default branch's own dependencies, with
 `npm ci`, only when its root has a `package-lock.json`, then runs your
 [`commands.build-setup`](../reference/settings/commands.md#commandsbuild-setup), and
@@ -208,13 +208,13 @@ An organization's poller is in a workflow file of its own, in one
 repository. `lunamill init --org` writes
 `.github/workflows/lunamill-poller.yml` into the organization's
 `lunamill-config` repository, beside its preset. Like the two files
-above, it calls a workflow in lunamill's own repository, `poller.yml`,
+above, it calls a workflow in Lunamill's own repository, `poller.yml`,
 at the version it names. It has two jobs: the poller, on the schedule
 [`builds.poll-minutes`](../reference/settings/builds.md#builds) gives in the preset,
 which reads the organization's board once and starts the builds of every
 repository with a ticket in Ready
 ([The poller](../features/builds-from-the-board.md#the-poller)), and, at 01:00 and by hand, an
-update job that opens a pull request there when a newer release of lunamill is out. A repository that follows that preset gets no poller
+update job that opens a pull request there when a newer release of Lunamill is out. A repository that follows that preset gets no poller
 schedule in its own `lunamill.yml`.
 
 ## Tokens and secrets
@@ -232,7 +232,7 @@ it.
 | Prepare                                                             | The App's key, or the build token                                                                                                 | Read the code, Actions, issues, pull requests, and statuses                                                   |
 | Session                                                             | `CLAUDE_CODE_OAUTH_TOKEN` or `ANTHROPIC_API_KEY`, and your own secrets                                                            | Read packages                                                                                                 |
 | Publish                                                             | The App's key, or the build token                                                                                                 | Read the code, Actions, and checks; write issues, pull requests, and statuses, which is how it posts a review |
-| lunamill files in step, on a pull request                           | None                                                                                                                              | Read the code and Actions                                                                                     |
+| Lunamill files in step, on a pull request                           | None                                                                                                                              | Read the code and Actions                                                                                     |
 | The review's verdict                                                | The App's key, or the build token, to read with, when the pull request is part of a ticket                                        | Read the code and Actions; write issues, pull requests, and statuses                                          |
 | Telling the other repositories                                      | The App's key, or the build token                                                                                                 | Read the code and pull requests, and write issues                                                             |
 | Updates                                                             | The App's key, or the build token and `LUNAMILL_SIGNING_KEY`                                                                      | Read the code                                                                                                 |
@@ -274,7 +274,7 @@ cannot pass its own review. When the App is not installed on the repository,
 Prepare fails with:
 
 ```text
-lunamill's app for acme is not installed on acme/web. An owner of acme adds it: https://github.com/organizations/acme/settings/installations
+Lunamill's app for acme is not installed on acme/web. An owner of acme adds it: https://github.com/organizations/acme/settings/installations
 ```
 
 **When no App's key reaches the run, it acts as the account that owns
@@ -303,7 +303,7 @@ pull request is squash merged, the commit on your default branch names
 the person who opened it as its author, and GitHub adds a
 `Co-authored-by: Claude` line for the build's commits.
 
-## What lunamill can and cannot do there
+## What Lunamill can and cannot do there
 
 GitHub runs `lunamill.yml` as the pull request leaves it when you submit a
 review, and as your default branch has it on every other event. A session
@@ -320,7 +320,7 @@ file](../features/cloud-builds.md#a-change-to-a-workflow-file)).
   `lunamill.yml`, as the session's limit.
 - **GitHub's shortest schedule is every five minutes,** and scheduled
   runs can start late.
-- **A pull request from a fork gets no secrets.** The "lunamill files in
+- **A pull request from a fork gets no secrets.** The "Lunamill files in
   step" check needs none, so it runs on one. No run that uses Claude Code
   starts on a fork's pull request, so its verdict waits for a person.
 - **From December 2, 2026, GitHub blocks `pull_request_target` in a
@@ -345,7 +345,7 @@ file](../features/cloud-builds.md#a-change-to-a-workflow-file)).
 - **GitHub switches off a workflow with a schedule in a public
   repository with no activity for 60 days.** `lunamill.yml` has
   schedules, so every job it starts stops with it, the review's verdict
-  among them. "lunamill files in step" still runs on a pull request, and
+  among them. "Lunamill files in step" still runs on a pull request, and
   fails, saying how to enable the file. `lunamill doctor` fails too. GitHub
   does not run what it missed, so after you enable the file, push a commit
   to each pull request that has no verdict.
@@ -356,13 +356,13 @@ file](../features/cloud-builds.md#a-change-to-a-workflow-file)).
   you run `lunamill sync` again, and until then the conflict sweep runs
   nightly and by hand, not on a push.
 - **A workflow in another owner's repository takes a secret only by a
-  name it declares,** which is why your own secrets reach lunamill's
+  name it declares,** which is why your own secrets reach Lunamill's
   jobs through one line of `lunamill.yml`, not a line for each job.
 - **GitHub's default for a workflow's own token is read for a new
   repository, and can be write for an older one.** The review's verdict
   is trusted from that token's account, and the code in a pull request
   runs beside it, so `lunamill doctor` checks it.
-- **Every review event costs a minute of Actions,** including lunamill's own replies, which start a Prepare that finds nothing to do.
+- **Every review event costs a minute of Actions,** including Lunamill's own replies, which start a Prepare that finds nothing to do.
 - **A run's artifacts are kept on GitHub:** one day for what Prepare handed
   over, and seven for what the session left. Anyone signed in to GitHub can
   download them from a public repository
@@ -387,7 +387,7 @@ hand, with the pull request's and the review's numbers.
 
 ## By hand
 
-The steps `lunamill init` takes for the review and for builds in the cloud, done without it, and how to start one of lunamill's jobs yourself.
+The steps `lunamill init` takes for the review and for builds in the cloud, done without it, and how to start one of Lunamill's jobs yourself.
 
 ### Starting a job by hand
 
@@ -479,7 +479,7 @@ Claude Code is given no GitHub token:
 | Dependency | Moves one of Dependabot's pull requests along. It is on once `.github/dependabot.yml` exists |
 
 One more job needs the same GitHub token and runs no session: the update
-job, which opens a pull request for each new release of lunamill
+job, which opens a pull request for each new release of Lunamill
 ([Updating](../maintain/updating.md#what-happens)).
 
 1. **Store your Claude token** as `CLAUDE_CODE_OAUTH_TOKEN`.

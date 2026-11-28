@@ -43,7 +43,7 @@ export type SessionDeps = {
   schema?: object;
   git(cwd: string, args: string[]): void;
   untar(file: string, to: string): void;
-  /** lunamill's own install, which the session's commands run. */
+  /** Lunamill's own install, which the session's commands run. */
   install: string[];
   settings(s: CloudSession): object;
   command(s: CloudSession, file: string): SessionCommand;

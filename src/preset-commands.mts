@@ -397,7 +397,7 @@ async function syncing(d: PresetDeps, wroteChoices: boolean): Promise<number> {
 
 /** Runs the sync and gives what it did as these commands say it: each of
  * the presets' files it wrote or deleted, and what it kept or dropped. The
- * lunamill's own copies it brought in step go unsaid. Null when it failed. */
+ * Lunamill's own copies it brought in step go unsaid. Null when it failed. */
 async function quietSync(
   d: PresetDeps,
   presetFile: (path: string) => boolean,

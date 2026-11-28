@@ -1,6 +1,6 @@
 # `rules`
 
-Two numbers lunamill's rules use, for a repository that wants
+Two numbers Lunamill's rules use, for a repository that wants
 different ones. Run `lunamill sync` after changing one, since it writes the
 number into the rules and skills that use it.
 
@@ -17,4 +17,4 @@ rules:
 
 Each must be a whole number above zero. Any rule that isn't a number, you
 change by saying so in your own instructions for the coding agent, such as
-`CLAUDE.md`, which win over lunamill's rules.
+`CLAUDE.md`, which win over Lunamill's rules.

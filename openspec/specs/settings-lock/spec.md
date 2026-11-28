@@ -8,7 +8,7 @@ The settings in effect, which `lunamill sync` resolves into `.claude/lunamill.lo
 
 ### Requirement: The lock's settings block
 
-lunamill SHALL behave as this line says: When `lunamill sync` runs, the lock's `settings` block holds every setting in effect, defaults included, as the lines `lunamill config explain` prints, each indented two spaces under `settings:`.
+Lunamill SHALL behave as this line says: When `lunamill sync` runs, the lock's `settings` block holds every setting in effect, defaults included, as the lines `lunamill config explain` prints, each indented two spaces under `settings:`.
 
 #### Scenario: The lock's settings block
 
@@ -17,7 +17,7 @@ lunamill SHALL behave as this line says: When `lunamill sync` runs, the lock's `
 
 ### Requirement: Commands read the lock
 
-lunamill SHALL behave as this line says: When any command reads the settings, it reads the lock's `settings`, never `.claude/lunamill.yaml` or a preset's file. `lunamill init`, `sync`, `config check`, `remove`, `doctor`, and the `preset` commands are the exceptions: they read the files the lock is made from. Two more read others: a command that looks up the default branch reads the `repository` line from `.claude/lunamill.yaml`, and the organization's poller reads what org-poller says it reads.
+Lunamill SHALL behave as this line says: When any command reads the settings, it reads the lock's `settings`, never `.claude/lunamill.yaml` or a preset's file. `lunamill init`, `sync`, `config check`, `remove`, `doctor`, and the `preset` commands are the exceptions: they read the files the lock is made from. Two more read others: a command that looks up the default branch reads the `repository` line from `.claude/lunamill.yaml`, and the organization's poller reads what org-poller says it reads.
 
 #### Scenario: Commands read the lock
 
@@ -26,7 +26,7 @@ lunamill SHALL behave as this line says: When any command reads the settings, it
 
 ### Requirement: A changed settings file stops a command
 
-lunamill SHALL behave as this line says: When `.claude/lunamill.yaml` has changed since the lock's `settings-hash` was written, every command that reads the settings prints `.claude/lunamill.yaml changed since the last sync. Run: lunamill sync` on standard error and exits 1. A change to `.claude/lunamill.choices.yaml` names that file instead. The permission and ticket-text hooks read no settings, so a stale lock never stops them.
+Lunamill SHALL behave as this line says: When `.claude/lunamill.yaml` has changed since the lock's `settings-hash` was written, every command that reads the settings prints `.claude/lunamill.yaml changed since the last sync. Run: lunamill sync` on standard error and exits 1. A change to `.claude/lunamill.choices.yaml` names that file instead. The permission and ticket-text hooks read no settings, so a stale lock never stops them.
 
 #### Scenario: A changed settings file stops a command
 
@@ -35,7 +35,7 @@ lunamill SHALL behave as this line says: When `.claude/lunamill.yaml` has change
 
 ### Requirement: An unreadable lock
 
-lunamill SHALL behave as this line says: When `.claude/lunamill.lock` can't be read as YAML, as a merge conflict leaves it, those commands print `.claude/lunamill.lock can't be read. Run: lunamill sync` and exit 1, and `lunamill sync` reads the files each side lists.
+Lunamill SHALL behave as this line says: When `.claude/lunamill.lock` can't be read as YAML, as a merge conflict leaves it, those commands print `.claude/lunamill.lock can't be read. Run: lunamill sync` and exit 1, and `lunamill sync` reads the files each side lists.
 
 #### Scenario: An unreadable lock
 
@@ -44,7 +44,7 @@ lunamill SHALL behave as this line says: When `.claude/lunamill.lock` can't be r
 
 ### Requirement: A lock from an earlier release
 
-lunamill SHALL behave as this line says: When `.claude/lunamill.lock` has no `settings`, as a lock from an earlier release has none, those commands print `.claude/lunamill.lock is from an earlier version of lunamill. Run: lunamill sync` and exit 1.
+Lunamill SHALL behave as this line says: When `.claude/lunamill.lock` has no `settings`, as a lock from an earlier release has none, those commands print `.claude/lunamill.lock is from an earlier version of lunamill. Run: lunamill sync` and exit 1.
 
 #### Scenario: A lock from an earlier release
 
@@ -53,7 +53,7 @@ lunamill SHALL behave as this line says: When `.claude/lunamill.lock` has no `se
 
 ### Requirement: The commit hook on a stale lock
 
-lunamill SHALL behave as this line says: When the lock is stale by lines 4 to 7, the commit hook blocks `git commit` with the same message.
+Lunamill SHALL behave as this line says: When the lock is stale by lines 4 to 7, the commit hook blocks `git commit` with the same message.
 
 #### Scenario: The commit hook on a stale lock
 
@@ -62,7 +62,7 @@ lunamill SHALL behave as this line says: When the lock is stale by lines 4 to 7,
 
 ### Requirement: The session-start hook on a stale lock
 
-lunamill SHALL behave as this line says: When the lock is stale by lines 4 to 7, the session-start hook prints the same message and the session starts.
+Lunamill SHALL behave as this line says: When the lock is stale by lines 4 to 7, the session-start hook prints the same message and the session starts.
 
 #### Scenario: The session-start hook on a stale lock
 
@@ -71,7 +71,7 @@ lunamill SHALL behave as this line says: When the lock is stale by lines 4 to 7,
 
 ### Requirement: Sync check on a stale lock
 
-lunamill SHALL behave as this line says: When the lock is stale by lines 4 to 7, `lunamill sync --check` exits 1 and prints the same message.
+Lunamill SHALL behave as this line says: When the lock is stale by lines 4 to 7, `lunamill sync --check` exits 1 and prints the same message.
 
 #### Scenario: Sync check on a stale lock
 
@@ -80,7 +80,7 @@ lunamill SHALL behave as this line says: When the lock is stale by lines 4 to 7,
 
 ### Requirement: LUNAMILL_LOCK
 
-lunamill SHALL behave as this line says: When `LUNAMILL_LOCK` names a file, commands read their settings from that lock and make no stale check.
+Lunamill SHALL behave as this line says: When `LUNAMILL_LOCK` names a file, commands read their settings from that lock and make no stale check.
 
 #### Scenario: LUNAMILL_LOCK
 
@@ -89,7 +89,7 @@ lunamill SHALL behave as this line says: When `LUNAMILL_LOCK` names a file, comm
 
 ### Requirement: A missing lock
 
-lunamill SHALL behave as this line says: When `.claude/lunamill.lock` doesn't exist, the commands of line 4 print `.claude/lunamill.lock is missing. Run: lunamill sync` and exit 1.
+Lunamill SHALL behave as this line says: When `.claude/lunamill.lock` doesn't exist, the commands of line 4 print `.claude/lunamill.lock is missing. Run: lunamill sync` and exit 1.
 
 #### Scenario: A missing lock
 
@@ -98,7 +98,7 @@ lunamill SHALL behave as this line says: When `.claude/lunamill.lock` doesn't ex
 
 ### Requirement: Changed names stop a command
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Changed names stop a command
 
@@ -107,7 +107,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: Other edits to .npmrc
 
-lunamill SHALL behave as this line says: When `.npmrc` changes and the names it takes do not, nothing stops.
+Lunamill SHALL behave as this line says: When `.npmrc` changes and the names it takes do not, nothing stops.
 
 #### Scenario: Other edits to .npmrc
 
@@ -116,7 +116,7 @@ lunamill SHALL behave as this line says: When `.npmrc` changes and the names it 
 
 ### Requirement: The lock's presets and version
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The lock's presets and version
 
@@ -125,7 +125,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: LUNAMILL_SETTINGS with presets
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: LUNAMILL_SETTINGS with presets
 
@@ -134,7 +134,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: The lock records a preset's poller
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The lock records a preset's poller
 

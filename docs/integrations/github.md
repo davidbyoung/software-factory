@@ -3,12 +3,12 @@
 The code host: the repository, its pull requests, the checks on each
 commit, and the secrets the cloud runner reads.
 
-## What lunamill uses it for
+## What Lunamill uses it for
 
 Your repository is on GitHub. A build opens its pull request there, the
 review's verdict and who merges are statuses on each commit, labels mark
-each ticket and pull request lunamill handles, and the secrets the
-cloud runner reads are stored there. On your machine lunamill reaches
+each ticket and pull request Lunamill handles, and the secrets the
+cloud runner reads are stored there. On your machine Lunamill reaches
 GitHub through the GitHub CLI you signed in with.
 
 ## You need
@@ -35,7 +35,7 @@ here.
 
 From December 2, 2026, GitHub blocks the `pull_request_target` event in
 a public repository unless one of the repository's Actions policies
-allows it. lunamill's workflow file, `.github/workflows/lunamill.yml`,
+allows it. Lunamill's workflow file, `.github/workflows/lunamill.yml`,
 starts on that event: it is how the review's verdict, who merges, and
 the board sync run from your default branch's copy, where a pull request
 cannot change them.
@@ -76,12 +76,12 @@ When `init` cannot add the policy, it says so and puts the step under
 | `CLAUDE_CODE_OAUTH_TOKEN`                                                                                                                                                                                                                                                | When you turn on the automated review or builds in the cloud: `init` stores the token you paste, or you run `gh secret set`                                                 | Delete it, unless another workflow uses it                                                |
 | The secrets your `.npmrc` reads, such as `NPM_TOKEN`, for Actions and for Dependabot                                                                                                                                                                                     | `init`, when you paste them                                                                                                                                                 | Leave them if your own CI uses them; otherwise delete both copies                         |
 | Labels: `merge-automatic`, `merge-manual`, `verdict-override`, `policy-override`, `spec`, `lunamill`, or the names under [`tickets.labels`](../reference/settings/tickets.md#ticketslabels) and [`code-host.labels`](../reference/settings/code-host.md#code-hostlabels) | First use; `verdict-override`, the first time "Review verdict" is posted on a pull request with the review on                                                               | Delete them. Deleting a label removes it from every ticket                                |
-| A CI check that lunamill's files are in step                                                                                                                                                                                                                             | Setup                                                                                                                                                                       | Goes with `lunamill-review.yml`                                                           |
+| A CI check that Lunamill's files are in step                                                                                                                                                                                                                             | Setup                                                                                                                                                                       | Goes with `lunamill-review.yml`                                                           |
 | An Actions policy named "lunamill", on a public repository, which lets `lunamill.yml` start on `pull_request_target`                                                                                                                                                     | `init`, on a public repository; or you, [by hand](#a-public-repository-1)                                                                                                   | Delete it, under Settings, Actions, Policies                                              |
 | A "Review verdict" required check, as the ruleset "lunamill"                                                                                                                                                                                                             | With the review on, the first workflow run after the setup's pull request merges; `init`, when your default branch already has `lunamill.yml`; or you, in your branch rules | Delete the ruleset, under Settings, Rules, **first**, or pull requests wait on it forever |
 | Statuses on pull requests: "Who merges", "Review verdict"                                                                                                                                                                                                                | Each pull request                                                                                                                                                           | They stay in history                                                                      |
 | A ticket for each [follow-up](../workflow/follow-ups.md) ticked in a pull request                                                                                                                                                                                        | The merge                                                                                                                                                                   | Close the ticket, as you would any other                                                  |
-| Comments on tickets lunamill worked                                                                                                                                                                                                                                      | Each refinement and build                                                                                                                                                   | They stay. They hold the ticket's history                                                 |
+| Comments on tickets Lunamill worked                                                                                                                                                                                                                                      | Each refinement and build                                                                                                                                                   | They stay. They hold the ticket's history                                                 |
 
 In an organization's repository, the organization's own rule requires
 "Review verdict" in place of that ruleset, and the secrets are the
@@ -89,10 +89,10 @@ organization's ([In an organization](github-organizations.md#what-setup-adds)).
 
 ## Tokens and secrets
 
-Every secret lunamill reads is listed in
+Every secret Lunamill reads is listed in
 [Secrets](../security/credentials.md#secrets).
 
-In an organization, lunamill acts as the organization's GitHub App,
+In an organization, Lunamill acts as the organization's GitHub App,
 which makes a fresh token for each run
 ([In an organization](github-organizations.md#tokens-and-secrets)). A
 repository on your own account has no App, and could not use one, since
@@ -170,7 +170,7 @@ steps above.
 **A run that failed** because the token expired passes once the new one
 is stored: re-run it from its page on the Actions tab.
 
-## What lunamill can and cannot do there
+## What Lunamill can and cannot do there
 
 It opens pull requests, labels them, and posts their statuses. A session
 never merges a pull request, nor adds the `verdict-override` or
@@ -180,7 +180,7 @@ its auto-merge, and every other one waits for you.
 
 For certain people to review every change to certain files, use a
 `CODEOWNERS` file, with "Require review from Code Owners" in your branch
-rules: GitHub waits for one of them, and lunamill isn't involved
+rules: GitHub waits for one of them, and Lunamill isn't involved
 ([Is it an approval policy?](../features/approval-policies.md#is-it-an-approval-policy)).
 [Waiting for you on every change to a workflow](#waiting-for-you-on-every-change-to-a-workflow)
 uses one for the workflow files.
@@ -221,7 +221,7 @@ nothing moves it along or lets it merge itself.
   [`commands.build-setup`](../reference/settings/commands.md#commandsbuild-setup)
   instead, as that setting's entry shows for `composer install`.
 
-The limits of lunamill's workflows are under
+The limits of Lunamill's workflows are under
 [Limits that come from GitHub](github-actions.md#limits-that-come-from-github)
 on the GitHub Actions page.
 
@@ -252,7 +252,7 @@ installed in the repository.
 | [A board](github-projects.md#a-board)                                        | A Project, one setting, and a GitHub token                         |
 | [Builds in the cloud](github-actions.md#builds-in-the-cloud)                 | Your Claude token and a GitHub token                               |
 | [Pull requests that merge themselves](#pull-requests-that-merge-themselves)  | A list of files, one repository setting, and a second GitHub token |
-| [Signed commits on lunamill's updates](#signed-commits-on-lunamills-updates) | A signing key                                                      |
+| [Signed commits on Lunamill's updates](#signed-commits-on-lunamills-updates) | A signing key                                                      |
 
 [Run `lunamill init`](../setup/repository.md#run-lunamill-init) says what each part gives
 you. Every part's secrets are gathered in [Secrets](../security/credentials.md#secrets), so you can
@@ -272,7 +272,7 @@ If you followed the quick start, this is done.
      branch-name: "{ticket}"
    ```
 
-2. Write lunamill's files:
+2. Write Lunamill's files:
 
    ```bash
    lunamill sync
@@ -381,9 +381,9 @@ list, such as documentation.
 **It worked when** a pull request that touches only files you listed gets
 the `merge-automatic` label.
 
-### Signed commits on lunamill's updates
+### Signed commits on Lunamill's updates
 
-Without a key, the commits of the pull requests that update lunamill
+Without a key, the commits of the pull requests that update Lunamill
 are unsigned. A session's own commits in the cloud are unsigned whatever
 key you store. In a repository whose updates act as an organization's App
 ([Who a cloud session acts as](github-actions.md#who-a-cloud-session-acts-as)),
@@ -430,14 +430,14 @@ you on every change to a workflow:
 **It worked when** a pull request that changes a file under `.github/`
 lists you as a required reviewer.
 
-### Dependabot and lunamill's updates
+### Dependabot and Lunamill's updates
 
-`.github/dependabot.yml` needs no group for lunamill
+`.github/dependabot.yml` needs no group for Lunamill
 ([Dependency bots](../features/dependency-updates.md#dependency-bots) says
 why). If yours has one from an earlier version, delete it, with its name
 in any other group's `exclude-patterns`.
 
-If Dependabot updates your workflow files, have it leave lunamill's
+If Dependabot updates your workflow files, have it leave Lunamill's
 alone, with this entry in `.github/dependabot.yml`:
 
 ```yaml
@@ -456,7 +456,7 @@ A host that builds the poller from a Dockerfile in your repository, such
 as `poller/Dockerfile`
 ([Hosting the poller](../features/hosting-the-poller.md#hosting-the-poller-own-server)),
 gets a pull request for each new version of the image from this entry in
-`.github/dependabot.yml`. That pull request waits for you, as lunamill's own [update](../maintain/updating.md) does:
+`.github/dependabot.yml`. That pull request waits for you, as Lunamill's own [update](../maintain/updating.md) does:
 
 ```yaml
 - package-ecosystem: docker

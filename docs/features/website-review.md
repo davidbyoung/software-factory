@@ -1,7 +1,7 @@
 # Website review
 
 For a repository that is a website. At the end each change that affects
-a page is pictured before and after, in a browser lunamill drives, and
+a page is pictured before and after, in a browser Lunamill drives, and
 read by a UI reviewer: an agent that looks at those pictures for
 usability and design.
 
@@ -13,7 +13,7 @@ measured, and read by the UI reviewer.
 ## What it needs
 
 The [`site`](../reference/settings/site.md#site) settings, which say how
-to start the website, and a browser for lunamill to drive, which
+to start the website, and a browser for Lunamill to drive, which
 `npm install -D playwright` installs in your repository. Until it is
 installed, `lunamill config check` fails on settings with `site`.
 
@@ -21,7 +21,7 @@ installed, `lunamill config check` fails on settings with `site`.
 
 Write [`site`](../reference/settings/site.md#site) in
 `.claude/lunamill.yaml`. Most sites need two lines: the command that
-builds and serves the site on the port lunamill gives it, and the
+builds and serves the site on the port Lunamill gives it, and the
 address it serves at:
 
 ```yaml
@@ -38,7 +38,7 @@ default branch, takes the pictures, and prints where it saved them.
 
 ### The UI reviewer
 
-`lunamill-ui-reviewer` ships with lunamill and is copied into any repository
+`lunamill-ui-reviewer` ships with Lunamill and is copied into any repository
 with [`site`](../reference/settings/site.md#site) in its settings, but runs only where it is listed:
 
 ```yaml

@@ -1,11 +1,11 @@
 ---
 name: dx-first
-description: Draft what a developer types and sees, as command transcripts, files, workflow diagrams, and finally the docs page, and agree it with the owner before the ticket is refined into a spec. Use before refining a ticket that adds or changes a command, a command's output, a setting, a file lunamill writes, or a docs page, and when the owner asks for it with `/dx-first N`.
+description: Draft what a developer types and sees, as command transcripts, files, workflow diagrams, and finally the docs page, and agree it with the owner before the ticket is refined into a spec. Use before refining a ticket that adds or changes a command, a command's output, a setting, a file Lunamill writes, or a docs page, and when the owner asks for it with `/dx-first N`.
 ---
 
 # Drafting the developer experience first
 
-A lunamill user meets a feature as the commands they type, what those
+A Lunamill user meets a feature as the commands they type, what those
 commands print, the settings and files they read and write, and the docs
 page that tells them how. This skill drafts all of that before any
 requirement is written, settles it with the owner, and saves it into the
@@ -52,7 +52,7 @@ Then read:
   prints for each capability it touches;
 - the docs pages next to the one the draft will change, and the page it
   changes, if there is one;
-- "Writing for lunamill" in `docs/developing.md`.
+- "Writing for Lunamill" in `docs/developing.md`.
 
 The draft follows the docs' conventions, not the session's: a command is
 written `lunamill ...`, the one install `docs/get-started/install.md` describes.
@@ -99,7 +99,7 @@ credentials included. The reader is each person the feature has, such as
 the author of a preset and the developer who uses it.
 
 On #29, "how do we actually get a preset?" found the largest gap: a
-private preset, the usual case for a company, made every lunamill workflow
+private preset, the usual case for a company, made every Lunamill workflow
 fail at `npm ci`, and Dependabot could not see its updates. Neither the
 requirements nor three rounds of transcripts had followed the package that
 far. Put what the walk finds in the draft, as transcripts and open
@@ -116,8 +116,8 @@ owner, and once agreed open it:
   `.claude/lunamill/rules.md` says.
 
 The draft marks that work _Planned_, naming the ticket, as "Writing for
-lunamill" says a page marks anything not built. On #29, private
-registries turned out to break lunamill for any private dependency,
+Lunamill" says a page marks anything not built. On #29, private
+registries turned out to break Lunamill for any private dependency,
 not only presets, and became #31 rather than growing #29.
 
 ## 6. The docs page
@@ -139,7 +139,7 @@ it now lists each preset it found.
 ## 7. Check each output against what is stored
 
 Before saving, trace each line of output the draft shows, in a transcript
-or the docs page, to the data that produces it: a setting, a file lunamill keeps, or the command's input. Where nothing stored produces it,
+or the docs page, to the data that produces it: a setting, a file Lunamill keeps, or the command's input. Where nothing stored produces it,
 change the draft: store it, or stop showing it. Check each link in the
 docs page goes somewhere that exists or is marked _Planned_.
 

@@ -55,7 +55,7 @@ describe("pull request reads", () => {
     await expect(p.get(6)).rejects.toBeInstanceOf(NotFoundError);
   });
 
-  it("returns a pull request in lunamill's words", async () => {
+  it("returns a pull request in Lunamill's words", async () => {
     const { p } = pulls([
       [
         /pulls\/5$/,
@@ -256,7 +256,7 @@ describe("pull request reads", () => {
 });
 
 describe("pull request conversation and labels", () => {
-  it("lists conversation comments in lunamill's words, a deleted account as ghost", async () => {
+  it("lists conversation comments in Lunamill's words, a deleted account as ghost", async () => {
     const { p, calls } = pulls([
       [
         /--paginate --slurp repos\/acme\/widgets\/issues\/5\/comments/,
@@ -483,7 +483,7 @@ describe("reviews and their comments", () => {
     line: 3,
   };
 
-  it("returns a pull request's reviews in lunamill's words, one with no body as empty", async () => {
+  it("returns a pull request's reviews in Lunamill's words, one with no body as empty", async () => {
     const { p } = pulls([
       [
         /pulls\/5\/reviews\?/,
@@ -940,7 +940,7 @@ describe("the newest pull request from a branch", () => {
   });
 });
 
-describe("lunamill's releases, and closing a pull request", () => {
+describe("Lunamill's releases, and closing a pull request", () => {
   it("gives the tag of the newest release of the repository asked for", async () => {
     const { p, calls } = pulls([[/releases\/latest/, { tag_name: "v0.3.0" }]]);
     expect(await p.newestRelease("acme/factory")).toBe("v0.3.0");
@@ -1021,7 +1021,7 @@ describe("the rules and properties of a repository", () => {
       [/^api repos\/acme\/widgets\/rulesets/, []],
       [/-X POST repos\/acme\/widgets\/rulesets/, { id: 1 }],
     ]);
-    await h.requireCheck("lunamill", "Review verdict", "runner");
+    await h.requireCheck("Lunamill", "Review verdict", "runner");
     const body = calls[1]!.input as {
       rules: { parameters: { required_status_checks: unknown[] } }[];
     };
@@ -1030,8 +1030,8 @@ describe("the rules and properties of a repository", () => {
     ]);
   });
 
-  it("adds a check to lunamill's rule when the rule is there already, and leaves one it holds", async () => {
-    const rule = { id: 9, name: "lunamill" };
+  it("adds a check to Lunamill's rule when the rule is there already, and leaves one it holds", async () => {
+    const rule = { id: 9, name: "Lunamill" };
     const full = {
       rules: [{ type: "deletion" }, required("Review verdict")],
     };
@@ -1040,7 +1040,7 @@ describe("the rules and properties of a repository", () => {
       [/^api repos\/acme\/widgets\/rulesets\/9$/, full],
       [/-X PUT repos\/acme\/widgets\/rulesets\/9/, {}],
     ]);
-    await h.requireCheck("lunamill", "Approval policies", "runner");
+    await h.requireCheck("Lunamill", "Approval policies", "runner");
     const put = calls.find((c) => c.line.includes("-X PUT"))!;
     expect(put.input).toEqual({
       rules: [
@@ -1060,7 +1060,7 @@ describe("the rules and properties of a repository", () => {
       [/^api repos\/acme\/widgets\/rulesets\?/, [rule]],
       [/^api repos\/acme\/widgets\/rulesets\/9$/, full],
     ]);
-    await again.h.requireCheck("lunamill", "Review verdict", "runner");
+    await again.h.requireCheck("Lunamill", "Review verdict", "runner");
     expect(again.calls.some((c) => c.line.includes("-X PUT"))).toBe(false);
   });
 
@@ -1398,12 +1398,12 @@ describe("an organization, on GitHub", () => {
     const { o, calls } = org([[/-X POST orgs\/acme\/repos/, { id: 1 }]]);
     await o.createRepository("lunamill-config", {
       isPrivate: true,
-      description: "lunamill's settings",
+      description: "Lunamill's settings",
     });
     expect(calls[0]!.input).toEqual({
       name: "lunamill-config",
       private: true,
-      description: "lunamill's settings",
+      description: "Lunamill's settings",
     });
   });
 
@@ -1545,9 +1545,9 @@ describe("an organization, on GitHub", () => {
 
   it("lists the names of the organization's rules", async () => {
     const { o, calls } = org([
-      [/orgs\/acme\/rulesets/, [[{ name: "lunamill" }, { name: "x" }]]],
+      [/orgs\/acme\/rulesets/, [[{ name: "Lunamill" }, { name: "x" }]]],
     ]);
-    expect(await o.ruleNames()).toEqual(["lunamill", "x"]);
+    expect(await o.ruleNames()).toEqual(["Lunamill", "x"]);
     expect(calls[0]!.line).toBe(
       "api --paginate --slurp orgs/acme/rulesets?per_page=100",
     );

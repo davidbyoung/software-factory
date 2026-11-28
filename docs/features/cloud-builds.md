@@ -96,7 +96,7 @@ and that account as their committer, and its pull request and comments
 are that account's. When the token is yours, that is you. A team that
 wants an agent account makes one on the code host, gives it write
 access, and stores its token instead. A session takes instructions from
-anyone who can write to the repository, but never from a comment lunamill posted, so an agent account cannot instruct a later session. In an organization that is set
+anyone who can write to the repository, but never from a comment Lunamill posted, so an agent account cannot instruct a later session. In an organization that is set
 up, the build acts as the organization's app: the pull request and
 comments are the app's, and the commits name it as their committer.
 
@@ -184,7 +184,7 @@ the next: [Build it in the cloud](../workflow/across-repositories.md#build-it-in
   ([With a part off](../integrations/github-actions.md#with-a-part-off)).
 
 One more job runs no session: three times a day, the update job opens a
-pull request for a newer release of lunamill, and for a
+pull request for a newer release of Lunamill, and for a
 [preset](../customize/presets.md) that changed. [Updating](../maintain/updating.md#what-happens)
 describes it.
 

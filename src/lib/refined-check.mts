@@ -1,6 +1,6 @@
 // Whether a refined ticket's body is one a build can read: the check
 // `lunamill ticket refined` makes before it posts the marker, for the
-// lunamill's own refiner as for a plugin's. It reads headings only, never
+// Lunamill's own refiner as for a plugin's. It reads headings only, never
 // what a section says.
 
 import { fencedLines } from "./fences.mts";

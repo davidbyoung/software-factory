@@ -77,7 +77,7 @@ describe("classify", () => {
     });
   });
 
-  it("holds a lunamill file though allow matches it", () => {
+  it("holds a Lunamill file though allow matches it", () => {
     expect(
       classify(
         [
@@ -88,9 +88,9 @@ describe("classify", () => {
         { allow: ["**"], deny: [] },
       ).reasons,
     ).toEqual([
-      ".claude/skills/x/SKILL.md: lunamill's own files",
-      "docs/CLAUDE.md: lunamill's own files",
-      "openspec/config.yaml: lunamill's own files",
+      ".claude/skills/x/SKILL.md: Lunamill's own files",
+      "docs/CLAUDE.md: Lunamill's own files",
+      "openspec/config.yaml: Lunamill's own files",
     ]);
   });
 });

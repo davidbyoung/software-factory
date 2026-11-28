@@ -24,7 +24,7 @@
             "type": "command",
             "command": "node \"$CLAUDE_PROJECT_DIR\"/bin/lunamill.js guard",
             "timeout": 180,
-            "statusMessage": "Checking lunamill's guards"
+            "statusMessage": "Checking Lunamill's guards"
           }
         ]
       },

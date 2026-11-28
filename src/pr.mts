@@ -55,7 +55,7 @@ import { takeCost, type CostDeps } from "./ticket.mts";
 import * as say from "./lib/output.mts";
 
 export type Deps = {
-  /** The repository, as owner/name, from lunamill's settings. */
+  /** The repository, as owner/name, from Lunamill's settings. */
   repository: string;
   codeHost: CodeHost;
   runner: Runner;
@@ -276,7 +276,7 @@ const POLL_MS = 30_000;
  * repository runs no CI on this commit. */
 export const NO_CHECKS_MS = 120_000;
 
-/** The events whose runs `wait-checks` waits on. lunamill's own
+/** The events whose runs `wait-checks` waits on. Lunamill's own
  * workflows start on pull_request_target and workflow_run, and a failed
  * board sync should not stop a pull request being marked ready. */
 const WAITED_EVENTS = ["pull_request", "push"];
@@ -382,8 +382,8 @@ function gitSigns(d: Deps): boolean {
 }
 
 /** Whether an approver's review has something in it to work, and if not,
- * why: "closed", "not an approver's", or "lunamill's own reply". An
- * empty body counts for nothing, since lunamill's reply is a review with
+ * why: "closed", "not an approver's", or "Lunamill's own reply". An
+ * empty body counts for nothing, since Lunamill's reply is a review with
  * an empty body and one comment carrying the marker. */
 export async function reviewPending(
   p: CodeHost,
@@ -408,7 +408,7 @@ export async function reviewPending(
     return { pending: true };
   return {
     pending: false,
-    why: `review ${reviewId} is lunamill's own reply: nothing of an approver's in it`,
+    why: `review ${reviewId} is Lunamill's own reply: nothing of an approver's in it`,
   };
 }
 

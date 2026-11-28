@@ -8,7 +8,7 @@ What `lunamill init --org ADDRESS` does, once, for an organization: what stops i
 
 ### Requirement: What stops it before it asks
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: What stops it before it asks
 
@@ -17,7 +17,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: A sign-in that lacks a permission
 
-lunamill SHALL behave as this line says: When the GitHub CLI's sign-in lacks `admin:org` or `project`, it asks the question "before it asks" shows, naming what is missing, before any other question. On yes it runs `gh auth refresh` with them, and on no it changes nothing.
+Lunamill SHALL behave as this line says: When the GitHub CLI's sign-in lacks `admin:org` or `project`, it asks the question "before it asks" shows, naming what is missing, before any other question. On yes it runs `gh auth refresh` with them, and on no it changes nothing.
 
 #### Scenario: A sign-in that lacks a permission
 
@@ -26,16 +26,16 @@ lunamill SHALL behave as this line says: When the GitHub CLI's sign-in lacks `ad
 
 ### Requirement: The rows under Found
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The rows under Found
 
 - **WHEN** `lunamill init --org ADDRESS` prints what it found
-- **THEN** Under "Found" it prints the rows the draft shows, with `Tickets` as a row while lunamill has one ticket system and as a question once it has two, and a `Plan` row on GitHub Free only.
+- **THEN** Under "Found" it prints the rows the draft shows, with `Tickets` as a row while Lunamill has one ticket system and as a question once it has two, and a `Plan` row on GitHub Free only.
 
 ### Requirement: The questions it asks
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The questions it asks
 
@@ -44,7 +44,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: The plan
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The plan
 
@@ -53,25 +53,25 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: The board
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The board
 
 - **WHEN** `lunamill init --org ADDRESS` sets up the board she chose, a new one or one the organization has
-- **THEN** It creates a new board with lunamill's columns and fields, and prints the draft's ✓ line. An existing board keeps its own columns: before the plan it reads them, and where the board lacks one of lunamill's six, the coding agent suggests which of its columns shows each state, with the questions and the table `lunamill init` has; where it has all six it asks nothing. The plan's `board` row names each column and field it will add, or reads `Use board N as it is`. After "Go ahead?" it adds only the columns the chosen names still lack and lunamill's fields the board lacks, prints `Added to board N: ` and their names, and prints nothing when it added none. A suggestion that fails, takes too long, or cannot be used does not stop it: it prints `<label>'s answer could not be used: <reason>.` and `Choose the column for each state yourself.`, asks `Which column shows <state>?` for each of the six states, offering each of the board's columns, lunamill's own column where the board lacks it, and no column where a state may have none, then shows the table and asks `Use these columns?` with `Yes` and `Change some`. The preset and the plan follow from those answers as from a suggestion.
+- **THEN** It creates a new board with Lunamill's columns and fields, and prints the draft's ✓ line. An existing board keeps its own columns: before the plan it reads them, and where the board lacks one of Lunamill's six, the coding agent suggests which of its columns shows each state, with the questions and the table `lunamill init` has; where it has all six it asks nothing. The plan's `board` row names each column and field it will add, or reads `Use board N as it is`. After "Go ahead?" it adds only the columns the chosen names still lack and Lunamill's fields the board lacks, prints `Added to board N: ` and their names, and prints nothing when it added none. A suggestion that fails, takes too long, or cannot be used does not stop it: it prints `<label>'s answer could not be used: <reason>.` and `Choose the column for each state yourself.`, asks `Which column shows <state>?` for each of the six states, offering each of the board's columns, Lunamill's own column where the board lacks it, and no column where a state may have none, then shows the table and asks `Use these columns?` with `Yes` and `Change some`. The preset and the plan follow from those answers as from a suggestion.
 
 ### Requirement: The lunamill-config repository
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The lunamill-config repository
 
 - **WHEN** `lunamill init --org ADDRESS` comes to `ORG/lunamill-config`
-- **THEN** It creates `ORG/lunamill-config` with the three files "What `lunamill init --org` creates" shows: private, or public on GitHub Free. The preset holds the board's number, the column chosen for each of the six states, a `code-host` block between `tickets` and `pr-review`, with `type`, the code host ADDRESS names, and `branch-name`, the answer in double quotes, `pr-review`, `builds.trigger: github-action`, and `builds.poll-minutes` when it is not 5. With no interval asked, that is 5 and the cron is `*/5 * * * *`. The workflow file names the installed lunamill's version. In a repository of that name that already exists, a file that is there is left as it is, and one that is missing is written.
+- **THEN** It creates `ORG/lunamill-config` with the three files "What `lunamill init --org` creates" shows: private, or public on GitHub Free. The preset holds the board's number, the column chosen for each of the six states, a `code-host` block between `tickets` and `pr-review`, with `type`, the code host ADDRESS names, and `branch-name`, the answer in double quotes, `pr-review`, `builds.trigger: github-action`, and `builds.poll-minutes` when it is not 5. With no interval asked, that is 5 and the cron is `*/5 * * * *`. The workflow file names the installed Lunamill's version. In a repository of that name that already exists, a file that is there is left as it is, and one that is missing is written.
 
 ### Requirement: Registering the App
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Registering the App
 
@@ -80,7 +80,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: The App's client ID and key
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The App's client ID and key
 
@@ -89,7 +89,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: Waiting for the install
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Waiting for the install
 
@@ -98,7 +98,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: The coding agent's credential
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The coding agent's credential
 
@@ -107,7 +107,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: The property and the rule
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The property and the rule
 
@@ -116,7 +116,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: The last line
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The last line
 
@@ -125,7 +125,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: Run again
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Run again
 
@@ -134,7 +134,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: A step that fails
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A step that fails
 
@@ -143,7 +143,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: A branch name it refuses
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A branch name it refuses
 
@@ -152,7 +152,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: The README's line on the preset
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The README's line on the preset
 
@@ -161,7 +161,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: A preset that is already there
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A preset that is already there
 
@@ -170,7 +170,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: An organization's preset that is not valid
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: An organization's preset that is not valid
 
@@ -179,7 +179,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: The Claude token's day when run again
 
-lunamill SHALL behave as this line says: When `lunamill init --org` finds `CLAUDE_CODE_OAUTH_TOKEN` stored for the organization and its DAY, a year after its `updated_at` in the organization's own list of secrets, is more than 30 days away, the question reads `CLAUDE_CODE_OAUTH_TOKEN is already stored for ORG, and works until DAY. Replace it? Only if it has been revoked. Press Enter for no:`, with no as its default.
+Lunamill SHALL behave as this line says: When `lunamill init --org` finds `CLAUDE_CODE_OAUTH_TOKEN` stored for the organization and its DAY, a year after its `updated_at` in the organization's own list of secrets, is more than 30 days away, the question reads `CLAUDE_CODE_OAUTH_TOKEN is already stored for ORG, and works until DAY. Replace it? Only if it has been revoked. Press Enter for no:`, with no as its default.
 
 #### Scenario: The Claude token's day when run again
 
@@ -188,7 +188,7 @@ lunamill SHALL behave as this line says: When `lunamill init --org` finds `CLAUD
 
 ### Requirement: Replacing a near Claude token
 
-lunamill SHALL behave as this line says: When DAY is 30 days or fewer away, or past, it prints `CLAUDE_CODE_OAUTH_TOKEN, stored for ORG on STORED, stops working by DAY, WHEN.`, or `stopped working by DAY.` after it, then asks `Replace it now? Press Enter for yes:`, with yes as its default.
+Lunamill SHALL behave as this line says: When DAY is 30 days or fewer away, or past, it prints `CLAUDE_CODE_OAUTH_TOKEN, stored for ORG on STORED, stops working by DAY, WHEN.`, or `stopped working by DAY.` after it, then asks `Replace it now? Press Enter for yes:`, with yes as its default.
 
 #### Scenario: Replacing a near Claude token
 
@@ -197,7 +197,7 @@ lunamill SHALL behave as this line says: When DAY is 30 days or fewer away, or p
 
 ### Requirement: An API key in place of the token
 
-lunamill SHALL behave as this line says: With `ANTHROPIC_API_KEY` stored in its place, the question is today's.
+Lunamill SHALL behave as this line says: With `ANTHROPIC_API_KEY` stored in its place, the question is today's.
 
 #### Scenario: An API key in place of the token
 
@@ -206,7 +206,7 @@ lunamill SHALL behave as this line says: With `ANTHROPIC_API_KEY` stored in its 
 
 ### Requirement: The organization's steps in full
 
-lunamill SHALL behave as this line says: When `lunamill init --org` ends, the line after `The steps in full:` is the address of "What each developer does next" in `docs/setup/organization.md` at the installed release.
+Lunamill SHALL behave as this line says: When `lunamill init --org` ends, the line after `The steps in full:` is the address of "What each developer does next" in `docs/setup/organization.md` at the installed release.
 
 #### Scenario: The organization's steps in full
 

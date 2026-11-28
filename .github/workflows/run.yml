@@ -27,7 +27,7 @@
 # the build, board, and auto-merge tokens. The verdict never does: it is
 # posted with the workflow's own token, which the rule that requires it
 # names.
-name: lunamill run
+name: Lunamill run
 
 on:
   workflow_call:
@@ -139,7 +139,7 @@ jobs:
           node-version: 22
 
       - &install
-        name: Install lunamill
+        name: Install Lunamill
         run: |
           if [ "$(jq -r '.name // empty' package.json 2> /dev/null)" = "@lunamill-ai/lunamill" ]; then
             npm ci --ignore-scripts
@@ -147,7 +147,7 @@ jobs:
           else
             version="$(sed -n 's/^version: *//p' .claude/lunamill.lock | head -n 1)"
             if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-              echo "::error::.claude/lunamill.lock names no release of lunamill. Run lunamill sync, and commit what it writes."
+              echo "::error::.claude/lunamill.lock names no release of Lunamill. Run lunamill sync, and commit what it writes."
               exit 1
             fi
             npm install --global --no-audit --no-fund "@lunamill-ai/lunamill@$version"

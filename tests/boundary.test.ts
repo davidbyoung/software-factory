@@ -223,7 +223,7 @@ describe("githubTicketWordsIn", () => {
     ).toHaveLength(1);
   });
 
-  it("lets through lunamill's command for the link and a pull request's number", () => {
+  it("lets through Lunamill's command for the link and a pull request's number", () => {
     expect(
       githubTicketWordsIn(
         "Start the body with the line `lunamill ticket link N` prints. Each `(#N)` names a pull request.",
@@ -256,7 +256,7 @@ describe("ticketCallsIn", () => {
     ).toHaveLength(1);
   });
 
-  it("lets through lunamill's commands and gh api calls to other paths", () => {
+  it("lets through Lunamill's commands and gh api calls to other paths", () => {
     expect(ticketCallsIn("lunamill ticket view N")).toEqual([]);
     expect(ticketCallsIn("gh api repos/REPO/pulls/N/files")).toEqual([]);
     expect(ticketCallsIn("See the issues list on GitHub.")).toEqual([]);
@@ -277,7 +277,7 @@ describe("specToolCallsIn", () => {
     ).toHaveLength(1);
   });
 
-  it("lets through lunamill's commands, OpenSpec's folders, and its name", () => {
+  it("lets through Lunamill's commands, OpenSpec's folders, and its name", () => {
     expect(specToolCallsIn("lunamill specs new N")).toEqual([]);
     expect(specToolCallsIn("a line of `openspec/specs/` false")).toEqual([]);
     expect(specToolCallsIn("when `openspec/config.yaml` changed")).toEqual([]);
@@ -300,7 +300,7 @@ describe("hostToolIn", () => {
     expect(hostToolIn("Read its `mergeable_state` first.")).toHaveLength(1);
   });
 
-  it("lets through lunamill's commands and words that only hold the letters", () => {
+  it("lets through Lunamill's commands and words that only hold the letters", () => {
     expect(hostToolIn("lunamill pr view 12 --field head")).toEqual([]);
     expect(hostToolIn("A high bar, though.")).toEqual([]);
     expect(hostToolIn("whether it can merge is `dirty`")).toEqual([]);
@@ -308,7 +308,7 @@ describe("hostToolIn", () => {
 });
 
 describe("factoryAfterCdIn", () => {
-  it("finds a lunamill command run after a cd, and lets one from the root through", () => {
+  it("finds a Lunamill command run after a cd, and lets one from the root through", () => {
     expect(
       factoryAfterCdIn(
         'cd "$dir" && lunamill ticket comment N \\\n  --body-file body.md',
@@ -657,7 +657,7 @@ describe("the boundaries", () => {
     expect(found).toEqual([]);
   });
 
-  it("the design skill names nothing of the repository lunamill is developed in", () => {
+  it("the design skill names nothing of the repository Lunamill is developed in", () => {
     const path = join(PACKAGE, "skills/lunamill-design/SKILL.md");
     expect(hostNamesIn(readFileSync(path, "utf8"))).toEqual([]);
   });
@@ -727,7 +727,7 @@ describe("the boundaries", () => {
     expect(found).toEqual([]);
   });
 
-  it("no skill, agent, rule, review, or workflow in the package runs lunamill after a cd", () => {
+  it("no skill, agent, rule, review, or workflow in the package runs Lunamill after a cd", () => {
     const found = instructionFiles().flatMap((path) =>
       factoryAfterCdIn(readFileSync(path, "utf8")).map((l) => `${path}: ${l}`),
     );

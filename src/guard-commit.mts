@@ -6,10 +6,10 @@
 // the message to Claude.
 //
 // The default branch is whatever the repository calls it
-// (`lib/default-branch.mts`). In a checkout with lunamill's settings,
+// (`lib/default-branch.mts`). In a checkout with Lunamill's settings,
 // every source may answer, and a commit or push is blocked when none does,
 // or when no remote is the repository the settings name. Any other checkout
-// is not lunamill's to govern: there the guard reads `origin/HEAD`
+// is not Lunamill's to govern: there the guard reads `origin/HEAD`
 // alone, asks nobody, and lets the call through when it is not set.
 import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, realpathSync } from "node:fs";
@@ -291,7 +291,7 @@ export async function checkCommit(
     });
     if (r.status === 0) return null;
     err(lastLines(`${r.stdout ?? ""}${r.stderr ?? ""}`).join("\n"));
-    return `lunamill in ${top} blocked it, as above.`;
+    return `Lunamill in ${top} blocked it, as above.`;
   }
   // A repository with no settings is not one lunamill governs, such as
   // another repository a session works in: it has no gate to run.
@@ -301,7 +301,7 @@ export async function checkCommit(
     settings = await loadSettings(defaultDeps(top));
   } catch (e) {
     err(lastLines(e instanceof Error ? e.message : String(e)).join("\n"));
-    return "the gate failed: lunamill's settings could not be read. Fix the error above, then commit.";
+    return "the gate failed: Lunamill's settings could not be read. Fix the error above, then commit.";
   }
   const git = gitIn(top);
   const change = commitChange(git);

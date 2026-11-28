@@ -75,7 +75,7 @@ marker", it runs steps 4 and 5 only and posts none of these.
 `lunamill plugins refiner`. When it prints a skill other
 than `lunamill-refine`, invoke that skill with the Skill tool, with the
 same ticket and words this one was given, and stop: the repository
-refines its own way, and what that skill must leave behind is in lunamill's plugins guide.
+refines its own way, and what that skill must leave behind is in Lunamill's plugins guide.
 
 Post the `refining` marker first ("Labels and markers"), then:
 
@@ -334,7 +334,7 @@ post one round as a comment, asking only the decisions, attaching the
 screenshots with `--attach`: put the body and the images in one directory
 and reference each image by its relative path,
 `![Open, phone](./form-phone.png)`. Ask first whether the ticket system
-can attach here. Run both from the repository's root, where lunamill
+can attach here. Run both from the repository's root, where Lunamill
 is installed, and give the body and each image by its full path:
 
 ```bash

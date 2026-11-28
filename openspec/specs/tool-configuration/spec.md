@@ -8,7 +8,7 @@ Each tool's own configuration in the repository, and how `lunamill doctor` check
 
 ### Requirement: Claude Code's configuration lines
 
-lunamill SHALL behave as this line says: `lunamill doctor` prints one line for each piece of Claude Code's configuration under the `Claude Code` heading: `CLAUDE.md imports lunamill's rules`, `.claude/settings.json has lunamill's hooks`, and `The claude command is installed`.
+Lunamill SHALL behave as this line says: `lunamill doctor` prints one line for each piece of Claude Code's configuration under the `Claude Code` heading: `CLAUDE.md imports lunamill's rules`, `.claude/settings.json has lunamill's hooks`, and `The claude command is installed`.
 
 #### Scenario: Claude Code's configuration lines
 
@@ -17,7 +17,7 @@ lunamill SHALL behave as this line says: `lunamill doctor` prints one line for e
 
 ### Requirement: Claude Code's files are missing
 
-lunamill SHALL behave as this line says: When Claude Code's files lack the import or a hook, that line fails with the fix `Run lunamill sync`.
+Lunamill SHALL behave as this line says: When Claude Code's files lack the import or a hook, that line fails with the fix `Run lunamill sync`.
 
 #### Scenario: Claude Code's files are missing
 
@@ -35,7 +35,7 @@ lunamill SHALL behave as this line says: When Claude Code's files lack the impor
 
 ### Requirement: Another tool's configuration
 
-lunamill SHALL behave as this line says: When a tool's declared configuration is missing, `doctor` fails a line under that tool's name with the tool's own fix; with the fake coding agent, under `Fake Agent`.
+Lunamill SHALL behave as this line says: When a tool's declared configuration is missing, `doctor` fails a line under that tool's name with the tool's own fix; with the fake coding agent, under `Fake Agent`.
 
 #### Scenario: Another tool's configuration
 

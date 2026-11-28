@@ -1,6 +1,6 @@
-# lunamill's rules
+# Lunamill's rules
 
-The process rules that hold in any repository lunamill builds.
+The process rules that hold in any repository Lunamill builds.
 `CLAUDE.md` imports this file, and says what is the repository's own under
 a heading of the same name with ": this repository" added. Where the two
 differ, `CLAUDE.md` wins.
@@ -347,9 +347,9 @@ as the `lunamill guard ticket-text` command describes.
 
 ## Changing the process
 
-lunamill's skills, agents, rules, and review instructions under
+Lunamill's skills, agents, rules, and review instructions under
 `.claude/` and `.github/` are copies, and its two workflow files are
-written from the settings, all by `lunamill sync` from lunamill's
+written from the settings, all by `lunamill sync` from Lunamill's
 package. Change the source in the package, run `lunamill sync`, and commit
 both: the gate and CI fail when a file differs from what `sync` writes
 from its source and the settings.
@@ -361,7 +361,7 @@ it to small changes after the table that defines the label stopped, and
 agents. So a change to `CLAUDE.md`, this file, a skill, an agent,
 `.github/lunamill-review.md`, `.github/review-notes.md`, a workflow,
 `openspec/config.yaml`, the settings in `.claude/lunamill.yaml`, or the
-code that decides what runs and who merges (lunamill's own commands,
+code that decides what runs and who merges (Lunamill's own commands,
 and the scripts "Changing the process: this
 repository" in `CLAUDE.md` names)
 that alters what triggers a step, who runs or when,

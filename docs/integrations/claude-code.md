@@ -3,18 +3,18 @@
 The coding agent: what runs each session, on your machine and in the
 cloud.
 
-## What lunamill uses it for
+## What Lunamill uses it for
 
 Every session runs in Claude Code: the ones you start on your machine,
 and the automated review, the approval policies' agents, and builds in
-the cloud. They run lunamill's skills and agents.
+the cloud. They run Lunamill's skills and agents.
 
 ### Skills in Claude Code
 
 In Claude Code each skill is a slash command, such as `/lunamill-refine 12`.
 [Skills and agents](../reference/skills.md#at-a-glance) lists every one with what it does.
 
-**Where the files live.** `lunamill sync`, which writes lunamill's
+**Where the files live.** `lunamill sync`, which writes Lunamill's
 files into your repository, writes its skills to
 `.claude/skills/lunamill-*/` and its agents to
 `.claude/agents/lunamill-*.md`. Your own skills go in
@@ -36,7 +36,7 @@ it instead of copying them stays possible.
 root, and any beside the code they govern. The skills read the rules for
 each area from them. How to check a change is not there: it is
 [`commands.gate`](../reference/settings/commands.md#commandsgate) in your settings.
-`sync` adds one line to the root `CLAUDE.md`, which loads lunamill's
+`sync` adds one line to the root `CLAUDE.md`, which loads Lunamill's
 rules.
 
 ## You need
@@ -54,7 +54,7 @@ builds in the cloud ([Tokens and secrets](#tokens-and-secrets)).
 ## What setup adds
 
 This is the one list of every file setup writes in your repository, for
-every tool lunamill uses, with what
+every tool Lunamill uses, with what
 [removing it](../maintain/removing.md) does with each. What setup adds on
 the code host and the board is on [GitHub](github.md#what-setup-adds) and
 [GitHub Projects](github-projects.md#what-setup-adds).
@@ -84,8 +84,8 @@ Claude Code's own "Co-Authored-By" and "Generated with" lines, so a
 session's commits and pull requests carry only the person's name. It
 leaves an `attribution` you set yourself alone.
 
-The list holds files only, since lunamill itself is not one of your
-repository's dependencies. Nothing of lunamill's own is installed in
+The list holds files only, since Lunamill itself is not one of your
+repository's dependencies. Nothing of Lunamill's own is installed in
 the repository: no
 `package.json` entry, no `package-lock.json`, and no `node_modules/`. The
 `lunamill` command is installed once on each machine
@@ -176,7 +176,7 @@ owners are listed on its People page on GitHub, under the Owner role.
 **A run that failed** because of the old token passes once the new one
 is stored: re-run it from its page on the Actions tab.
 
-## What lunamill can and cannot do there
+## What Lunamill can and cannot do there
 
 ### Hooks
 
@@ -193,9 +193,9 @@ runs](../get-started/install.md#which-version-runs)).
 | Before a shell command                                    | Blocks a commit on your default branch, a push to it, and a force push. Runs your [`commands.before-commit`](../reference/settings/commands.md#commandsbefore-commit) commands before a commit |
 | Before posting ticket text                                | Refuses text with a bare `<tag>`, which GitHub would silently drop                                                                                                                             |
 | When a reviewer starts or stops                           | Records the run on the ticket, so its cost is counted                                                                                                                                          |
-| Before an unattended build writes a file under `.claude/` | Approves the write, when the run is one lunamill started and the file is not `.claude/settings.json` or `.claude/settings.local.json`                                                          |
+| Before an unattended build writes a file under `.claude/` | Approves the write, when the run is one Lunamill started and the file is not `.claude/settings.json` or `.claude/settings.local.json`                                                          |
 | When a session starts                                     | Shows unfinished branches and where each ticket stands                                                                                                                                         |
-| Before a file is read, searched, or listed                | Refuses a call that opens lunamill's credentials file on your machine, which only lunamill's commands read ([The file on your machine](../security/credentials.md#the-file-on-your-machine))   |
+| Before a file is read, searched, or listed                | Refuses a call that opens Lunamill's credentials file on your machine, which only Lunamill's commands read ([The file on your machine](../security/credentials.md#the-file-on-your-machine))   |
 
 The hook that approves an unattended build's writes under `.claude/`
 matters only on a machine, since no hook runs in the cloud: a session

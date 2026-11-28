@@ -1,7 +1,7 @@
-# lunamill
+# Lunamill
 
 For a developer who already asks a coding agent to write code, and wants
-it done the same careful way every time. lunamill is a software factory for
+it done the same careful way every time. Lunamill is a software factory for
 your coding agent. You write a ticket. Your agent turns it into a spec,
 asking you only the decisions that are yours, builds it with tests, has
 it reviewed, answers the review, and hands you a pull request to read.
@@ -33,11 +33,11 @@ The docs are at [lunamill.ai](https://www.lunamill.ai). Start with the
 from setting your repository up with `lunamill init` to your first built
 ticket.
 
-A repository that uses `@davidbyoung/software-factory`, lunamill's old
+A repository that uses `@davidbyoung/software-factory`, Lunamill's old
 name, moves over by hand:
-[Moving to lunamill](https://www.lunamill.ai/maintain/upgrade-notes#moving-to-lunamill).
+[Moving to Lunamill](https://www.lunamill.ai/maintain/upgrade-notes#moving-to-lunamill).
 
-Working on lunamill itself: [Developing](docs/developing.md).
+Working on Lunamill itself: [Developing](docs/developing.md).
 
 ## License
 

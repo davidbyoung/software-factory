@@ -19,10 +19,10 @@ const USAGE: [string, [string, string][]][] = [
       ["init", "Set a repository up, or turn a part on or off"],
       [
         "sync [--check]",
-        "Write lunamill's files from your settings, or check they match",
+        "Write Lunamill's files from your settings, or check they match",
       ],
       ["config check", "Check your settings"],
-      ["board check", "See how lunamill reads your board"],
+      ["board check", "See how Lunamill reads your board"],
       ["doctor", "Check everything, when something seems off"],
     ],
   ],
@@ -39,14 +39,14 @@ const USAGE: [string, [string, string][]][] = [
     [
       ["config get KEY", "Print one setting in effect"],
       ["config explain", "Print every setting in effect, defaults included"],
-      ["plugins [ROLE]", "List the plugins lunamill uses, by role"],
+      ["plugins [ROLE]", "List the plugins Lunamill uses, by role"],
       ["site compare", "Picture a website's pages before and after a change"],
       ["site stop", "End the sites compare --keep left running"],
       [
         "update",
-        "Raise lunamill and each preset to its newest, without waiting for the job",
+        "Raise Lunamill and each preset to its newest, without waiting for the job",
       ],
-      ["remove", "Take lunamill out of this repository"],
+      ["remove", "Take Lunamill out of this repository"],
     ],
   ],
   [
@@ -138,7 +138,7 @@ export async function main(argv: string[]): Promise<number> {
     const asked = argv.length > 0 && argv[0] !== "--help" && argv[0] !== "-h";
     const err = say.printer(process.stderr);
     if (asked) {
-      err(say.text(say.asIs(`lunamill has no command "${argv.join(" ")}".`)));
+      err(say.text(say.asIs(`Lunamill has no command "${argv.join(" ")}".`)));
       err(say.BLANK);
     }
     for (const line of usage()) err(line);

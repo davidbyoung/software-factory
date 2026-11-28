@@ -245,7 +245,7 @@ describe("the run this session is in", () => {
 });
 
 describe("the runs for a commit", () => {
-  it("returns every run in lunamill's words", async () => {
+  it("returns every run in Lunamill's words", async () => {
     const { r, calls } = runner([
       [
         /actions\/runs\?head_sha=h/,
@@ -507,7 +507,7 @@ describe("the run that kept an artifact", () => {
   const RUN = /^api repos\/acme\/widgets\/actions\/runs\/91$/;
   const kept = { artifacts: [{ expired: false, workflow_run: { id: 91 } }] };
 
-  it("is lunamill's own run, started by a pull request's event", async () => {
+  it("is Lunamill's own run, started by a pull request's event", async () => {
     const { r } = runner([
       [LIST, kept],
       [

@@ -8,7 +8,7 @@ When `lunamill status` flags a ticket left in Ready as not started, by what star
 
 ### Requirement: Not started, with the schedule
 
-lunamill SHALL behave as this line says: When `builds.trigger` is `github-action`, `lunamill status` flags a Ready ticket "not started, is the poller's job in lunamill.yml running?" only once it has been Ready for `builds.poll-minutes` plus 15 minutes. Where a preset's repository, OWNER/NAME, runs the poller, the flag reads "not started, is the poller in OWNER/NAME running?".
+Lunamill SHALL behave as this line says: When `builds.trigger` is `github-action`, `lunamill status` flags a Ready ticket "not started, is the poller's job in lunamill.yml running?" only once it has been Ready for `builds.poll-minutes` plus 15 minutes. Where a preset's repository, OWNER/NAME, runs the poller, the flag reads "not started, is the poller in OWNER/NAME running?".
 
 #### Scenario: Not started, with the schedule
 
@@ -17,7 +17,7 @@ lunamill SHALL behave as this line says: When `builds.trigger` is `github-action
 
 ### Requirement: Not started, with a hosted poller
 
-lunamill SHALL behave as this line says: When `builds.trigger` is `own-server`, `lunamill status` flags it "not started, is the poller running?" after 5 minutes, as today.
+Lunamill SHALL behave as this line says: When `builds.trigger` is `own-server`, `lunamill status` flags it "not started, is the poller running?" after 5 minutes, as today.
 
 #### Scenario: Not started, with a hosted poller
 
@@ -26,7 +26,7 @@ lunamill SHALL behave as this line says: When `builds.trigger` is `own-server`, 
 
 ### Requirement: A ticket's pull requests in status
 
-lunamill SHALL behave as this line says: When `lunamill status` lists a ticket that names other repositories, each of its pull requests is a line as today, with the repository in its name and, for one that waits, `waits for acme/api#88` last.
+Lunamill SHALL behave as this line says: When `lunamill status` lists a ticket that names other repositories, each of its pull requests is a line as today, with the repository in its name and, for one that waits, `waits for acme/api#88` last.
 
 #### Scenario: A ticket's pull requests in status
 
@@ -35,7 +35,7 @@ lunamill SHALL behave as this line says: When `lunamill status` lists a ticket t
 
 ### Requirement: Another repository's ticket in status
 
-lunamill SHALL behave as this line says: When it lists a pull request that is part of another repository's ticket, its title is `part of acme/api#12`, followed by the ticket's title when it can be read.
+Lunamill SHALL behave as this line says: When it lists a pull request that is part of another repository's ticket, its title is `part of acme/api#12`, followed by the ticket's title when it can be read.
 
 #### Scenario: Another repository's ticket in status
 
@@ -44,7 +44,7 @@ lunamill SHALL behave as this line says: When it lists a pull request that is pa
 
 ### Requirement: Status warns of the Claude token's day
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Status warns of the Claude token's day
 
@@ -53,7 +53,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: Status says nothing of the token otherwise
 
-lunamill SHALL behave as this line says: More than 30 days before DAY, whenever `doctor` would print no line 1 line (line 6), when the secrets or the owner cannot be read, or when `status` itself fails, `status` prints no line about the token. Its output is otherwise what it is today, and its exit status is today's whatever the line says.
+Lunamill SHALL behave as this line says: More than 30 days before DAY, whenever `doctor` would print no line 1 line (line 6), when the secrets or the owner cannot be read, or when `status` itself fails, `status` prints no line about the token. Its output is otherwise what it is today, and its exit status is today's whatever the line says.
 
 #### Scenario: Status says nothing of the token otherwise
 
@@ -62,7 +62,7 @@ lunamill SHALL behave as this line says: More than 30 days before DAY, whenever 
 
 ### Requirement: Status reads the dates once under watch
 
-lunamill SHALL behave as this line says: `lunamill status --watch` reads the dates once, when it starts.
+Lunamill SHALL behave as this line says: `lunamill status --watch` reads the dates once, when it starts.
 
 #### Scenario: Status reads the dates once under watch
 
@@ -71,7 +71,7 @@ lunamill SHALL behave as this line says: `lunamill status --watch` reads the dat
 
 ### Requirement: Status warns of the GitHub access token's day
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Status warns of the GitHub access token's day
 
@@ -80,7 +80,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: Status names secrets older than the access token
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Status names secrets older than the access token
 
@@ -89,7 +89,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: The order of the token lines in status
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The order of the token lines in status
 

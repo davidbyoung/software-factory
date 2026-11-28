@@ -422,10 +422,10 @@ export async function run(argv: string[] = []): Promise<number> {
     const eventName = process.env.GITHUB_EVENT_NAME;
     const again = argv[0] === "--pr" ? Number(argv[1]) : null;
     if (again !== null && !(Number.isInteger(again) && again > 0))
-      throw new Error("Usage: lunamill review verdict [--pr N]");
+      throw new Error("Usage: Lunamill review verdict [--pr N]");
     if (again === null && eventName !== "pull_request_target")
       throw new Error(
-        `lunamill review verdict reads pull_request_target, not ${eventName}: a review's run posts its own verdict.`,
+        `Lunamill review verdict reads pull_request_target, not ${eventName}: a review's run posts its own verdict.`,
       );
     const settings = await loadSettings();
     await apply({

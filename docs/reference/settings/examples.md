@@ -6,7 +6,7 @@ have to exist in your repository for `lunamill config check` to pass.
 ## A web application with its own reviewers
 
 An online store with a board, a skill of its own for building new API
-endpoints, two reviewers of its own, and lunamill's UI reviewer.
+endpoints, two reviewers of its own, and Lunamill's UI reviewer.
 Changes to components, styles, docs, and tests merge unread, except
 anything touching checkout or consent.
 

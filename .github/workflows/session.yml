@@ -14,7 +14,7 @@
 # and the variable LUNAMILL_APP_CLIENT_ID both reach the run, and otherwise
 # the build token. The workflow's own token is never used to push or to open
 # a pull request, since GitHub starts no CI for what that token does.
-name: lunamill session
+name: Lunamill session
 
 on:
   workflow_call:
@@ -87,7 +87,7 @@ jobs:
           node-version: 22
 
       - &install
-        name: Install lunamill
+        name: Install Lunamill
         run: |
           if [ "$(jq -r '.name // empty' package.json 2> /dev/null)" = "@lunamill-ai/lunamill" ]; then
             npm ci --ignore-scripts
@@ -95,7 +95,7 @@ jobs:
           else
             version="$(sed -n 's/^version: *//p' .claude/lunamill.lock | head -n 1)"
             if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-              echo "::error::.claude/lunamill.lock names no release of lunamill. Run lunamill sync, and commit what it writes."
+              echo "::error::.claude/lunamill.lock names no release of Lunamill. Run lunamill sync, and commit what it writes."
               exit 1
             fi
             npm install --global --no-audit --no-fund "@lunamill-ai/lunamill@$version"
@@ -252,7 +252,7 @@ jobs:
           node-version-file: ${{ steps.node.outputs.file }}
           node-version: ${{ steps.node.outputs.file == '' && '22' || '' }}
 
-      - name: Install lunamill
+      - name: Install Lunamill
         working-directory: home
         run: |
           if [ "$(jq -r '.name // empty' package.json 2> /dev/null)" = "@lunamill-ai/lunamill" ]; then
@@ -262,7 +262,7 @@ jobs:
           else
             version="$(sed -n 's/^version: *//p' .claude/lunamill.lock | head -n 1)"
             if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-              echo "::error::.claude/lunamill.lock names no release of lunamill. Run lunamill sync, and commit what it writes."
+              echo "::error::.claude/lunamill.lock names no release of Lunamill. Run lunamill sync, and commit what it writes."
               exit 1
             fi
             npm install --global --no-audit --no-fund "@lunamill-ai/lunamill@$version"

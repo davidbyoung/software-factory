@@ -1,8 +1,8 @@
-# Written by `lunamill sync`: lunamill's version, the presets, the
+# Written by `lunamill sync`: Lunamill's version, the presets, the
 # settings in effect, and the files it wrote. Do not edit.
 version: 0.0.0-development
 presets: []
-settings-hash: sha256:899d2a972c0229396659ce02b788d64e41a44cff9d1c9bba0bd9659ac8c7860b
+settings-hash: sha256:44cca249085eb5161ce80a47573271586761cc81d1dbb39912b771876cd5f53b
 npmrc-variables: []
 settings:
   version: 1

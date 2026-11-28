@@ -13,8 +13,8 @@
 
 - [x] 3.1 The label key `tickets.labels.lunamill` with default `lunamill`, in `src/config.mts` and `settings.schema.json` (Spec 13, 14). Tests in the config and labels tests.
 - [x] 3.2 Rename `skills/factory-*` and `agents/factory-*` to `lunamill-*`; the rules path and `IMPORT_LINE`; `.github/lunamill-review.md`; the hooks and `WORK` in `.claude/settings.json` (Spec 15, 16). Tests in `tests/sync.test.ts`.
-- [x] 3.3 `src/workflow-files.mts` and the workflows edited in place: file names, titles, job ids, the job "lunamill files in step", `uses:` homes, and every `FACTORY_` name to `LUNAMILL_` (Spec 17 to 20). Tests read the YAML, as `tests/release-workflow.test.ts` does.
-- [x] 3.4 The settings version: `src/config.mts` accepts `version: 1` only, and tells a `version: 2` file to see "Moving to lunamill" through a `DOCS_PAGES` entry in `src/lib/docs-page.mts` in place of `settingsVersion2`; `src/init.mts`, `src/init-org.mts`, and `src/preset.mts` write and assume `version: 1`; `settings.schema.json` and every example under `docs/` but the upgrade notes below "Moving to lunamill" say `version: 1` (Spec 9 to 12, 31). Tests in `tests/config.test.ts` and the init tests, red first, and the fixtures that write `version: 2` change to `version: 1`.
+- [x] 3.3 `src/workflow-files.mts` and the workflows edited in place: file names, titles, job ids, the job "Lunamill files in step", `uses:` homes, and every `FACTORY_` name to `LUNAMILL_` (Spec 17 to 20). Tests read the YAML, as `tests/release-workflow.test.ts` does.
+- [x] 3.4 The settings version: `src/config.mts` accepts `version: 1` only, and tells a `version: 2` file to see "Moving to Lunamill" through a `DOCS_PAGES` entry in `src/lib/docs-page.mts` in place of `settingsVersion2`; `src/init.mts`, `src/init-org.mts`, and `src/preset.mts` write and assume `version: 1`; `settings.schema.json` and every example under `docs/` but the upgrade notes below "Moving to Lunamill" say `version: 1` (Spec 9 to 12, 31). Tests in `tests/config.test.ts` and the init tests, red first, and the fixtures that write `version: 2` change to `version: 1`.
 
 ## 4. Setup
 
@@ -29,8 +29,8 @@
 
 ## 6. Prose and docs
 
-- [x] 6.1 Every printed string, and the text of `skills/`, `agents/`, `rules.md`, `review.md`, and `approval-policies/`, says lunamill (Spec 1). The sync runs in 7.3.
-- [x] 6.2 `README.md` and "Moving to lunamill" as "The pages" under Proposed docs, `docs/get-started/install.md`, and every other page and `docs/developing.md` by the names, leaving the upgrade notes below "Moving to lunamill" alone (Spec 30 to 32). The docs tests read commands as `lunamill ...`. Run `docs-reader` on `README.md` and the new section.
+- [x] 6.1 Every printed string, and the text of `skills/`, `agents/`, `rules.md`, `review.md`, and `approval-policies/`, says Lunamill (Spec 1). The sync runs in 7.3.
+- [x] 6.2 `README.md` and "Moving to Lunamill" as "The pages" under Proposed docs, `docs/get-started/install.md`, and every other page and `docs/developing.md` by the names, leaving the upgrade notes below "Moving to Lunamill" alone (Spec 30 to 32). The docs tests read commands as `lunamill ...`. Run `docs-reader` on `README.md` and the new section.
 - [x] 6.3 This repository's `CLAUDE.md` and `.claude/change-types.md`.
 - [x] 6.4 Run 1.1's test and watch it pass.
 

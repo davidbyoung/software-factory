@@ -12,7 +12,7 @@ which tickets can start now, those that unblock the most first.
 
 Every ticket is read and written through `lunamill ticket`,
 never `gh` or a ticket system's API, so the skill works with any ticket
-system lunamill has an adapter for. It never reads or writes the
+system Lunamill has an adapter for. It never reads or writes the
 board's Priority field: that is the owner's business priority, not a
 build order.
 

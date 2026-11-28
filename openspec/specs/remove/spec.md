@@ -16,24 +16,24 @@ before changing anything.
 - **WHEN** `lunamill remove` runs
 - **THEN** it prints every file it will delete or change in the repository, and then asks "Go ahead?". Answered no, it prints "Nothing changed." and changes nothing.
 
-### Requirement: lunamill's files are deleted
+### Requirement: Lunamill's files are deleted
 
-`lunamill remove` SHALL delete lunamill's files when told to go ahead.
+`lunamill remove` SHALL delete Lunamill's files when told to go ahead.
 
-#### Scenario: lunamill's files are deleted
+#### Scenario: Lunamill's files are deleted
 
 - **WHEN** going ahead
 - **THEN** it deletes `.claude/lunamill.yaml`, `.claude/lunamill.lock`, `.claude/lunamill/`, every `.claude/skills/lunamill-*/` and `.claude/agents/lunamill-*.md`, `.github/workflows/lunamill.yml` and every `.github/workflows/lunamill-*.yml`, and `.github/lunamill-review.md`.
 
-### Requirement: lunamill's hooks and import line are removed
+### Requirement: Lunamill's hooks and import line are removed
 
-`lunamill remove` SHALL take lunamill's hook entries and import line out
+`lunamill remove` SHALL take Lunamill's hook entries and import line out
 of files it shares with the user, keeping the rest.
 
-#### Scenario: lunamill's hooks and import line are removed
+#### Scenario: Lunamill's hooks and import line are removed
 
 - **WHEN** going ahead
-- **THEN** it removes lunamill's hook entries from `.claude/settings.json`, keeping every other key and entry, and lunamill's import line from `CLAUDE.md`, keeping every other line.
+- **THEN** it removes Lunamill's hook entries from `.claude/settings.json`, keeping every other key and entry, and Lunamill's import line from `CLAUDE.md`, keeping every other line.
 
 ### Requirement: What remove leaves
 
@@ -41,7 +41,7 @@ of files it shares with the user, keeping the rest.
 
 #### Scenario: What remove leaves
 
-- **WHEN** it removes lunamill
+- **WHEN** it removes Lunamill
 - **THEN** it leaves `.github/review-notes.md`, `attribution` in `.claude/settings.json`, `package.json`, `package-lock.json`, `node_modules/` in `.gitignore`, and every skill, agent, and workflow not named `lunamill-`.
 
 ### Requirement: Another tool's leftovers
@@ -56,17 +56,17 @@ use.
 
 ### Requirement: Nothing to remove
 
-`lunamill remove` SHALL say so and exit 0 when nothing of lunamill's is
+`lunamill remove` SHALL say so and exit 0 when nothing of Lunamill's is
 in the repository.
 
 #### Scenario: Nothing to remove
 
 - **WHEN** none of the files or lines in lines 16 and 17 is in the repository
-- **THEN** `remove` prints "Nothing of lunamill's is here." and exits 0.
+- **THEN** `remove` prints "Nothing of Lunamill's is here." and exits 0.
 
 ### Requirement: A removal half done
 
-`lunamill remove` SHALL remove whatever of lunamill's is left.
+`lunamill remove` SHALL remove whatever of Lunamill's is left.
 
 #### Scenario: A removal half done
 
@@ -90,12 +90,12 @@ behind.
 
 #### Scenario: An emptied settings file
 
-- **WHEN** removing lunamill's hooks leaves `hooks` empty
+- **WHEN** removing Lunamill's hooks leaves `hooks` empty
 - **THEN** `remove` drops the `hooks` key. When `.claude/settings.json` is then an empty object, it deletes the file.
 
 ### Requirement: Remove deletes what presets shipped
 
-lunamill SHALL behave as this line says: When `lunamill remove` goes ahead, it also deletes `.claude/lunamill.choices.yaml` and every agent and skill a preset shipped, as the lock lists them.
+Lunamill SHALL behave as this line says: When `lunamill remove` goes ahead, it also deletes `.claude/lunamill.choices.yaml` and every agent and skill a preset shipped, as the lock lists them.
 
 #### Scenario: Remove deletes what presets shipped
 
@@ -104,7 +104,7 @@ lunamill SHALL behave as this line says: When `lunamill remove` goes ahead, it a
 
 ### Requirement: What is left by hand, by tool
 
-lunamill SHALL behave as this line says: When `lunamill remove` lists what is left by hand, it prints each tool's lines under the tool's label, indented two spaces, in the order code host, ticket system, runner, and coding agent, then `Then`, holding the line to commit; a tool with no lines has no heading, and the steps are numbered straight through the groups.
+Lunamill SHALL behave as this line says: When `lunamill remove` lists what is left by hand, it prints each tool's lines under the tool's label, indented two spaces, in the order code host, ticket system, runner, and coding agent, then `Then`, holding the line to commit; a tool with no lines has no heading, and the steps are numbered straight through the groups.
 
 #### Scenario: What is left by hand, by tool
 
@@ -113,7 +113,7 @@ lunamill SHALL behave as this line says: When `lunamill remove` lists what is le
 
 ### Requirement: The code host's leftovers
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The code host's leftovers
 
@@ -122,7 +122,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: GitHub Issues' leftovers
 
-lunamill SHALL behave as this line says: When the ticket system is GitHub's, its group holds `Delete whichever of the labels spec and factory exist, if you do not want their history: deleting one takes it off every ticket`, then the board's fields line it has today. Each name is the one `tickets.labels` gives.
+Lunamill SHALL behave as this line says: When the ticket system is GitHub's, its group holds `Delete whichever of the labels spec and factory exist, if you do not want their history: deleting one takes it off every ticket`, then the board's fields line it has today. Each name is the one `tickets.labels` gives.
 
 #### Scenario: GitHub Issues' leftovers
 
@@ -131,7 +131,7 @@ lunamill SHALL behave as this line says: When the ticket system is GitHub's, its
 
 ### Requirement: The credential's leftovers
 
-lunamill SHALL list, when the ticket system in use keeps a credential on the machine, the secrets that hold it and the file's entry for the site under the ticket system's group of what `lunamill remove` leaves by hand.
+Lunamill SHALL list, when the ticket system in use keeps a credential on the machine, the secrets that hold it and the file's entry for the site under the ticket system's group of what `lunamill remove` leaves by hand.
 
 #### Scenario: The credential's leftovers
 
@@ -140,7 +140,7 @@ lunamill SHALL list, when the ticket system in use keeps a credential on the mac
 
 ### Requirement: No npm uninstall line
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: No npm uninstall line
 
@@ -149,7 +149,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: The organization's property is left by hand
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The organization's property is left by hand
 
@@ -158,9 +158,9 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: Remove takes the folder's entry out
 
-lunamill SHALL behave as this line says: When `lunamill remove` takes lunamill's entries out of `.claude/settings.json`, that of line 35 goes too.
+Lunamill SHALL behave as this line says: When `lunamill remove` takes Lunamill's entries out of `.claude/settings.json`, that of line 35 goes too.
 
 #### Scenario: Remove takes the folder's entry out
 
-- **WHEN** `lunamill remove` takes lunamill's entries out of `.claude/settings.json`
+- **WHEN** `lunamill remove` takes Lunamill's entries out of `.claude/settings.json`
 - **THEN** that of line 35 goes too.

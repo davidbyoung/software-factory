@@ -52,7 +52,7 @@ const MOCKUPS = "mockups";
 /** Spec and Acceptance criteria may share a ticket field: a ticket has one. */
 const SHARED = ["spec", "acceptance-criteria"];
 
-/** The heading a key stands for: lunamill's own, or the key with its
+/** The heading a key stands for: Lunamill's own, or the key with its
  * hyphens as spaces and its first letter capitalized. */
 export function headingOf(key: string): string {
   const own = LUNAMILL_FIELDS.find((f) => f.key === key);
@@ -305,7 +305,7 @@ export function table(suggestion: Suggestion): say.Line[] {
   return [
     say.heads(
       [
-        ["lunamill field", 22],
+        ["Lunamill field", 22],
         ["Ticket field", 0],
       ],
       { indent: 2 },
@@ -374,7 +374,7 @@ async function chooseFields(
   d.out(
     say.heads(
       [
-        ["lunamill field", 22],
+        ["Lunamill field", 22],
         ["What it holds", 0],
       ],
       { indent: 2 },
@@ -411,7 +411,7 @@ async function changeSome(
   let picked: string[] = [];
   for (;;) {
     picked = await d.ask.checkbox(
-      "Which lunamill fields do you want to change?",
+      "Which Lunamill fields do you want to change?",
       KEYS.map((k) => ({
         name: `${HEADING[k]}: ${shownIn(s[k])}`,
         value: k,
@@ -451,7 +451,7 @@ export async function suggestFields(
   );
   d.out(
     say.note(
-      `Asking ${d.label} which of them should hold each of lunamill's fields...`,
+      `Asking ${d.label} which of them should hold each of Lunamill's fields...`,
     ),
   );
   const got = await d.agent.answer({
@@ -476,7 +476,7 @@ export async function suggestFields(
     d.out(
       say.text(`${d.label}'s answer could not be used: ${checked.reason}.`),
     );
-    d.out(say.text("Choose where each of lunamill's fields goes yourself."));
+    d.out(say.text("Choose where each of Lunamill's fields goes yourself."));
     suggestion = await chooseFields(d, o.fields);
   } else suggestion = checked.suggestion;
   for (;;) {

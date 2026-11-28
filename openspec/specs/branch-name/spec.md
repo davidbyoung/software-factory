@@ -8,7 +8,7 @@ How a repository says what a build names its branch, `code-host.branch-name`, wh
 
 ### Requirement: A missing branch name
 
-lunamill SHALL behave as this line says: When the settings in effect have no `code-host.branch-name`, from the file or a preset, `lunamill config check` exits 1 and prints `.claude/lunamill.yaml: code-host.branch-name: is required. Run lunamill init to set it, or add it, such as branch-name: "{ticket}"`.
+Lunamill SHALL behave as this line says: When the settings in effect have no `code-host.branch-name`, from the file or a preset, `lunamill config check` exits 1 and prints `.claude/lunamill.yaml: code-host.branch-name: is required. Run lunamill init to set it, or add it, such as branch-name: "{ticket}"`.
 
 #### Scenario: A missing branch name
 
@@ -17,7 +17,7 @@ lunamill SHALL behave as this line says: When the settings in effect have no `co
 
 ### Requirement: Code host on one line
 
-lunamill SHALL behave as this line says: When `.claude/lunamill.yaml` writes `code-host: github` on one line and no preset in effect supplies `branch-name`, `lunamill config check` fails with line 1's message.
+Lunamill SHALL behave as this line says: When `.claude/lunamill.yaml` writes `code-host: github` on one line and no preset in effect supplies `branch-name`, `lunamill config check` fails with line 1's message.
 
 #### Scenario: Code host on one line
 
@@ -26,7 +26,7 @@ lunamill SHALL behave as this line says: When `.claude/lunamill.yaml` writes `co
 
 ### Requirement: A preset's branch name
 
-lunamill SHALL behave as this line says: When a preset in effect supplies `code-host.branch-name` and the repository's file does not, `lunamill config check` passes and `lunamill ticket branch N` uses the preset's pattern.
+Lunamill SHALL behave as this line says: When a preset in effect supplies `code-host.branch-name` and the repository's file does not, `lunamill config check` passes and `lunamill ticket branch N` uses the preset's pattern.
 
 #### Scenario: A preset's branch name
 
@@ -35,7 +35,7 @@ lunamill SHALL behave as this line says: When a preset in effect supplies `code-
 
 ### Requirement: A branch name that is a map
 
-lunamill SHALL behave as this line says: When `code-host.branch-name` is a YAML map, as an unquoted `branch-name: {ticket}` is, `lunamill config check` exits 1 and prints `.claude/lunamill.yaml: code-host.branch-name: is a map, not a pattern. Quote it: branch-name: "{ticket}"`.
+Lunamill SHALL behave as this line says: When `code-host.branch-name` is a YAML map, as an unquoted `branch-name: {ticket}` is, `lunamill config check` exits 1 and prints `.claude/lunamill.yaml: code-host.branch-name: is a map, not a pattern. Quote it: branch-name: "{ticket}"`.
 
 #### Scenario: A branch name that is a map
 
@@ -44,7 +44,7 @@ lunamill SHALL behave as this line says: When `code-host.branch-name` is a YAML 
 
 ### Requirement: A branch name that is not text
 
-lunamill SHALL behave as this line says: When `code-host.branch-name` is any other value that is not text, such as a number or a list, `lunamill config check` exits 1 and prints `.claude/lunamill.yaml: code-host.branch-name: must be a pattern, such as branch-name: "{ticket}"`.
+Lunamill SHALL behave as this line says: When `code-host.branch-name` is any other value that is not text, such as a number or a list, `lunamill config check` exits 1 and prints `.claude/lunamill.yaml: code-host.branch-name: must be a pattern, such as branch-name: "{ticket}"`.
 
 #### Scenario: A branch name that is not text
 
@@ -53,7 +53,7 @@ lunamill SHALL behave as this line says: When `code-host.branch-name` is any oth
 
 ### Requirement: An unknown placeholder
 
-lunamill SHALL behave as this line says: When the pattern holds `{NAME}` for any NAME other than `ticket` and `user`, `lunamill config check` exits 1 and prints `.claude/lunamill.yaml: code-host.branch-name: {NAME} is not a placeholder. The placeholders are {ticket} and {user}`, naming the first such placeholder.
+Lunamill SHALL behave as this line says: When the pattern holds `{NAME}` for any NAME other than `ticket` and `user`, `lunamill config check` exits 1 and prints `.claude/lunamill.yaml: code-host.branch-name: {NAME} is not a placeholder. The placeholders are {ticket} and {user}`, naming the first such placeholder.
 
 #### Scenario: An unknown placeholder
 
@@ -62,7 +62,7 @@ lunamill SHALL behave as this line says: When the pattern holds `{NAME}` for any
 
 ### Requirement: A pattern without the ticket
 
-lunamill SHALL behave as this line says: When the pattern has no `{ticket}`, `lunamill config check` exits 1 and prints `.claude/lunamill.yaml: code-host.branch-name: needs {ticket}, or every build gets the same branch`.
+Lunamill SHALL behave as this line says: When the pattern has no `{ticket}`, `lunamill config check` exits 1 and prints `.claude/lunamill.yaml: code-host.branch-name: needs {ticket}, or every build gets the same branch`.
 
 #### Scenario: A pattern without the ticket
 
@@ -71,7 +71,7 @@ lunamill SHALL behave as this line says: When the pattern has no `{ticket}`, `lu
 
 ### Requirement: A pattern git refuses
 
-lunamill SHALL behave as this line says: When the pattern, with its placeholders filled, breaks any of git's rules for a branch name (`git check-ref-format --branch`), `lunamill config check` exits 1, names the pattern as written, and gives the first rule it breaks, in the order the scenario lists.
+Lunamill SHALL behave as this line says: When the pattern, with its placeholders filled, breaks any of git's rules for a branch name (`git check-ref-format --branch`), `lunamill config check` exits 1, names the pattern as written, and gives the first rule it breaks, in the order the scenario lists.
 
 #### Scenario: A pattern git refuses
 
@@ -80,7 +80,7 @@ lunamill SHALL behave as this line says: When the pattern, with its placeholders
 
 ### Requirement: A valid pattern
 
-lunamill SHALL behave as this line says: When the pattern has `{ticket}`, only known placeholders, and passes line 8, `lunamill config check` passes as it does today, printing `✓ The settings are valid.`.
+Lunamill SHALL behave as this line says: When the pattern has `{ticket}`, only known placeholders, and passes line 8, `lunamill config check` passes as it does today, printing `✓ The settings are valid.`.
 
 #### Scenario: A valid pattern
 
@@ -89,7 +89,7 @@ lunamill SHALL behave as this line says: When the pattern has `{ticket}`, only k
 
 ### Requirement: The branch for a ticket
 
-lunamill SHALL behave as this line says: When `lunamill ticket branch N` runs for a ticket that exists, it prints one line, the pattern with each `{ticket}` replaced by the ticket's key, such as `12` or `PROJ-12`, and each `{user}` by the account the code host's CLI is signed in as, and exits 0.
+Lunamill SHALL behave as this line says: When `lunamill ticket branch N` runs for a ticket that exists, it prints one line, the pattern with each `{ticket}` replaced by the ticket's key, such as `12` or `PROJ-12`, and each `{user}` by the account the code host's CLI is signed in as, and exits 0.
 
 #### Scenario: The branch for a ticket
 
@@ -98,7 +98,7 @@ lunamill SHALL behave as this line says: When `lunamill ticket branch N` runs fo
 
 ### Requirement: The branch for a missing ticket
 
-lunamill SHALL behave as this line says: When `lunamill ticket branch N` runs for a ticket that does not exist, it prints `#N was not found` and exits 1.
+Lunamill SHALL behave as this line says: When `lunamill ticket branch N` runs for a ticket that does not exist, it prints `#N was not found` and exits 1.
 
 #### Scenario: The branch for a missing ticket
 
@@ -107,7 +107,7 @@ lunamill SHALL behave as this line says: When `lunamill ticket branch N` runs fo
 
 ### Requirement: The branch without a sign-in
 
-lunamill SHALL behave as this line says: When the pattern has `{user}` and the code host has no sign-in or refuses it (`gh` exits 4, its "authentication required" status, or GitHub answers 401), `lunamill ticket branch N` prints `code-host.branch-name uses {user}, and gh is not signed in: run gh auth login` and exits 1. Any other failure to read the account prints the code host's own error and exits 1.
+Lunamill SHALL behave as this line says: When the pattern has `{user}` and the code host has no sign-in or refuses it (`gh` exits 4, its "authentication required" status, or GitHub answers 401), `lunamill ticket branch N` prints `code-host.branch-name uses {user}, and gh is not signed in: run gh auth login` and exits 1. Any other failure to read the account prints the code host's own error and exits 1.
 
 #### Scenario: The branch without a sign-in
 
@@ -116,7 +116,7 @@ lunamill SHALL behave as this line says: When the pattern has `{user}` and the c
 
 ### Requirement: The newest pull request from a branch
 
-lunamill SHALL behave as this line says: When `lunamill pr for-branch BRANCH` runs and pull requests have been opened from BRANCH, it prints the newest one as `#N open`, `#N merged`, or `#N closed`, closed meaning closed without merging, and exits 0.
+Lunamill SHALL behave as this line says: When `lunamill pr for-branch BRANCH` runs and pull requests have been opened from BRANCH, it prints the newest one as `#N open`, `#N merged`, or `#N closed`, closed meaning closed without merging, and exits 0.
 
 #### Scenario: The newest pull request from a branch
 
@@ -125,7 +125,7 @@ lunamill SHALL behave as this line says: When `lunamill pr for-branch BRANCH` ru
 
 ### Requirement: No pull request from a branch
 
-lunamill SHALL behave as this line says: When no pull request has been opened from BRANCH, `lunamill pr for-branch BRANCH` prints `none` and exits 0.
+Lunamill SHALL behave as this line says: When no pull request has been opened from BRANCH, `lunamill pr for-branch BRANCH` prints `none` and exits 0.
 
 #### Scenario: No pull request from a branch
 
@@ -134,7 +134,7 @@ lunamill SHALL behave as this line says: When no pull request has been opened fr
 
 ### Requirement: The first of several faults
 
-lunamill SHALL behave as this line says: When `lunamill config check` meets a pattern with several faults, it reports the first by the order of lines 4 to 8: the value's type, then an unknown placeholder, then a missing `{ticket}`, then git's rules. Braces that do not hold a name of letters, digits, or hyphens, such as `{}` or an unclosed `{ticket`, are plain text to line 6, and git's rules judge them.
+Lunamill SHALL behave as this line says: When `lunamill config check` meets a pattern with several faults, it reports the first by the order of lines 4 to 8: the value's type, then an unknown placeholder, then a missing `{ticket}`, then git's rules. Braces that do not hold a name of letters, digits, or hyphens, such as `{}` or an unclosed `{ticket`, are plain text to line 6, and git's rules judge them.
 
 #### Scenario: The first of several faults
 
@@ -143,7 +143,7 @@ lunamill SHALL behave as this line says: When `lunamill config check` meets a pa
 
 ### Requirement: The spec change's folder
 
-lunamill SHALL behave as this line says: When `specs` is `openspec`, the change `lunamill specs new N` creates is `openspec/changes/issue-N/`, with N's key in lowercase, such as `issue-12` or `issue-proj-12`, whatever `code-host.branch-name` says.
+Lunamill SHALL behave as this line says: When `specs` is `openspec`, the change `lunamill specs new N` creates is `openspec/changes/issue-N/`, with N's key in lowercase, such as `issue-12` or `issue-proj-12`, whatever `code-host.branch-name` says.
 
 #### Scenario: The spec change's folder
 

@@ -298,7 +298,7 @@ treatment as a review finding, with evidence:
   for a flake with a repeated run, find the race and fix it on its own
   branch, so the fix lands on the base branch and not only here. Say so in
   the report.
-- **A workflow of lunamill's that is disabled**, which "lunamill files in
+- **A workflow of Lunamill's that is disabled**, which "Lunamill files in
   step" names: enabling it is the owner's. Escalate with the check's line,
   and change nothing.
 - **Not reproducible and not understood**: escalate. Do not guess.

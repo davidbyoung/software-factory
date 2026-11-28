@@ -1,7 +1,7 @@
 # Why it works this way
 
 The reasons behind the choices a user runs into. You do not need this page
-to use lunamill. Read it when something seems odd and you want to know
+to use Lunamill. Read it when something seems odd and you want to know
 whether it is deliberate.
 
 ## Your agent writes the code; a person approves it
@@ -26,7 +26,7 @@ lines off, unless your agent's settings already said otherwise, so a
 session's commits carry your name alone.
 
 Either way, a person is accountable for every change that merges: the one
-who merges it. lunamill's job is to make that person's read of a pull
+who merges it. Lunamill's job is to make that person's read of a pull
 request easy, and to hold anything risky for it. When builds act as your
 own account, the guard against a session approving its own work is a
 tripwire that catches accidents, not a wall against the account's owner.
@@ -56,7 +56,7 @@ write.
 No pull request merges itself until you list the files that may. A tool
 that merges on its own has to earn that one file pattern at a time.
 
-## lunamill's files are copied into your repository
+## Lunamill's files are copied into your repository
 
 The skills, agents, and rules are written into your repository and
 checked for drift, which is more machinery than loading them from the
@@ -78,7 +78,7 @@ that route stays open.
 The CI jobs are the one part that is not a copy. Your repository holds
 two short workflow files, `.github/workflows/lunamill.yml` and
 `.github/workflows/lunamill-review.yml`, and each has one job that calls
-a workflow in lunamill's own repository, at the exact version your
+a workflow in Lunamill's own repository, at the exact version your
 repository names. The skills, agents, and rules have to be committed
 files, since those are what a session loads, in the cloud as on your
 machine. A workflow does not: the code host can run one from another
@@ -98,9 +98,9 @@ copied files and the jobs have to be the same version, so a release
 reaches your repository only as a pull request you merge
 ([Updating](../maintain/updating.md#what-happens)).
 
-## lunamill is installed once on a machine
+## Lunamill is installed once on a machine
 
-Your repository holds no `package.json` entry for lunamill and no
+Your repository holds no `package.json` entry for Lunamill and no
 copy of its code. The `lunamill` command on a machine reads the version a
 repository names in `.claude/lunamill.lock` and runs that one, which it
 downloads the first time. So a repository in any language carries
@@ -111,7 +111,7 @@ can be on different versions.
 ## Skill names start with `lunamill-`
 
 The prefix is part of each skill's name. It shows which skill files an
-update will overwrite and which are yours, and keeps lunamill's names
+update will overwrite and which are yours, and keeps Lunamill's names
 from colliding with your own.
 [Claude Code](../integrations/claude-code.md#skills-in-claude-code) says why the
 name is not written with a colon.
@@ -155,19 +155,19 @@ A state can already take a list of column names.
 [_Planned_](../developing.md#what-is-built): other ticket systems, which
 name their states differently and fit the same setting.
 [Jira](../integrations/jira.md) lets each kind of ticket, such
-as a bug or a story, follow its own sequence of states; lunamill
+as a bug or a story, follow its own sequence of states; Lunamill
 would move a ticket to the first listed name that its own sequence has.
 Linear gives each team one sequence, which works as a board does. If a
 name ever had to mean different states for different kinds of ticket,
 an optional `columns-by-type` setting would hold only those exceptions,
 and every settings file written before it would read the same.
 
-Refinement writes each lunamill field into a ticket field of yours, or
+Refinement writes each Lunamill field into a ticket field of yours, or
 into the description, by the ticket field's name, with no setting for
 each kind of ticket. A ticket whose kind can't hold the ticket field
-keeps that lunamill field in its description.
+keeps that Lunamill field in its description.
 [_Planned_](../developing.md#what-is-built): on [Jira](../integrations/jira.md), where a kind of
-ticket can leave a field out, a lunamill field could name a list of
+ticket can leave a field out, a Lunamill field could name a list of
 ticket fields, `spec: [Acceptance criteria, AC]`, and go in the first
 the ticket can hold, as a state does with columns. A `fields-by-type`
 setting would hold only the exceptions, if one were ever needed.
@@ -183,17 +183,17 @@ at most keeps the list short.
 
 ## Three version numbers
 
-lunamill, the settings file, and the comment markers each have a
+Lunamill, the settings file, and the comment markers each have a
 version.
 
 | Number                             | Where it is                                | Changes when                         |
 | ---------------------------------- | ------------------------------------------ | ------------------------------------ |
-| lunamill's, the one the lock names | `lunamill.lock` and the two workflow files | Every release                        |
+| Lunamill's, the one the lock names | `lunamill.lock` and the two workflow files | Every release                        |
 | The settings file's                | `version:` at the top of `lunamill.yaml`   | A key is renamed or moved            |
-| The comment markers'               | In the comments lunamill posts on tickets  | The format of those comments changes |
+| The comment markers'               | In the comments Lunamill posts on tickets  | The format of those comments changes |
 
 - **Below `1.0.0`, a release may change anything**, and its notes say what.
-  `1.0.0` comes when a second repository has run on lunamill for a while
+  `1.0.0` comes when a second repository has run on Lunamill for a while
   and the settings have stopped moving.
 - **The settings file has its own version** so that a release which does not
   touch its shape never asks you to change it.
@@ -202,6 +202,6 @@ version.
 
 ## Secrets are named for what they do
 
-Everything lunamill owns starts with `LUNAMILL_` and says its purpose:
+Everything Lunamill owns starts with `LUNAMILL_` and says its purpose:
 `LUNAMILL_BOARD_TOKEN`, not a name another tool might already use. You can
 tell which secrets it needs and which are safe to delete.

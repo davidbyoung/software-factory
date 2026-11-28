@@ -8,7 +8,7 @@ The `plugins` block of the settings, grouped by phase: what each role accepts, w
 
 ### Requirement: The roles that take one skill
 
-lunamill SHALL behave as this line says: When `plugins.refine.refiner`, `plugins.refine.mockups`, or `plugins.test.prover` is one block naming a `skill`, `lunamill config check` accepts it.
+Lunamill SHALL behave as this line says: When `plugins.refine.refiner`, `plugins.refine.mockups`, or `plugins.test.prover` is one block naming a `skill`, `lunamill config check` accepts it.
 
 #### Scenario: The roles that take one skill
 
@@ -17,7 +17,7 @@ lunamill SHALL behave as this line says: When `plugins.refine.refiner`, `plugins
 
 ### Requirement: Builders
 
-lunamill SHALL behave as this line says: When `plugins.build.builders` is a list of blocks, each naming a `skill` and at least one of `labels`, `lunamill config check` accepts it.
+Lunamill SHALL behave as this line says: When `plugins.build.builders` is a list of blocks, each naming a `skill` and at least one of `labels`, `lunamill config check` accepts it.
 
 #### Scenario: Builders
 
@@ -26,7 +26,7 @@ lunamill SHALL behave as this line says: When `plugins.build.builders` is a list
 
 ### Requirement: Build reviewers
 
-lunamill SHALL behave as this line says: When `plugins.build.reviewers` is a list of blocks, each naming an `agent` and at least one of `files`, `lunamill config check` accepts it.
+Lunamill SHALL behave as this line says: When `plugins.build.reviewers` is a list of blocks, each naming an `agent` and at least one of `files`, `lunamill config check` accepts it.
 
 #### Scenario: Build reviewers
 
@@ -35,7 +35,7 @@ lunamill SHALL behave as this line says: When `plugins.build.reviewers` is a lis
 
 ### Requirement: Test reviewers
 
-lunamill SHALL behave as this line says: When `plugins.test.reviewers` is a list of blocks, each naming an `agent`, with or without `files`, `lunamill config check` accepts it.
+Lunamill SHALL behave as this line says: When `plugins.test.reviewers` is a list of blocks, each naming an `agent`, with or without `files`, `lunamill config check` accepts it.
 
 #### Scenario: Test reviewers
 
@@ -44,7 +44,7 @@ lunamill SHALL behave as this line says: When `plugins.test.reviewers` is a list
 
 ### Requirement: Resolvers
 
-lunamill SHALL behave as this line says: When `plugins.conflicts.resolvers` is a list of blocks, each naming a `skill` and at least one of `files`, `lunamill config check` accepts it.
+Lunamill SHALL behave as this line says: When `plugins.conflicts.resolvers` is a list of blocks, each naming a `skill` and at least one of `files`, `lunamill config check` accepts it.
 
 #### Scenario: Resolvers
 
@@ -53,7 +53,7 @@ lunamill SHALL behave as this line says: When `plugins.conflicts.resolvers` is a
 
 ### Requirement: The wrong kind in a role
 
-lunamill SHALL behave as this line says: When a role that takes a skill names an `agent`, or one that takes an agent names a `skill`, `lunamill config check` fails with `.claude/lunamill.yaml: KEY: names a skill` or `KEY: names an agent`, KEY being the role's path, such as `plugins.build.reviewers[0]`.
+Lunamill SHALL behave as this line says: When a role that takes a skill names an `agent`, or one that takes an agent names a `skill`, `lunamill config check` fails with `.claude/lunamill.yaml: KEY: names a skill` or `KEY: names an agent`, KEY being the role's path, such as `plugins.build.reviewers[0]`.
 
 #### Scenario: The wrong kind in a role
 
@@ -62,7 +62,7 @@ lunamill SHALL behave as this line says: When a role that takes a skill names an
 
 ### Requirement: Missing labels or files
 
-lunamill SHALL behave as this line says: When a builder has no `labels`, or a build reviewer or a resolver has no `files`, `lunamill config check` fails with `.claude/lunamill.yaml: KEY.labels: is required` or `KEY.files: is required`.
+Lunamill SHALL behave as this line says: When a builder has no `labels`, or a build reviewer or a resolver has no `files`, `lunamill config check` fails with `.claude/lunamill.yaml: KEY.labels: is required` or `KEY.files: is required`.
 
 #### Scenario: Missing labels or files
 
@@ -71,7 +71,7 @@ lunamill SHALL behave as this line says: When a builder has no `labels`, or a bu
 
 ### Requirement: Labels or files a role does not take
 
-lunamill SHALL behave as this line says: When a plugin has `labels` or `files` where its role does not take it (either one on `refiner`, `mockups`, or `prover`; `files` on a builder; `labels` on a reviewer or a resolver), `lunamill config check` fails, naming that key.
+Lunamill SHALL behave as this line says: When a plugin has `labels` or `files` where its role does not take it (either one on `refiner`, `mockups`, or `prover`; `files` on a builder; `labels` on a reviewer or a resolver), `lunamill config check` fails, naming that key.
 
 #### Scenario: Labels or files a role does not take
 
@@ -80,7 +80,7 @@ lunamill SHALL behave as this line says: When a plugin has `labels` or `files` w
 
 ### Requirement: A plugin whose file is missing
 
-lunamill SHALL behave as this line says: When a plugin names a skill or an agent whose file does not exist, `lunamill config check` fails, naming the role's path and the missing file.
+Lunamill SHALL behave as this line says: When a plugin names a skill or an agent whose file does not exist, `lunamill config check` fails, naming the role's path and the missing file.
 
 #### Scenario: A plugin whose file is missing
 
@@ -89,16 +89,16 @@ lunamill SHALL behave as this line says: When a plugin names a skill or an agent
 
 ### Requirement: The plugins list
 
-lunamill SHALL behave as this line says: When `lunamill plugins` runs, it prints one line for each plugin lunamill will use, the defaults of lines 40 to 42 and 44 included: its kind, its name, its role, then its files or labels. The role is one of `refiner`, `mockups`, `builder`, `reviewer`, `prover`, `test-reviewer`, or `resolver`.
+Lunamill SHALL behave as this line says: When `lunamill plugins` runs, it prints one line for each plugin Lunamill will use, the defaults of lines 40 to 42 and 44 included: its kind, its name, its role, then its files or labels. The role is one of `refiner`, `mockups`, `builder`, `reviewer`, `prover`, `test-reviewer`, or `resolver`.
 
 #### Scenario: The plugins list
 
 - **WHEN** `lunamill plugins` runs
-- **THEN** it prints one line for each plugin lunamill will use, the defaults of lines 40 to 42 and 44 included: its kind, its name, its role, then its files or labels. The role is one of `refiner`, `mockups`, `builder`, `reviewer`, `prover`, `test-reviewer`, or `resolver`.
+- **THEN** it prints one line for each plugin Lunamill will use, the defaults of lines 40 to 42 and 44 included: its kind, its name, its role, then its files or labels. The role is one of `refiner`, `mockups`, `builder`, `reviewer`, `prover`, `test-reviewer`, or `resolver`.
 
 ### Requirement: One role's plugins
 
-lunamill SHALL behave as this line says: When `lunamill plugins ROLE` runs, it prints only that role's lines.
+Lunamill SHALL behave as this line says: When `lunamill plugins ROLE` runs, it prints only that role's lines.
 
 #### Scenario: One role's plugins
 
@@ -107,7 +107,7 @@ lunamill SHALL behave as this line says: When `lunamill plugins ROLE` runs, it p
 
 ### Requirement: A word that is no role
 
-lunamill SHALL behave as this line says: When `lunamill plugins ROLE` runs with a word that is no role, it prints `ROLE: must be one of refiner, mockups, builder, reviewer, prover, test-reviewer, resolver` on standard error and exits 1.
+Lunamill SHALL behave as this line says: When `lunamill plugins ROLE` runs with a word that is no role, it prints `ROLE: must be one of refiner, mockups, builder, reviewer, prover, test-reviewer, resolver` on standard error and exits 1.
 
 #### Scenario: A word that is no role
 
@@ -116,7 +116,7 @@ lunamill SHALL behave as this line says: When `lunamill plugins ROLE` runs with 
 
 ### Requirement: The default refiner
 
-lunamill SHALL behave as this line says: When `plugins.refine.refiner` is not set, `lunamill plugins refiner` prints `skill lunamill-refine refiner`.
+Lunamill SHALL behave as this line says: When `plugins.refine.refiner` is not set, `lunamill plugins refiner` prints `skill lunamill-refine refiner`.
 
 #### Scenario: The default refiner
 
@@ -125,7 +125,7 @@ lunamill SHALL behave as this line says: When `plugins.refine.refiner` is not se
 
 ### Requirement: The default prover
 
-lunamill SHALL behave as this line says: When `plugins.test.prover` is not set, `lunamill plugins prover` prints `skill lunamill-mutate prover`.
+Lunamill SHALL behave as this line says: When `plugins.test.prover` is not set, `lunamill plugins prover` prints `skill lunamill-mutate prover`.
 
 #### Scenario: The default prover
 
@@ -134,7 +134,7 @@ lunamill SHALL behave as this line says: When `plugins.test.prover` is not set, 
 
 ### Requirement: The default test reviewer
 
-lunamill SHALL behave as this line says: When `plugins.test.reviewers` is not written, `lunamill plugins test-reviewer` prints `agent lunamill-test-reviewer test-reviewer`.
+Lunamill SHALL behave as this line says: When `plugins.test.reviewers` is not written, `lunamill plugins test-reviewer` prints `agent lunamill-test-reviewer test-reviewer`.
 
 #### Scenario: The default test reviewer
 
@@ -143,7 +143,7 @@ lunamill SHALL behave as this line says: When `plugins.test.reviewers` is not wr
 
 ### Requirement: Test reviewers as written
 
-lunamill SHALL behave as this line says: When `plugins.test.reviewers` is written, `lunamill plugins test-reviewer` prints exactly the agents it lists, so `lunamill-test-reviewer` is printed only when listed.
+Lunamill SHALL behave as this line says: When `plugins.test.reviewers` is written, `lunamill plugins test-reviewer` prints exactly the agents it lists, so `lunamill-test-reviewer` is printed only when listed.
 
 #### Scenario: Test reviewers as written
 
@@ -152,7 +152,7 @@ lunamill SHALL behave as this line says: When `plugins.test.reviewers` is writte
 
 ### Requirement: The default mockups
 
-lunamill SHALL behave as this line says: When `plugins.refine.mockups` is not set, `site` is set, and the design skill is synced, `lunamill plugins mockups` prints `skill lunamill-design mockups`; with no `site` it prints nothing.
+Lunamill SHALL behave as this line says: When `plugins.refine.mockups` is not set, `site` is set, and the design skill is synced, `lunamill plugins mockups` prints `skill lunamill-design mockups`; with no `site` it prints nothing.
 
 #### Scenario: The default mockups
 
@@ -161,7 +161,7 @@ lunamill SHALL behave as this line says: When `plugins.refine.mockups` is not se
 
 ### Requirement: A pattern that matches nothing
 
-lunamill SHALL behave as this line says: When a `files` pattern of any role matches no file in the repository, `lunamill config check` prints `? .claude/lunamill.yaml:` with the role's path and the pattern, as its other warnings read, and still exits 0.
+Lunamill SHALL behave as this line says: When a `files` pattern of any role matches no file in the repository, `lunamill config check` prints `? .claude/lunamill.yaml:` with the role's path and the pattern, as its other warnings read, and still exits 0.
 
 #### Scenario: A pattern that matches nothing
 
@@ -170,7 +170,7 @@ lunamill SHALL behave as this line says: When a `files` pattern of any role matc
 
 ### Requirement: The end-to-end reviewer is written
 
-lunamill SHALL behave as this line says: When `commands.end-to-end` is set, `lunamill sync` writes `.claude/agents/lunamill-e2e-reviewer.md`; when it is not set, a sync does not write it and removes one an earlier sync wrote.
+Lunamill SHALL behave as this line says: When `commands.end-to-end` is set, `lunamill sync` writes `.claude/agents/lunamill-e2e-reviewer.md`; when it is not set, a sync does not write it and removes one an earlier sync wrote.
 
 #### Scenario: The end-to-end reviewer is written
 
@@ -179,7 +179,7 @@ lunamill SHALL behave as this line says: When `commands.end-to-end` is set, `lun
 
 ### Requirement: The end-to-end reviewer needs the command
 
-lunamill SHALL behave as this line says: When `plugins.test.reviewers` lists `lunamill-e2e-reviewer` and `commands.end-to-end` is not set, `lunamill config check` fails with `.claude/lunamill.yaml: commands.end-to-end: is required to list lunamill-e2e-reviewer`.
+Lunamill SHALL behave as this line says: When `plugins.test.reviewers` lists `lunamill-e2e-reviewer` and `commands.end-to-end` is not set, `lunamill config check` fails with `.claude/lunamill.yaml: commands.end-to-end: is required to list lunamill-e2e-reviewer`.
 
 #### Scenario: The end-to-end reviewer needs the command
 
@@ -188,7 +188,7 @@ lunamill SHALL behave as this line says: When `plugins.test.reviewers` lists `lu
 
 ### Requirement: A plugin a preset ships is present
 
-lunamill SHALL behave as this line says: When a plugin's agent or skill is one a preset ships, the plugin's file counts as present, and `lunamill config check` doesn't report it missing.
+Lunamill SHALL behave as this line says: When a plugin's agent or skill is one a preset ships, the plugin's file counts as present, and `lunamill config check` doesn't report it missing.
 
 #### Scenario: A plugin a preset ships is present
 

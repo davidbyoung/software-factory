@@ -5,8 +5,8 @@ write to the repository accepts them with the
 [`policy-override`](code-host.md#code-hostlabels) label.
 [Approval policies](../../features/approval-policies.md) says when to use one, what
 each key means, what a check reads and prints, and what a pull request
-shows while one waits. lunamill adds one policy of its own,
-`credentials` ([lunamill's own policy](../../features/credentials-policy.md#lunamills-own-policy)),
+shows while one waits. Lunamill adds one policy of its own,
+`credentials` ([Lunamill's own policy](../../features/credentials-policy.md#lunamills-own-policy)),
 which `off: true` turns off.
 
 ```yaml

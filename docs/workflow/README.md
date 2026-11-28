@@ -1,8 +1,8 @@
 # The workflow
 
-For anyone working tickets with lunamill. At the end you know how a
+For anyone working tickets with Lunamill. At the end you know how a
 ticket moves from an idea to a merged pull request, who moves it at each
-step, and what lunamill will not do on its own. Each step has a page
+step, and what Lunamill will not do on its own. Each step has a page
 of its own: [Write a ticket](tickets.md), [Refine](refine.md),
 [Build](build.md), [Review and answer](review.md), [Merge](merge.md), and
 [Follow-ups](follow-ups.md). [See where things stand](status.md) shows
@@ -25,7 +25,7 @@ Everything a session on your machine does, it does as you: through your
 account on the code host and your coding agent's subscription. A session
 in the cloud has no account: a job with no AI checks what it left, and does
 it as [the account builds act as](../features/cloud-builds.md#what-a-build-in-the-cloud-does).
-No step needs a service of lunamill's own.
+No step needs a service of Lunamill's own.
 
 ## The six states
 
@@ -63,7 +63,7 @@ backlog → refining → ready → building → review → done
 | refining → ready   | **You**, by moving the card, or by running `/lunamill-build N` in a session                      |
 | ready → building   | The session that claims it                                                                       |
 | building → review  | Opening the pull request                                                                         |
-| review → done      | The merge: lunamill moves the ticket to the first done column, and closes it if it is still open |
+| review → done      | The merge: Lunamill moves the ticket to the first done column, and closes it if it is still open |
 
 Approving a ticket is the only move a person has to make. A session moves
 the card to Ready only when you ask it to, as your own move.
@@ -83,9 +83,9 @@ These hold in every repository. They are not settings.
   a [reviewer](../customize/plugins.md#reviewer), not a column. A
   [plugin](../customize/plugins.md#the-roles) can take over a step, such as refining a
   ticket or proving a test, where the step stands.
-- **lunamill's work ends at the merge.** A ticket in any column
+- **Lunamill's work ends at the merge.** A ticket in any column
   [`tickets.columns.done`](../reference/settings/tickets.md#ticketscolumns) lists is done,
-  and lunamill never moves it out of them. A team with columns after
+  and Lunamill never moves it out of them. A team with columns after
   Done lists them all, and moves tickets through them itself:
 
   ```yaml

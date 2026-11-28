@@ -149,7 +149,7 @@ export type Deps = {
   fromCloudSession?: boolean;
   /** Starts the board sync on the default branch, through the runner. */
   startSync: (repository: string, settings: Settings) => Promise<void>;
-  /** lunamill's settings, read once when the command starts. */
+  /** Lunamill's settings, read once when the command starts. */
   settings: () => Promise<Settings>;
   env: Record<string, string | undefined>;
   sleep: (ms: number) => Promise<unknown>;
@@ -427,7 +427,7 @@ async function adoptNamed(c: Ctx, issue: Key) {
   await labelFactory(c, issue);
   const ref = c.tickets.ref(issue);
   c.out(
-    `${ref} had no lunamill label: added it, so lunamill now tracks ${ref}`,
+    `${ref} had no lunamill label: added it, so Lunamill now tracks ${ref}`,
   );
 }
 

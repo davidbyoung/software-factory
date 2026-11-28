@@ -100,7 +100,7 @@ describe("the commands the router knows", () => {
   });
 });
 
-describe("lunamill's usage", () => {
+describe("Lunamill's usage", () => {
   /** The commands docs/reference/cli.md lists under a heading, by their
    * words. */
   const documented = (heading: string) => {
@@ -221,7 +221,7 @@ describe("lunamill's usage", () => {
 
     expect(r.status).toBe(2);
     expect(r.stderr.split("\n").slice(0, 3)).toEqual([
-      'lunamill has no command "ticket nonesuch".',
+      'Lunamill has no command "ticket nonesuch".',
       "",
       "Usage: lunamill COMMAND",
     ]);
@@ -335,7 +335,7 @@ describe("the launcher", () => {
     expect(r.status).toBe(1);
     expect(r.stdout).toBe("");
     expect(r.stderr.trim()).toBe(
-      "✗ .claude/lunamill.lock names lunamill banana, which is not a release. Run: lunamill update",
+      "✗ .claude/lunamill.lock names Lunamill banana, which is not a release. Run: lunamill update",
     );
   });
 
@@ -378,11 +378,11 @@ describe("the launcher", () => {
     };
 
     expect(lines("banana")).toEqual([
-      "{bad:✗} .claude/lunamill.lock names lunamill banana, which is not a release. Run: lunamill update",
+      "{bad:✗} .claude/lunamill.lock names Lunamill banana, which is not a release. Run: lunamill update",
     ]);
     expect(lines("9.9.9")).toEqual([
-      "{skip:Downloading lunamill 9.9.9, which this repository names. This happens once.}",
-      "{bad:✗} This repository names lunamill 9.9.9, and it could not be downloaded: npm error no",
+      "{skip:Downloading Lunamill 9.9.9, which this repository names. This happens once.}",
+      "{bad:✗} This repository names Lunamill 9.9.9, and it could not be downloaded: npm error no",
     ]);
   });
 
@@ -449,7 +449,7 @@ function files(dir: string): string[] {
   });
 }
 
-describe("lunamill's own files and messages", () => {
+describe("Lunamill's own files and messages", () => {
   // lunamill is installed once on a machine, so nothing it writes into a
   // repository, and nothing it prints, runs it through `npx`: there is no
   // copy in the repository for `npx --no-install` to find, and a bare

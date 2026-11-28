@@ -388,7 +388,7 @@ describe("what a preset can't do", () => {
     );
   });
 
-  it("refuses a key lunamill doesn't know in a plugin the repository's own file replaces", async () => {
+  it("refuses a key Lunamill doesn't know in a plugin the repository's own file replaces", async () => {
     root = repo(
       own(
         [ACME],
@@ -419,7 +419,7 @@ describe("what a preset can't do", () => {
     ]);
   });
 
-  it("refuses a preset with a key lunamill doesn't know, as config check words it", async () => {
+  it("refuses a preset with a key Lunamill doesn't know, as config check words it", async () => {
     await refused(
       { rules: { "small-change-lnes": 3 } },
       `${ACME}: rules.small-change-lnes: unknown key`,
@@ -834,7 +834,7 @@ describe("reading the settings from the lock", () => {
     const { d } = lockDeps("# old\nversion: 0.4.0\nfiles:\n  - a\n");
     await stops(
       d,
-      ".claude/lunamill.lock is from an earlier version of lunamill. Run: lunamill sync",
+      ".claude/lunamill.lock is from an earlier version of Lunamill. Run: lunamill sync",
     );
   });
 
@@ -910,7 +910,7 @@ describe("reading the settings from the lock", () => {
   });
 });
 
-describe("the version of lunamill a lock names", () => {
+describe("the version of Lunamill a lock names", () => {
   it("is its version line, whatever follows it", () => {
     expect(lockedVersion("# a comment\nversion: 0.3.0\npresets: []\n")).toBe(
       "0.3.0",
@@ -1012,7 +1012,7 @@ describe("a preset for some folders", () => {
     ]);
   });
 
-  it("keeps lunamill's test reviewer for the rest of the repository when it adds one", async () => {
+  it("keeps Lunamill's test reviewer for the rest of the repository when it adds one", async () => {
     forServices();
     put(root, ".claude/agents/py-reviewer.md", "---\nname: py-reviewer\n---\n");
     put(
@@ -1120,7 +1120,7 @@ describe("approval policies from presets", () => {
     ).toEqual(["migrations", "credentials"]);
   });
 
-  it("turns lunamill's own credentials policy off with off: true in your own file, which no preset names", async () => {
+  it("turns Lunamill's own credentials policy off with off: true in your own file, which no preset names", async () => {
     root = repo(
       own(
         [ACME],

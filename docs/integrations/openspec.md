@@ -3,7 +3,7 @@
 The spec tool: it keeps each ticket's Spec in your repository, as well as
 in the ticket. It is optional ([Specs](../features/specs.md)).
 
-## What lunamill uses it for
+## What Lunamill uses it for
 
 Each build writes the ticket's Spec into `openspec/specs/`, using
 [OpenSpec](https://github.com/Fission-AI/OpenSpec), so that folder always
@@ -11,7 +11,7 @@ describes what your project does, readable without opening a ticket.
 
 ## You need
 
-Node, which lunamill needs anyway. Your repository can be in any
+Node, which Lunamill needs anyway. Your repository can be in any
 language.
 
 ## Set it up
@@ -37,19 +37,19 @@ settings and run `lunamill init` again.
 
 Nothing: OpenSpec needs no token.
 
-## What lunamill can and cannot do there
+## What Lunamill can and cannot do there
 
 A build runs `lunamill specs new`, `check`, and `finish` itself.
 `lunamill specs list` prints the specs your repository keeps, which is what
 to read before changing what one describes
 ([Your repository's commands](../reference/cli.md#your-repositorys-commands)).
 
-OpenSpec collects usage statistics unless `DO_NOT_TRACK=1` is set, so lunamill sets it whenever it runs
+OpenSpec collects usage statistics unless `DO_NOT_TRACK=1` is set, so Lunamill sets it whenever it runs
 [`specs.check`](../reference/settings/specs.md#specscheck).
 
 ## Limits that come from OpenSpec
 
-None lunamill adds to.
+None Lunamill adds to.
 
 ## When something goes wrong
 

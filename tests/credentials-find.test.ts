@@ -228,7 +228,7 @@ describe("the credentials policy's rule", () => {
 
   it("finds nothing in a one-sentence change to a docs page", () => {
     expect(
-      found(adds("README.md", "lunamill reads every pull request.")),
+      found(adds("README.md", "Lunamill reads every pull request.")),
     ).toEqual([]);
   });
 });

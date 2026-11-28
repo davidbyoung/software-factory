@@ -1,7 +1,7 @@
 # Dependency updates
 
 For a repository whose dependency bot opens pull requests. At the end
-you know how lunamill moves them toward merged, and why lunamill's
+you know how Lunamill moves them toward merged, and why Lunamill's
 own updates come another way. A job in the cloud runs it three times a
 day; to run it yourself, type `/lunamill-deps` in a session.
 
@@ -17,8 +17,8 @@ migration guide calls for, not only the ones that broke a check.
 
 **When to use it.** When dependency pull requests are stuck. A run in the
 cloud also uses it, one run for each of the dependency bot's open pull
-requests, three times a day. An update of lunamill itself, or of a
-preset, is not the dependency bot's: lunamill's own update job opens it
+requests, three times a day. An update of Lunamill itself, or of a
+preset, is not the dependency bot's: Lunamill's own update job opens it
 ([Updating](../maintain/updating.md)).
 
 **What it never does.** Merge, approve, or turn auto-merge on. Weaken
@@ -48,26 +48,26 @@ requests three times a day.
 
 ### Dependency bots
 
-Your dependency bot does not update lunamill, or a
-[preset](../customize/presets.md). Nothing of lunamill's is in
-`package.json`, and lunamill's own update job opens those pull requests
+Your dependency bot does not update Lunamill, or a
+[preset](../customize/presets.md). Nothing of Lunamill's is in
+`package.json`, and Lunamill's own update job opens those pull requests
 ([Updating](../maintain/updating.md)). So the bot's settings need nothing
-for lunamill. A group for lunamill, which an earlier version had
+for Lunamill. A group for Lunamill, which an earlier version had
 you add, can go
 ([GitHub](../integrations/github.md#dependabot-and-lunamills-updates) says how).
 
-If your dependency bot updates your workflow files, have it leave lunamill's alone. The update job raises the version in the two workflow
+If your dependency bot updates your workflow files, have it leave Lunamill's alone. The update job raises the version in the two workflow
 files together with the files that version writes, and a pull request of
-the bot's that raised the version alone would fail the "lunamill files in
+the bot's that raised the version alone would fail the "Lunamill files in
 step" check. [GitHub](../integrations/github.md#dependabot-and-lunamills-updates) has the entry
 that does it.
 
-lunamill has a job of its own that turns auto-merge on for each of
+Lunamill has a job of its own that turns auto-merge on for each of
 the dependency bot's pull requests, so a minor or patch update merges by
 itself once its checks pass
 ([GitHub Actions](../integrations/github-actions.md#the-jobs) lists it).
 It never turns it on for a major version, whose migration you read
-first, or for one that names lunamill, so one of those that slips
+first, or for one that names Lunamill, so one of those that slips
 through waits for you whatever its size.
 
 ## Its settings

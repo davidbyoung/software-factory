@@ -157,7 +157,7 @@ describe("what the parts need", () => {
     ]);
   });
 
-  it("adds the signing key, which is lunamill's own", () => {
+  it("adds the signing key, which is Lunamill's own", () => {
     expect(needed("signing")).toEqual([
       { part: "signing", anyOf: ["LUNAMILL_SIGNING_KEY"], tool: "lunamill" },
     ]);

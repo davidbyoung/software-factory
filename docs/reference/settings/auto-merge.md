@@ -26,7 +26,7 @@ Otherwise it waits for you, and the pull request says why.
 
 - **By default every list is empty, so nothing merges without you.**
 - **`deny` carves exceptions out of `allow`,** and always wins.
-- **Some files always wait for you,** whatever `allow` says: lunamill's own, which are everything under `.claude/` and `.github/`,
+- **Some files always wait for you,** whatever `allow` says: Lunamill's own, which are everything under `.claude/` and `.github/`,
   every `CLAUDE.md` and `AGENTS.md`, and `openspec/config.yaml`.
 - **Start with a short `allow` list** and add to it. Too wide a list
   merges changes you meant to read.
@@ -61,7 +61,7 @@ it:
 
 | The status says                        | Why                                             |
 | -------------------------------------- | ----------------------------------------------- |
-| `PATH: lunamill's own files`           | The file is one of lunamill's, listed above     |
+| `PATH: lunamill's own files`           | The file is one of Lunamill's, listed above     |
 | `PATH: held by auto-merge.deny`        | The file matches `deny`                         |
 | `PATH: not in auto-merge.allow`        | The file matches nothing in `allow`             |
 | What your command printed              | Your command exited with something other than 0 |

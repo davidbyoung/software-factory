@@ -1,4 +1,4 @@
-# Settings for lunamill in its own repository. Every key is
+# Settings for Lunamill in its own repository. Every key is
 # explained under docs/reference/settings/.
 version: 1
 repository: lunamill-ai/lunamill
@@ -27,8 +27,8 @@ code-host:
 builds:
   trigger: manual
 
-# A change to what a lunamill user sees, such as a command's output, a
-# setting, or what lunamill writes into their repository, is specified
+# A change to what a Lunamill user sees, such as a command's output, a
+# setting, or what Lunamill writes into their repository, is specified
 # with OpenSpec.
 specs: openspec
 
@@ -53,7 +53,7 @@ commands:
 pr-review: true
 
 # This repository's own reviewer: it reads a changed page of the docs as
-# someone who has never seen lunamill.
+# someone who has never seen Lunamill.
 plugins:
   build:
     reviewers:

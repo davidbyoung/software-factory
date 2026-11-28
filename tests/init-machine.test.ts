@@ -259,7 +259,7 @@ describe("lunamill init, a token on this machine that no longer serves", () => {
       "GitHub refused the token on this machine for sam. It may have expired.",
       "",
       "An access token: opening https://code.example/tokens/new?scopes=push,workflows,board&note=lunamill: sam/web",
-      "Check that push, workflows, and board are ticked, choose an expiry, and generate it. 90 days is a good balance: lunamill warns you 30 days before it.",
+      "Check that push, workflows, and board are ticked, choose an expiry, and generate it. 90 days is a good balance: Lunamill warns you 30 days before it.",
       QUESTION,
     ]);
     expect(r.opened).toHaveLength(1);
@@ -564,7 +564,7 @@ describe("lunamill init, the GitHub access token's days", () => {
     const r = sam();
     await r.run();
     expect(r.out).toContain(
-      "Check that push, workflows, and board are ticked, choose an expiry, and generate it. 90 days is a good balance: lunamill warns you 30 days before it.",
+      "Check that push, workflows, and board are ticked, choose an expiry, and generate it. 90 days is a good balance: Lunamill warns you 30 days before it.",
     );
   });
 

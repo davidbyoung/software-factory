@@ -8,7 +8,7 @@ Checks whose findings make a pull request wait until a person who can write acce
 
 ### Requirement: Policies in the settings
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Policies in the settings
 
@@ -17,7 +17,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: Which changed files a policy selects
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Which changed files a policy selects
 
@@ -26,25 +26,25 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: When policies run
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: When policies run
 
 - **WHEN** a pull request that is not a draft is opened, reopened, pushed to, marked ready, or has its base branch changed
-- **THEN** lunamill runs each policy that applies to it, as the default branch's settings and lock give them, from the root of a checkout of the default branch; when one is opened as a draft or converted to a draft, the status is pending and reads `Checks when the pull request is marked ready`.
+- **THEN** Lunamill runs each policy that applies to it, as the default branch's settings and lock give them, from the root of a checkout of the default branch; when one is opened as a draft or converted to a draft, the status is pending and reads `Checks when the pull request is marked ready`.
 
 ### Requirement: A policy's change comes from git
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A policy's change comes from git
 
-- **WHEN** lunamill builds a policy's input
+- **WHEN** Lunamill builds a policy's input
 - **THEN** `files` and `diff` come from git, comparing the pull request's head with its merge base, and hold only the files the policy applies to, and with `in`, only that folder's; `diff` is a unified diff, as `git diff` prints it.
 
 ### Requirement: A change git can't read
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A change git can't read
 
@@ -53,7 +53,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: What a check reads
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: What a check reads
 
@@ -62,7 +62,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: A check's answer
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A check's answer
 
@@ -71,7 +71,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: A check that fails
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A check that fails
 
@@ -80,7 +80,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: How an agent runs
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: How an agent runs
 
@@ -89,7 +89,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: A command and an agent together
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A command and an agent together
 
@@ -98,7 +98,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: An agent that can't run
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: An agent that can't run
 
@@ -107,7 +107,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: Cleared by an agent
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Cleared by an agent
 
@@ -116,16 +116,16 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: The Approval policies status
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The Approval policies status
 
-- **WHEN** lunamill posts the **Approval policies** status
+- **WHEN** Lunamill posts the **Approval policies** status
 - **THEN** it is pending while anything waits and a success otherwise, never a failure, and reads `Nothing to approve` when no policy applies or each one's command found nothing, `Checks when the pull request is marked ready` on a draft, `NAME: N waiting for approval. To accept it, add the policy-override label` when one policy waits, and `N policies waiting for approval: NAME, NAME in FOLDER. To accept them, add the policy-override label` when several do, or `N policies waiting for approval. To accept them, add the policy-override label` when naming them would pass GitHub's 140 characters, with the label's configured name.
 
 ### Requirement: Where findings are kept
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Where findings are kept
 
@@ -134,34 +134,34 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: Approving with the label
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Approving with the label
 
 - **WHEN** someone adds the `policy-override` label, and GitHub's labeled event names someone who can write to the repository, and the head commit in the event's payload is the pull request's head when the job runs
-- **THEN** the findings in the artifact `approval-policies-PR-HEAD-BASE` for that commit, from a run of `.github/workflows/lunamill.yml` started by `pull_request_target`, are approved, the approval is kept as the artifact `approval-policies-approved-PR-HEAD-BASE`, the status reads `Approved by @LOGIN at SHORT-SHA`, and lunamill comments the approved findings, by policy, for people to read.
+- **THEN** the findings in the artifact `approval-policies-PR-HEAD-BASE` for that commit, from a run of `.github/workflows/lunamill.yml` started by `pull_request_target`, are approved, the approval is kept as the artifact `approval-policies-approved-PR-HEAD-BASE`, the status reads `Approved by @LOGIN at SHORT-SHA`, and Lunamill comments the approved findings, by policy, for people to read.
 
 ### Requirement: A label that approves nothing
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A label that approves nothing
 
 - **WHEN** the labeled event names someone who can't write, or its payload's head commit is no longer the pull request's, or no finished run for that commit has the artifact
-- **THEN** lunamill takes the label off and approves nothing, with a comment saying why: who may add it, that a newer commit is unread, or that the checks run again first.
+- **THEN** Lunamill takes the label off and approves nothing, with a comment saying why: who may add it, that a newer commit is unread, or that the checks run again first.
 
 ### Requirement: A push or a base change
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A push or a base change
 
 - **WHEN** a push lands or the base branch changes
-- **THEN** lunamill takes `policy-override` off and checks again.
+- **THEN** Lunamill takes `policy-override` off and checks again.
 
 ### Requirement: Overlapping runs
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Overlapping runs
 
@@ -170,25 +170,25 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: An approving review
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: An approving review
 
 - **WHEN** someone submits an approving review while a policy waits
-- **THEN** lunamill comments once, on that pull request, that the policy still waits and the label accepts it.
+- **THEN** Lunamill comments once, on that pull request, that the policy still waits and the label accepts it.
 
 ### Requirement: Creating the label
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Creating the label
 
 - **WHEN** a policy first waits in a repository
-- **THEN** lunamill creates the `policy-override` label if the repository has none.
+- **THEN** Lunamill creates the `policy-override` label if the repository has none.
 
 ### Requirement: A pull request that changes a policy
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A pull request that changes a policy
 
@@ -197,7 +197,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: Neither override passes the other
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Neither override passes the other
 
@@ -206,7 +206,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: Checking locally
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Checking locally
 
@@ -215,7 +215,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: Checking a past pull request
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Checking a past pull request
 
@@ -224,7 +224,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: No policy applies locally
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: No policy applies locally
 
@@ -233,7 +233,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: A check that fails locally
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A check that fails locally
 
@@ -242,7 +242,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: Doctor reports the status
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Doctor reports the status
 
@@ -251,16 +251,16 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: Requiring the status
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Requiring the status
 
 - **WHEN** the settings have a policy
-- **THEN** `lunamill init` requires **Approval policies** on the default branch beside **Review verdict**, and on a push to the default branch the "Require the verdict" job requires it where its token can, whether or not `pr-review` is on, adding it to lunamill's existing ruleset.
+- **THEN** `lunamill init` requires **Approval policies** on the default branch beside **Review verdict**, and on a push to the default branch the "Require the verdict" job requires it where its token can, whether or not `pr-review` is on, adding it to Lunamill's existing ruleset.
 
 ### Requirement: An agent's prompt on standard input
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: An agent's prompt on standard input
 
@@ -269,7 +269,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: An agent handed only what its command found
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: An agent handed only what its command found
 
@@ -278,7 +278,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: An agent can't read /proc
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: An agent can't read /proc
 
@@ -287,7 +287,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: An agent's model
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: An agent's model
 
@@ -296,7 +296,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: What a cleared change's Details list
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: What a cleared change's Details list
 
@@ -305,7 +305,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: The docs example with a script and an agent
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The docs example with a script and an agent
 

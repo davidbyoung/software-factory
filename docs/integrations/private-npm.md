@@ -1,11 +1,11 @@
 # Private npm registries
 
 For a repository whose own dependencies include a package from a private
-registry, such as your company's own packages. At the end, lunamill's
+registry, such as your company's own packages. At the end, Lunamill's
 jobs that install your dependencies install it as your machine does, and
 Dependabot offers its new versions.
 
-## What lunamill uses it for
+## What Lunamill uses it for
 
 The jobs that install your repository's dependencies, with `npm ci`, sign
 in to your registry with a token you store, and Dependabot reads the
@@ -14,7 +14,7 @@ registry for your packages' new versions.
 ### Private npm packages
 
 This page is for your repository's own private packages, the ones its
-`package-lock.json` installs from a registry that needs a token. lunamill itself needs none of it. It comes from the public npm
+`package-lock.json` installs from a registry that needs a token. Lunamill itself needs none of it. It comes from the public npm
 registry, onto each machine and each job, and a
 [preset](../customize/presets.md#who-can-read-a-preset) comes from a repository on
 your code host, read with the access you already have. A repository with
@@ -41,7 +41,7 @@ one that reads the token from an environment variable:
 ```
 
 Your registry's documentation gives both lines with its own address. The
-variable can have any name; lunamill stores the token as a secret of
+variable can have any name; Lunamill stores the token as a secret of
 the same name, so wherever this page says `NPM_TOKEN`, use yours. On
 your machine, set the variable in your shell's profile, such as
 `export NPM_TOKEN=...`. If the token line is only in your own
@@ -81,7 +81,7 @@ lunamill init
 ```
 
 Under "Found", `init` lists `.npmrc` and the variable it reads. Then it
-asks you to paste the token, rewrites lunamill's two workflow files
+asks you to paste the token, rewrites Lunamill's two workflow files
 under `.github/workflows/` to pass the secret to the jobs that install,
 and stores it twice: as an
 Actions secret, and as a Dependabot secret, since a workflow that
@@ -158,7 +158,7 @@ repository's dependencies" step passes once the job can sign in.
 ## What setup adds
 
 The token, stored twice, as an Actions secret and a Dependabot secret, and
-lunamill's two workflow files rewritten to pass it to the jobs that
+Lunamill's two workflow files rewritten to pass it to the jobs that
 install ([3. Store it with `lunamill init`](#3-store-it-with-lunamill-init)).
 
 ## Tokens and secrets
@@ -178,11 +178,11 @@ or run `lunamill init` and answer yes when it asks to replace the secrets
 already set. An organization admin runs the two commands in step 3
 again instead.
 
-If you rename the variable in `.npmrc`, lunamill's commands stop and
+If you rename the variable in `.npmrc`, Lunamill's commands stop and
 say to run `lunamill sync`, which rewrites the two workflow files for the
 new name.
 
-## What lunamill can and cannot do there
+## What Lunamill can and cannot do there
 
 It installs your packages, and nothing more: the token can only read.
 

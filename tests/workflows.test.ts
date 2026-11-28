@@ -780,7 +780,7 @@ describe("the jobs that run no session", () => {
     "conflicts",
     "dependencies",
   ])(
-    "%s checks out the default branch, never the pull request, and installs lunamill before it runs it",
+    "%s checks out the default branch, never the pull request, and installs Lunamill before it runs it",
     (name) => {
       const job = jobs[name]!;
       const checkout = job.steps![0]!;
@@ -790,7 +790,7 @@ describe("the jobs that run no session", () => {
       expect(checkout.with?.repository).toBeUndefined();
       expect(names(job).slice(1, 3)).toEqual([
         "Set up Node",
-        "Install lunamill",
+        "Install Lunamill",
       ]);
     },
   );
@@ -1000,8 +1000,8 @@ describe("the approval policies' jobs", () => {
   });
 });
 
-describe("installing lunamill in a run", () => {
-  const install = step(jobs.check!, "Install lunamill").run!;
+describe("installing Lunamill in a run", () => {
+  const install = step(jobs.check!, "Install Lunamill").run!;
   const npm = { npm: "" };
 
   /** A checkout whose lock names `version`. */
@@ -1037,12 +1037,12 @@ describe("installing lunamill in a run", () => {
     const r = runScript(install, dir);
     expect(r.status).toBe(1);
     expect(r.stdout).toContain(
-      "::error::.claude/lunamill.lock names no release of lunamill.",
+      "::error::.claude/lunamill.lock names no release of Lunamill.",
     );
     expect(calls().filter((c) => c.startsWith("npm"))).toEqual([]);
   });
 
-  it("installs the checkout itself in lunamill's own repository", () => {
+  it("installs the checkout itself in Lunamill's own repository", () => {
     const { dir, calls } = checkout("0.0.0-development", {
       name: "@lunamill-ai/lunamill",
     });
@@ -1053,14 +1053,14 @@ describe("installing lunamill in a run", () => {
     ]);
   });
 
-  it("is the same script in every job that runs lunamill, with its scripts on only where the repository's own dependencies are needed", () => {
+  it("is the same script in every job that runs Lunamill, with its scripts on only where the repository's own dependencies are needed", () => {
     for (const job of Object.values(jobs))
       for (const s of job.steps ?? [])
-        if (s.name === "Install lunamill") expect(s.run).toBe(install);
+        if (s.name === "Install Lunamill") expect(s.run).toBe(install);
     for (const job of [review.jobs.check!, prepareJob, publishJob])
-      expect(step(job, "Install lunamill").run).toBe(install);
+      expect(step(job, "Install Lunamill").run).toBe(install);
     // A session's also says what it installed, for the steps after it.
-    const inSession = step(sessionJob, "Install lunamill").run!;
+    const inSession = step(sessionJob, "Install Lunamill").run!;
     for (const line of install
       .split("\n")
       .filter((l) => /version|npm install/.test(l)))
@@ -1117,7 +1117,7 @@ describe("the job that prepares a session", () => {
     expect(names(prepareJob)).toEqual([
       "Checkout the default branch",
       "Set up Node",
-      "Install lunamill",
+      "Install Lunamill",
       "Check whether there is work, then the tokens",
       "Sign in",
       "Name the committer",
@@ -1259,7 +1259,7 @@ describe("the job that runs the agent", () => {
       "Lay out the default branch",
       "Read what the repository installs with",
       "Set up Node",
-      "Install lunamill",
+      "Install Lunamill",
       "Take the repository's own secrets",
       "Install the repository's dependencies",
       "Run the build's setup commands",
@@ -1404,7 +1404,7 @@ describe("the job that publishes what a session left", () => {
     expect(names(publishJob)).toEqual([
       "Checkout the default branch",
       "Set up Node",
-      "Install lunamill",
+      "Install Lunamill",
       "Name the run's folder",
       "Take what was handed over",
       "Take what the session left",
@@ -1670,11 +1670,11 @@ describe("a token of the organization's app, where its key reaches the run", () 
   const REACHES = { APP_KEY_SET: "true", CLIENT_ID: "Iv23li" };
 
   it.each(JOBS)(
-    "%s makes one once lunamill is installed, for the repositories lunamill names",
+    "%s makes one once Lunamill is installed, for the repositories Lunamill names",
     (_, job) => {
       const order = names(job);
       const at = order.indexOf(LIST);
-      expect(order.indexOf("Install lunamill")).toBeLessThan(at);
+      expect(order.indexOf("Install Lunamill")).toBeLessThan(at);
       expect(order.slice(at, at + 3)).toEqual([LIST, MAKE, SAY]);
       expect(step(job, LIST)).toMatchObject({
         id: "repositories",
@@ -1722,7 +1722,7 @@ describe("a token of the organization's app, where its key reaches the run", () 
     },
   );
 
-  it("asks lunamill for the repositories only when the key and the client ID both reach the run", () => {
+  it("asks Lunamill for the repositories only when the key and the client ID both reach the run", () => {
     const listed = (env: Record<string, string>) => {
       const { dir, calls } = sandbox({ lunamill: "echo web,lunamill-config" });
       const r = runScript(list.run!, dir, env);
@@ -1746,7 +1746,7 @@ describe("a token of the organization's app, where its key reaches the run", () 
       expect(listed(env)).toEqual({ status: 0, calls: [], output: "" });
   });
 
-  it("fails the step, and so makes no token, when lunamill cannot name the repositories", () => {
+  it("fails the step, and so makes no token, when Lunamill cannot name the repositories", () => {
     const { dir } = sandbox({ lunamill: "exit 1" });
 
     expect(runScript(list.run!, dir, REACHES).status).not.toBe(0);
@@ -1806,7 +1806,7 @@ describe("a token of the organization's app, where its key reaches the run", () 
         GITHUB_SERVER_URL: "https://github.com",
       });
       expect(r.stdout).toBe(
-        "::error::lunamill's app for acme is not installed on acme/web. An owner of acme adds it: https://github.com/organizations/acme/settings/installations\n",
+        "::error::Lunamill's app for acme is not installed on acme/web. An owner of acme adds it: https://github.com/organizations/acme/settings/installations\n",
       );
     },
   );
@@ -1915,7 +1915,7 @@ describe("a token of the organization's app, where its key reaches the run", () 
     expect(token({}, {})).toBe("the workflow's");
   });
 
-  it("checks the updates' job out again with the app's token before it pushes, and cleans nothing lunamill's install left", () => {
+  it("checks the updates' job out again with the app's token before it pushes, and cleans nothing Lunamill's install left", () => {
     const job = jobs.updates!;
     const again = step(job, AGAIN);
     expect(again.uses).toBe("actions/checkout@v7");
@@ -2004,7 +2004,7 @@ describe("what each job's token of the app may do", () => {
       { contents: "write", workflows: "write", pull_requests: "write" },
     ],
     [
-      "sets the repository's lunamill property",
+      "sets the repository's Lunamill property",
       "run-default-branch.yml enroll",
       { repository_custom_properties: "write" },
     ],
@@ -2072,7 +2072,7 @@ describe("what each job's token of the app may do", () => {
 
   it("asks for nothing the app's registration does not hold, which GitHub would refuse", () => {
     const held: Record<string, string> = manifestOf(
-      "lunamill for acme",
+      "Lunamill for acme",
       "http://127.0.0.1/registered",
     ).default_permissions;
     const beyond = tokens.flatMap((t) =>
@@ -2547,10 +2547,10 @@ describe("the two jobs around a session, which have a sign-in", () => {
   );
 
   it.each(JOBS)(
-    "%s runs nothing but lunamill's commands and the code host's, from the default branch's checkout",
+    "%s runs nothing but Lunamill's commands and the code host's, from the default branch's checkout",
     (_, job) => {
       const scripts = job.steps!.filter(
-        (s) => s.run && s.name !== "Install lunamill",
+        (s) => s.run && s.name !== "Install Lunamill",
       );
       for (const s of scripts) {
         expect(s, s.name).not.toHaveProperty("working-directory");
@@ -2736,7 +2736,7 @@ describe("run.yml's groups", () => {
     [
       "default-branch",
       [
-        "lunamill files in step",
+        "Lunamill files in step",
         "Require the verdict",
         "Build",
         "Find the conflicts",
@@ -2785,7 +2785,7 @@ describe("run.yml's groups", () => {
   );
 });
 
-describe("the names one part of lunamill goes by for another", () => {
+describe("the names one part of Lunamill goes by for another", () => {
   it("names an answer's run as the runner counts it, a pull request's as it finds its review, and leaves any other to GitHub", () => {
     const named = (
       inputs: Record<string, string>,
@@ -2862,8 +2862,8 @@ describe("the job that makes the verdict required, once a setup has merged", () 
 describe("review.yml", () => {
   const { jobs } = review;
 
-  it("names its job lunamill files in step", () => {
-    expect(jobs.check!.name).toBe("lunamill files in step");
+  it("names its job Lunamill files in step", () => {
+    expect(jobs.check!.name).toBe("Lunamill files in step");
   });
 
   it("has the one job that reads a pull request's own code, on every pull request", () => {
@@ -2880,7 +2880,7 @@ describe("review.yml", () => {
     });
   });
 
-  it("compares the files with the base commit's lock, with no sign-in in what lunamill runs with", () => {
+  it("compares the files with the base commit's lock, with no sign-in in what Lunamill runs with", () => {
     const compare = step(jobs.check!, "Compare the copies with their source");
     expect(compare.env).toEqual({
       BASE: "${{ github.event.pull_request.base.sha }}",
@@ -2991,7 +2991,7 @@ describe("review.yml", () => {
 describe("Dependabot's auto-merge", () => {
   const job = jobs.dependabot!;
 
-  it("is turned on only for Dependabot's own pull request, never a major, and never one that names lunamill", () => {
+  it("is turned on only for Dependabot's own pull request, never a major, and never one that names Lunamill", () => {
     expect(job.if!.replace(/\s+/g, " ")).toBe(
       "contains(format(' {0} ', inputs.parts), ' dependabot ') && github.event_name == 'pull_request_target' && contains(fromJSON('[\"opened\", \"reopened\", \"synchronize\"]'), github.event.action) && github.actor == 'dependabot[bot]'",
     );
@@ -3135,18 +3135,18 @@ describe("poller.yml, which an organization's lunamill-poller.yml calls", () => 
   });
 
   it("installs the release the file that calls it names", () => {
-    const install = step(jobs.poller!, "Install lunamill");
+    const install = step(jobs.poller!, "Install Lunamill");
     const { dir, calls } = checkout(calling("0.4.0"), { npm: "" });
 
     expect(runScript(install.run!, dir).status).toBe(0);
     expect(calls()).toEqual([
       "npm install --global --no-audit --no-fund @lunamill-ai/lunamill@0.4.0",
     ]);
-    expect(step(jobs.updates!, "Install lunamill").run).toBe(install.run);
+    expect(step(jobs.updates!, "Install Lunamill").run).toBe(install.run);
   });
 
   it("installs nothing, naming the file, when it names no release", () => {
-    const install = step(jobs.poller!, "Install lunamill");
+    const install = step(jobs.poller!, "Install Lunamill");
     const { dir, calls } = checkout(
       calling().replace("poller.yml@v0.4.0", "poller.yml@main"),
       { npm: "" },
@@ -3155,7 +3155,7 @@ describe("poller.yml, which an organization's lunamill-poller.yml calls", () => 
     const r = runScript(install.run!, dir);
     expect(r.status).toBe(1);
     expect(r.stdout).toBe(
-      "::error::.github/workflows/lunamill-poller.yml names no release of lunamill after poller.yml@v.\n",
+      "::error::.github/workflows/lunamill-poller.yml names no release of Lunamill after poller.yml@v.\n",
     );
     expect(calls()).toEqual([]);
   });

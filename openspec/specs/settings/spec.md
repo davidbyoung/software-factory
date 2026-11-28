@@ -8,7 +8,7 @@ What `lunamill config check` accepts for `builds.trigger` and `builds.poll-minut
 
 ### Requirement: The github-action trigger is accepted
 
-lunamill SHALL behave as this line says: When `lunamill config check` reads `builds.trigger: github-action`, it accepts it.
+Lunamill SHALL behave as this line says: When `lunamill config check` reads `builds.trigger: github-action`, it accepts it.
 
 #### Scenario: The github-action trigger is accepted
 
@@ -17,7 +17,7 @@ lunamill SHALL behave as this line says: When `lunamill config check` reads `bui
 
 ### Requirement: The interval's default
 
-lunamill SHALL behave as this line says: When `builds.poll-minutes` is not set, it is 5.
+Lunamill SHALL behave as this line says: When `builds.poll-minutes` is not set, it is 5.
 
 #### Scenario: The interval's default
 
@@ -26,7 +26,7 @@ lunamill SHALL behave as this line says: When `builds.poll-minutes` is not set, 
 
 ### Requirement: An interval not allowed
 
-lunamill SHALL behave as this line says: When `builds.poll-minutes` is anything but 5, 10, 15, 30, or 60, `lunamill config check` fails, naming the key and the values allowed.
+Lunamill SHALL behave as this line says: When `builds.poll-minutes` is anything but 5, 10, 15, 30, or 60, `lunamill config check` fails, naming the key and the values allowed.
 
 #### Scenario: An interval not allowed
 
@@ -35,7 +35,7 @@ lunamill SHALL behave as this line says: When `builds.poll-minutes` is anything 
 
 ### Requirement: An interval without the schedule
 
-lunamill SHALL behave as this line says: When `builds.poll-minutes` is set and `builds.trigger` is not `github-action`, `lunamill config check` fails with `builds.poll-minutes needs builds.trigger: github-action`.
+Lunamill SHALL behave as this line says: When `builds.poll-minutes` is set and `builds.trigger` is not `github-action`, `lunamill config check` fails with `builds.poll-minutes needs builds.trigger: github-action`.
 
 #### Scenario: An interval without the schedule
 
@@ -44,7 +44,7 @@ lunamill SHALL behave as this line says: When `builds.poll-minutes` is set and `
 
 ### Requirement: A moved key at the top level
 
-lunamill SHALL behave as this line says: When the settings have `before-commit` or `build-setup` at the top level, `lunamill config check` fails with `.claude/lunamill.yaml: KEY: moved to commands.KEY`.
+Lunamill SHALL behave as this line says: When the settings have `before-commit` or `build-setup` at the top level, `lunamill config check` fails with `.claude/lunamill.yaml: KEY: moved to commands.KEY`.
 
 #### Scenario: A moved key at the top level
 
@@ -53,7 +53,7 @@ lunamill SHALL behave as this line says: When the settings have `before-commit` 
 
 ### Requirement: Plugins written as a list
 
-lunamill SHALL behave as this line says: When `plugins` is written as a list, `lunamill config check` fails with `.claude/lunamill.yaml: plugins: must be grouped by phase: refine, build, test, conflicts`.
+Lunamill SHALL behave as this line says: When `plugins` is written as a list, `lunamill config check` fails with `.claude/lunamill.yaml: plugins: must be grouped by phase: refine, build, test, conflicts`.
 
 #### Scenario: Plugins written as a list
 
@@ -62,7 +62,7 @@ lunamill SHALL behave as this line says: When `plugins` is written as a list, `l
 
 ### Requirement: Specs written as a block
 
-lunamill SHALL behave as this line says: When `specs` is written as a block, `lunamill config check` accepts the keys `type`, one of `openspec` or `none`, and `check`, and still accepts `specs` written as one word.
+Lunamill SHALL behave as this line says: When `specs` is written as a block, `lunamill config check` accepts the keys `type`, one of `openspec` or `none`, and `check`, and still accepts `specs` written as one word.
 
 #### Scenario: Specs written as a block
 
@@ -71,7 +71,7 @@ lunamill SHALL behave as this line says: When `specs` is written as a block, `lu
 
 ### Requirement: The spec check's default
 
-lunamill SHALL behave as this line says: When `specs.type` is `openspec` and `specs.check` is not set, `specs.check` is `npx --no-install openspec validate --all --strict --no-interactive`.
+Lunamill SHALL behave as this line says: When `specs.type` is `openspec` and `specs.check` is not set, `specs.check` is `npx --no-install openspec validate --all --strict --no-interactive`.
 
 #### Scenario: The spec check's default
 
@@ -80,7 +80,7 @@ lunamill SHALL behave as this line says: When `specs.type` is `openspec` and `sp
 
 ### Requirement: A spec check without specs
 
-lunamill SHALL behave as this line says: When `specs.check` is set and `specs.type` is not `openspec`, `lunamill config check` fails with `.claude/lunamill.yaml: specs.check needs specs.type: openspec`.
+Lunamill SHALL behave as this line says: When `specs.check` is set and `specs.type` is not `openspec`, `lunamill config check` fails with `.claude/lunamill.yaml: specs.check needs specs.type: openspec`.
 
 #### Scenario: A spec check without specs
 
@@ -89,7 +89,7 @@ lunamill SHALL behave as this line says: When `specs.check` is set and `specs.ty
 
 ### Requirement: Config get specs
 
-lunamill SHALL behave as this line says: When `lunamill config get specs` runs, it prints `openspec` or `none`, whether `specs` is one word or a block.
+Lunamill SHALL behave as this line says: When `lunamill config get specs` runs, it prints `openspec` or `none`, whether `specs` is one word or a block.
 
 #### Scenario: Config get specs
 
@@ -98,7 +98,7 @@ lunamill SHALL behave as this line says: When `lunamill config get specs` runs, 
 
 ### Requirement: Config get the spec check
 
-lunamill SHALL behave as this line says: When `lunamill config get specs.check` runs, it prints the check command, or `none` when `specs.type` is `none`.
+Lunamill SHALL behave as this line says: When `lunamill config get specs.check` runs, it prints the check command, or `none` when `specs.type` is `none`.
 
 #### Scenario: Config get the spec check
 
@@ -107,7 +107,7 @@ lunamill SHALL behave as this line says: When `lunamill config get specs.check` 
 
 ### Requirement: The schema describes required columns
 
-lunamill SHALL behave as this line says: In `settings.schema.json`, no state under `tickets.columns` says `Default:`, and the block's description says that with a board all six states are required, from this file or a preset. The schema doesn't require them, since it reads one file and a preset can supply the block (line 5); the settings check does.
+Lunamill SHALL behave as this line says: In `settings.schema.json`, no state under `tickets.columns` says `Default:`, and the block's description says that with a board all six states are required, from this file or a preset. The schema doesn't require them, since it reads one file and a preset can supply the block (line 5); the settings check does.
 
 #### Scenario: The schema describes required columns
 
@@ -116,7 +116,7 @@ lunamill SHALL behave as this line says: In `settings.schema.json`, no state und
 
 ### Requirement: The hosts a session may reach
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The hosts a session may reach
 
@@ -125,7 +125,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: GitHub as a host is named with its file
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: GitHub as a host is named with its file
 
@@ -134,7 +134,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: One set of words for every reader
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: One set of words for every reader
 
@@ -143,16 +143,16 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: The settings files
 
-lunamill SHALL behave as this line says: When lunamill reads or writes a repository's settings, they are `.claude/lunamill.yaml`, `.claude/lunamill.lock`, and `.claude/lunamill.choices.yaml`.
+Lunamill SHALL behave as this line says: When Lunamill reads or writes a repository's settings, they are `.claude/lunamill.yaml`, `.claude/lunamill.lock`, and `.claude/lunamill.choices.yaml`.
 
 #### Scenario: The settings files
 
-- **WHEN** lunamill reads or writes a repository's settings
+- **WHEN** Lunamill reads or writes a repository's settings
 - **THEN** they are `.claude/lunamill.yaml`, `.claude/lunamill.lock`, and `.claude/lunamill.choices.yaml`.
 
 ### Requirement: Version 1 is accepted
 
-lunamill SHALL behave as this line says: When `lunamill config check` reads `version: 1` in `.claude/lunamill.yaml`, it accepts it.
+Lunamill SHALL behave as this line says: When `lunamill config check` reads `version: 1` in `.claude/lunamill.yaml`, it accepts it.
 
 #### Scenario: Version 1 is accepted
 
@@ -161,16 +161,16 @@ lunamill SHALL behave as this line says: When `lunamill config check` reads `ver
 
 ### Requirement: Version 2 is told to move
 
-lunamill SHALL behave as this line says: When it reads `version: 2`, it fails with `.claude/lunamill.yaml: version: must be 1: this file is version 2, see ADDRESS`, where ADDRESS is the address of "Moving to lunamill" in `docs/maintain/upgrade-notes.md` at the installed release.
+Lunamill SHALL behave as this line says: When it reads `version: 2`, it fails with `.claude/lunamill.yaml: version: must be 1: this file is version 2, see ADDRESS`, where ADDRESS is the address of "Moving to Lunamill" in `docs/maintain/upgrade-notes.md` at the installed release.
 
 #### Scenario: Version 2 is told to move
 
 - **WHEN** `lunamill config check` reads `version: 2`
-- **THEN** it fails with `.claude/lunamill.yaml: version: must be 1: this file is version 2, see ADDRESS`, where ADDRESS is the address of "Moving to lunamill" in `docs/maintain/upgrade-notes.md` at the installed release.
+- **THEN** it fails with `.claude/lunamill.yaml: version: must be 1: this file is version 2, see ADDRESS`, where ADDRESS is the address of "Moving to Lunamill" in `docs/maintain/upgrade-notes.md` at the installed release.
 
 ### Requirement: Any other version is refused
 
-lunamill SHALL behave as this line says: When it reads any other version, it fails with `.claude/lunamill.yaml: version: must be 1`.
+Lunamill SHALL behave as this line says: When it reads any other version, it fails with `.claude/lunamill.yaml: version: must be 1`.
 
 #### Scenario: Any other version is refused
 

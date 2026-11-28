@@ -76,9 +76,9 @@ export type DoctorDeps = {
   /** The paths a sync would change. It rejects with NoDefaultBranch when
    * the default branch, which the sync writes, cannot be told. */
   outOfStep: (s: Settings) => Promise<string[]> | string[];
-  /** The version the lock names, or null for none; lunamill's newest
+  /** The version the lock names, or null for none; Lunamill's newest
    * release, asked for only when it is needed; and whether the repository
-   * is lunamill's own, which runs its source. */
+   * is Lunamill's own, which runs its source. */
   factory: () => Promise<{
     named: string | null;
     own: boolean;
@@ -142,10 +142,10 @@ export async function checks(d: DoctorDeps): Promise<Check[]> {
   }
   out.push(
     differ.length === 0
-      ? { state: "pass", text: "lunamill's files match the settings" }
+      ? { state: "pass", text: "Lunamill's files match the settings" }
       : {
           state: "fail",
-          text: "lunamill's files match the settings",
+          text: "Lunamill's files match the settings",
           fix:
             typeof differ === "string"
               ? differ
@@ -155,11 +155,11 @@ export async function checks(d: DoctorDeps): Promise<Check[]> {
 
   const factory = await d.factory();
   if (factory.own)
-    out.push({ state: "pass", text: "lunamill runs from its source here" });
+    out.push({ state: "pass", text: "Lunamill runs from its source here" });
   else if (factory.named === null)
     out.push({
       state: "fail",
-      text: "The repository names a version of lunamill",
+      text: "The repository names a version of Lunamill",
       fix: SYNC,
     });
   else {
@@ -170,14 +170,14 @@ export async function checks(d: DoctorDeps): Promise<Check[]> {
         compareVersions(named, newest) < 0
           ? {
               state: "unknown",
-              text: `lunamill ${named}. ${newest} is released: merge its pull request, or run lunamill update`,
+              text: `Lunamill ${named}. ${newest} is released: merge its pull request, or run lunamill update`,
             }
-          : { state: "pass", text: `lunamill ${named}, the newest release` },
+          : { state: "pass", text: `Lunamill ${named}, the newest release` },
       );
     } catch (e) {
       out.push({
         state: "unknown",
-        text: `lunamill ${named}. The newest release could not be read: ${message(e)}`,
+        text: `Lunamill ${named}. The newest release could not be read: ${message(e)}`,
       });
     }
   }
@@ -596,7 +596,7 @@ async function jobsCheck(codeHost: CodeHost): Promise<Check> {
 
 /** Whether the rules the code host applies to the default branch, the
  * organization's among them, require the review's verdict. Until the
- * lunamill's workflow is on that branch nothing posts the verdict and
+ * Lunamill's workflow is on that branch nothing posts the verdict and
  * nothing has made the rule, which is no fault. After that, what fixes a
  * missing rule depends on whose it is: the owner's, which applies once
  * the repository's property is on, or the repository's own. */

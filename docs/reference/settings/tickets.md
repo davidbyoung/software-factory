@@ -24,18 +24,18 @@ tickets:
   default, `none`, means no board.
 - **`columns`** says which of the board's columns shows each state, and a
   board needs it: see [`tickets.columns`](#ticketscolumns).
-- **`labels`** renames the labels lunamill puts on tickets: see
+- **`labels`** renames the labels Lunamill puts on tickets: see
   [`tickets.labels`](#ticketslabels). Most repositories leave it out.
 
 Without a board, `lunamill status` still shows every ticket's state, which
-lunamill records on the ticket. Builds then start only when
+Lunamill records on the ticket. Builds then start only when
 you run `/lunamill-build N` in a session.
 
 One board can show tickets from several repositories. Give each
 repository the same `board`. Each repository's board sync,
 `lunamill status`, and poller only touch that repository's own tickets.
 
-`lunamill board check` reads your board and says what lunamill will do
+`lunamill board check` reads your board and says what Lunamill will do
 with it.
 
 ## `tickets.columns`
@@ -45,7 +45,7 @@ The board has one column for each of the six
 says which of your board's columns shows each state, and it names all
 six. `lunamill init` writes it for you, from the board you choose: see
 [You already have a board](../../features/board.md#you-already-have-a-board).
-There is no default: your board's column names may not be lunamill's, and a guess would put tickets in the wrong column without
+There is no default: your board's column names may not be Lunamill's, and a guess would put tickets in the wrong column without
 telling you.
 
 A new board on [GitHub Projects](../../integrations/github-projects.md#a-board)
@@ -65,7 +65,7 @@ builds:
   trigger: manual
 ```
 
-When init creates your board, or adds columns to one, it gives them lunamill's own names:
+When init creates your board, or adds columns to one, it gives them Lunamill's own names:
 
 | Key        | Name of the column init creates |
 | ---------- | ------------------------------- |
@@ -83,7 +83,7 @@ When init creates your board, or adds columns to one, it gives them lunamill's o
   Progress. Every state can be `none` except `backlog`.
 - **A state can take a list of columns,** when more than one of yours
   means it. Init never writes a list, so add one to the block yourself.
-  A ticket in any of the columns is in that state. When lunamill
+  A ticket in any of the columns is in that state. When Lunamill
   moves a ticket into the state, it uses the first, and a ticket already
   in any of them stays where it is:
 
@@ -104,7 +104,7 @@ When init creates your board, or adds columns to one, it gives them lunamill's o
   `ready` takes one column, since only a ticket you approved goes there.
 
   A list for `done` keeps the columns that come after the merge, which
-  are your team's: lunamill moves a merged ticket to the first column
+  are your team's: Lunamill moves a merged ticket to the first column
   in the list, here Done, and never moves one out of any of them.
 
   ```yaml
@@ -113,7 +113,7 @@ When init creates your board, or adds columns to one, it gives them lunamill's o
 
 - **A ticket never stays in the ready column unless you approved it.**
   With `building: none`, a ticket being built would stay in ready's
-  column, so it stays in refining's column instead. On a board with lunamill's columns and `building: none`, it shows in In refinement.
+  column, so it stays in refining's column instead. On a board with Lunamill's columns and `building: none`, it shows in In refinement.
 - **With `ready: none`, nothing on the board approves a build,** so you
   need `builds.trigger: manual`, and you start each build by asking a
   session.
@@ -142,9 +142,9 @@ does, and says which of the columns you named the board lacks.
 
 ## `tickets.fields`
 
-lunamill fills in fields of its own in two places: on your board,
+Lunamill fills in fields of its own in two places: on your board,
 to show what is happening to a ticket, and on the ticket itself, to hold
-the result of refining it. This block maps each of these lunamill fields
+the result of refining it. This block maps each of these Lunamill fields
 to the field of yours that holds it: a board field, or a ticket field
 set on the ticket itself. `lunamill init` sets up both the board fields
 and the ticket fields, so most repositories write nothing here by
@@ -165,7 +165,7 @@ tickets:
 ```
 
 **On the board,** besides moving a ticket between columns, the
-[board sync](../../features/board.md) fills in three lunamill fields so you
+[board sync](../../features/board.md) fills in three Lunamill fields so you
 can see at a glance what is happening to a ticket:
 
 - **`session`:** which session is working on the ticket, or "Waiting on
@@ -194,14 +194,14 @@ instead, or write `none` to stop the board sync filling one in.
   a single select with an option for each column in
   [`tickets.columns`](#ticketscolumns).
 
-**On the ticket,** refining a ticket writes four lunamill fields into its
+**On the ticket,** refining a ticket writes four Lunamill fields into its
 description, each under its own heading. Each can go instead in a ticket
 field that holds text, which on
 [GitHub Issues](../../integrations/github-issues.md) is an issue field: see
 [Your tickets already have fields](../../features/board.md#your-tickets-already-have-fields),
 which also says why a board field can't hold one.
 
-| Key                   | What lunamill field holds                                                                                                                                |
+| Key                   | What Lunamill field holds                                                                                                                                |
 | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `decisions`           | Decisions: the questions refinement settled, and what was chosen                                                                                         |
 | `spec`                | Spec: what a change your users will notice must do, line by line                                                                                         |
@@ -212,8 +212,8 @@ which also says why a board field can't hold one.
 `lunamill init` asks your coding agent to suggest the ticket fields, and
 you confirm them.
 
-- **`none` keeps lunamill field in the description,** and so does
-  leaving its key out. Unlike the board's three, a lunamill field never
+- **`none` keeps Lunamill field in the description,** and so does
+  leaving its key out. Unlike the board's three, a Lunamill field never
   goes in a ticket field just because the names match.
 - **A ticket field is named as the ticket system shows it,** capitals
   included.
@@ -223,7 +223,7 @@ you confirm them.
   as a single select, fails the checks [`lunamill doctor`](../cli.md#setting-up)
   and init print, and refining a ticket stops, naming it, and writes
   nothing.
-- **Two lunamill fields can't name the same ticket field,** except `spec`
+- **Two Lunamill fields can't name the same ticket field,** except `spec`
   and `acceptance-criteria`, since a ticket has only one of them.
   `lunamill config check` stops on any other pair.
 - **A heading of your own,** such as one
@@ -231,12 +231,12 @@ you confirm them.
   field too: write it in lowercase, with hyphens for spaces, so
   `## Proposed docs` is `proposed-docs`.
 - **Changing a line** affects tickets refined afterwards. A ticket
-  refined before keeps its lunamill fields where they were written.
+  refined before keeps its Lunamill fields where they were written.
 
 ## `tickets.labels`
 
-The names of the three labels lunamill puts on tickets. Most
-repositories never set them: leave the block out, and lunamill uses
+The names of the three labels Lunamill puts on tickets. Most
+repositories never set them: leave the block out, and Lunamill uses
 the default names. To rename a label on pull requests instead, see
 [`code-host.labels`](code-host.md#code-hostlabels).
 
@@ -253,12 +253,12 @@ tickets:
 | Key        | Default name | What the label marks                                                                                                              |
 | ---------- | ------------ | --------------------------------------------------------------------------------------------------------------------------------- |
 | `spec`     | `spec`       | A change your users will see, so [refinement writes a Spec](../../features/specs.md#a-change-your-users-will-see) into the ticket |
-| `lunamill` | `lunamill`   | A ticket lunamill works on: [Which tickets are lunamill's](../../workflow/tickets.md#which-tickets-are-lunamills)                 |
+| `lunamill` | `lunamill`   | A ticket Lunamill works on: [Which tickets are Lunamill's](../../workflow/tickets.md#which-tickets-are-lunamills)                 |
 
 - **Write only the keys you change.** A key you leave out keeps its
   default name. `lunamill init` doesn't ask about labels, and doesn't write
   this block.
-- **You don't create the label.** lunamill creates it in the ticket
+- **You don't create the label.** Lunamill creates it in the ticket
   system the first time it adds it to a ticket.
 - **Two labels can't share a name,** and capitals don't make two names
   different, so `Spec` and `spec` are one label. Where the ticket system
@@ -275,7 +275,7 @@ To rename a label:
 2. If tickets already carry the label, rename it in the ticket system to
    the same name
    ([GitHub Issues](../../integrations/github-issues.md#by-hand) says
-   where). That moves every ticket that has it. lunamill finds tickets only by the name in your settings and
+   where). That moves every ticket that has it. Lunamill finds tickets only by the name in your settings and
    never renames a label, so until you do, it doesn't see them: a
    ticket still labeled `spec` is built without its Spec. Renaming `lunamill`
    hides every ticket that carries the old name until you rename the label in

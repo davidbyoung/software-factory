@@ -5,7 +5,7 @@
 // plain prompt injection, not one that builds the path in pieces.
 
 export const CREDENTIALS_REFUSAL =
-  "lunamill's credentials file is not for sessions to read. Its commands read it themselves: run the lunamill command you need, such as lunamill ticket view.";
+  "Lunamill's credentials file is not for sessions to read. Its commands read it themselves: run the Lunamill command you need, such as lunamill ticket view.";
 
 /** The path written as a path: after a folder, as `~/.config/...` or
  * `$XDG_CONFIG_HOME/...` writes it, or as the file itself. */

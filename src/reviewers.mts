@@ -14,7 +14,7 @@
 // event carries the model, so the start reads it from the agent's
 // definition, and the finish corrects it from the transcript.
 //
-// It reads the repository from lunamill's settings only when it has a
+// It reads the repository from Lunamill's settings only when it has a
 // run to record, so a hook that fires before npm ci does nothing else.
 import {
   existsSync,

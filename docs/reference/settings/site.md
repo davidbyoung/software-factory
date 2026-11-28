@@ -1,6 +1,6 @@
 # `site`
 
-How lunamill looks at your website, if your repository is one. With
+How Lunamill looks at your website, if your repository is one. With
 `site` set and `lunamill-ui-reviewer` listed under
 [`plugins.build.reviewers`](plugins.md#pluginsbuild), every change that alters how
 the site looks is screenshotted before and after, and the difference is
@@ -26,7 +26,7 @@ Every setting `site` takes:
 | --------------- | ----------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
 | `start`         | A command that builds and serves the site, with `$PORT` set for it. Required                                      | none                                                                 |
 | `url`           | The address `start` serves the site at. Required                                                                  | none                                                                 |
-| `design-guide`  | A file of your own design rules, checked on top of lunamill's                                                     | none                                                                 |
+| `design-guide`  | A file of your own design rules, checked on top of Lunamill's                                                     | none                                                                 |
 | `pages`         | A list of paths to look at                                                                                        | The pages in `/sitemap.xml`, or else the ones the home page links to |
 | `widths`        | A list of screen widths, in pixels                                                                                | `[390, 1280]`                                                        |
 | `hide`          | A list of CSS selectors hidden before each screenshot, for something that floats over the page                    | none                                                                 |

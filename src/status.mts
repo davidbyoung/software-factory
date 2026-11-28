@@ -8,7 +8,7 @@
 // Reads the board as well as the repository, so the GitHub CLI needs the
 // project scope once, which `lunamill ticket ready` also needs to write it:
 // gh auth refresh -s project
-// The repository and the board come from lunamill's settings, whose
+// The repository and the board come from Lunamill's settings, whose
 // loader needs dependencies installed; before npm ci the hook prints
 // nothing.
 import { setTimeout as sleep } from "node:timers/promises";
@@ -508,7 +508,7 @@ export function formatRows(
 
     const groups = [
       ...GROUPS.map((name) => ({
-        // The repository's column for the state, or lunamill's own name
+        // The repository's column for the state, or Lunamill's own name
         // where the board has none.
         label: (style.columns ?? DEFAULT_COLUMNS)[name]?.[0] ?? name,
         cells: cells.filter(
@@ -782,7 +782,7 @@ export type Deps = {
   onInterrupt: (leave: () => void) => void;
   /** Read on every draw, so --watch follows a resize. The hook is plain. */
   style?: () => Style;
-  /** lunamill's settings, read once when the command starts. */
+  /** Lunamill's settings, read once when the command starts. */
   settings: () => Promise<Settings>;
   env: Record<string, string | undefined>;
 };
@@ -881,7 +881,7 @@ export const terminalStyle = (): Style =>
   styleFor(say.colorOn(), process.stdout.columns);
 
 /** `status`'s read of the coding agent's token, over the tools it opened:
- * the repository's checkout, lunamill's tools, and today, unless a test
+ * the repository's checkout, Lunamill's tools, and today, unless a test
  * gives others. */
 export function tokenReader(
   settings: Settings,

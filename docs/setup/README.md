@@ -1,6 +1,6 @@
 # Which setup is yours
 
-For anyone about to set lunamill up. Find yourself in the table: it
+For anyone about to set Lunamill up. Find yourself in the table: it
 names the page to start on, and what you have once you have followed it.
 
 | Who you are                                             | Page to start on                                                                                                    | What you have at the end                                                                                   |
@@ -13,7 +13,7 @@ Building on your machine needs nothing from the organization. Only the
 features that run in the cloud do: the automated review, the board, and
 builds in the cloud.
 
-**Not sure whether your organization is set up?** With lunamill
+**Not sure whether your organization is set up?** With Lunamill
 [installed](../get-started/install.md), run `lunamill init` in your
 repository. It changes nothing until you answer "Go ahead?", and
 the list it prints first has a row that says. When the organization is

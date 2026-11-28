@@ -7,7 +7,7 @@
 # It also checks that lunamill.yml is enabled: GitHub switches a workflow with
 # a schedule off in a public repository that goes quiet, and this one's
 # caller has none.
-name: lunamill review run
+name: Lunamill review run
 
 on:
   workflow_call:
@@ -17,11 +17,11 @@ permissions:
   contents: read
 
 jobs:
-  # Checks that lunamill's copies match the version the lock names, and
+  # Checks that Lunamill's copies match the version the lock names, and
   # that the settings in .claude/lunamill.yaml are sound. A copy under
   # .claude/ or .github/ is written by `lunamill sync` and never edited.
   check:
-    name: lunamill files in step
+    name: Lunamill files in step
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -38,7 +38,7 @@ jobs:
       # The version the pull request's own lock names, which is the one its
       # copies were written by: an update's pull request names a newer one
       # than the default branch does.
-      - name: Install lunamill
+      - name: Install Lunamill
         run: |
           if [ "$(jq -r '.name // empty' package.json 2> /dev/null)" = "@lunamill-ai/lunamill" ]; then
             npm ci --ignore-scripts
@@ -46,7 +46,7 @@ jobs:
           else
             version="$(sed -n 's/^version: *//p' .claude/lunamill.lock | head -n 1)"
             if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-              echo "::error::.claude/lunamill.lock names no release of lunamill. Run lunamill sync, and commit what it writes."
+              echo "::error::.claude/lunamill.lock names no release of Lunamill. Run lunamill sync, and commit what it writes."
               exit 1
             fi
             npm install --global --no-audit --no-fund "@lunamill-ai/lunamill@$version"

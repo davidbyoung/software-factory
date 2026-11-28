@@ -521,7 +521,7 @@ describe("lunamill doctor, the rule that requires the review's verdict", () => {
   const ON_MAIN = { "lunamill.yml": "active" } as const;
   const SET = { CLAUDE_CODE_OAUTH_TOKEN: "x" };
 
-  it("says it is not required yet, as off on purpose, while the default branch has no lunamill workflow to post it", async () => {
+  it("says it is not required yet, as off on purpose, while the default branch has no Lunamill workflow to post it", async () => {
     const { run, printed } = doctor({
       raw: REVIEW,
       enrolled: null,
@@ -659,7 +659,7 @@ describe("lunamill doctor, what CI's own token may do", () => {
   });
 });
 
-describe("lunamill doctor, the events lunamill's workflow starts on", () => {
+describe("lunamill doctor, the events Lunamill's workflow starts on", () => {
   const LINE =
     "pull_request_target is not allowed for .github/workflows/lunamill.yml, so GitHub runs no verdict, merge policy, or board sync on a pull request";
 
@@ -695,8 +695,8 @@ describe("lunamill doctor", () => {
     expect(printed).toEqual([
       "Settings and files",
       "  ✓ The settings are valid",
-      "  ✓ lunamill's files match the settings",
-      "  ✓ lunamill 0.2.0, the newest release",
+      "  ✓ Lunamill's files match the settings",
+      "  ✓ Lunamill 0.2.0, the newest release",
       "  - commands.gate is not set: a build cannot finish until it is",
       "",
       "GitHub",
@@ -706,8 +706,8 @@ describe("lunamill doctor", () => {
       "  - lunamill.yml is not on the default branch yet",
       "",
       "Claude Code",
-      "  ✓ CLAUDE.md imports lunamill's rules",
-      "  ✓ .claude/settings.json has lunamill's hooks",
+      "  ✓ CLAUDE.md imports Lunamill's rules",
+      "  ✓ .claude/settings.json has Lunamill's hooks",
       "  ✓ The claude command is installed",
       "",
       "Parts that are off",
@@ -716,7 +716,7 @@ describe("lunamill doctor", () => {
       "  - Builds in the cloud",
       "  - Builds that start when you move a card to Ready",
       "  - Pull requests that merge themselves",
-      "  - Signed commits on lunamill's updates",
+      "  - Signed commits on Lunamill's updates",
     ]);
   });
 
@@ -741,8 +741,8 @@ describe("lunamill doctor", () => {
     expect(printed).toEqual([
       "Settings and files",
       "  ✓ The settings are valid",
-      "  ✓ lunamill's files match the settings",
-      "  ✓ lunamill 0.2.0, the newest release",
+      "  ✓ Lunamill's files match the settings",
+      "  ✓ Lunamill 0.2.0, the newest release",
       "",
       "GitHub",
       "  ✓ Signed in as dave",
@@ -754,15 +754,15 @@ describe("lunamill doctor", () => {
       "  ✓ CLAUDE_CODE_OAUTH_TOKEN stops working by 2027-11-16, a year after it was stored",
       "  ✓ LUNAMILL_BOARD_TOKEN is set, for a board, builds in the cloud, and builds that start when you move a card to Ready",
       "  ✓ LUNAMILL_AUTOMERGE_TOKEN is set, for pull requests that merge themselves",
-      "  ✓ LUNAMILL_SIGNING_KEY is set, for signed commits on lunamill's updates",
+      "  ✓ LUNAMILL_SIGNING_KEY is set, for signed commits on Lunamill's updates",
       "  - lunamill.yml is not on the default branch yet",
       "",
       "GitHub Issues",
       "  ✓ Board 3 has every column the settings name",
       "",
       "Claude Code",
-      "  ✓ CLAUDE.md imports lunamill's rules",
-      "  ✓ .claude/settings.json has lunamill's hooks",
+      "  ✓ CLAUDE.md imports Lunamill's rules",
+      "  ✓ .claude/settings.json has Lunamill's hooks",
       "  ✓ The claude command is installed",
     ]);
   });
@@ -828,7 +828,7 @@ describe("lunamill doctor", () => {
     const { run, out } = doctor({ outOfStep: ["a", "b"] });
     expect(await run()).toBe(1);
     expect(out[1]).toBe(
-      "✗ lunamill's files match the settings: 2 differ. Run lunamill sync",
+      "✗ Lunamill's files match the settings: 2 differ. Run lunamill sync",
     );
   });
 
@@ -839,7 +839,7 @@ describe("lunamill doctor", () => {
     });
     expect(await run()).toBe(1);
     expect(out[1]).toBe(
-      "✗ lunamill's files match the settings: Could not tell the default branch. Run: git remote set-head upstream --auto",
+      "✗ Lunamill's files match the settings: Could not tell the default branch. Run: git remote set-head upstream --auto",
     );
   });
 
@@ -850,7 +850,7 @@ describe("lunamill doctor", () => {
     });
     expect(await run()).toBe(1);
     expect(out[1]).toBe(
-      "✗ lunamill's files match the settings: repository: .claude/lunamill.yaml says o/r, and no remote here is o/r. Add the remote, or change the line and run lunamill sync.",
+      "✗ Lunamill's files match the settings: repository: .claude/lunamill.yaml says o/r, and no remote here is o/r. Add the remote, or change the line and run lunamill sync.",
     );
   });
 
@@ -858,7 +858,7 @@ describe("lunamill doctor", () => {
     const { run, out } = doctor({ locked: "0.2.0", newest: "0.3.0" });
     expect(await run()).toBe(0);
     expect(out[2]).toBe(
-      "? lunamill 0.2.0. 0.3.0 is released: merge its pull request, or run lunamill update",
+      "? Lunamill 0.2.0. 0.3.0 is released: merge its pull request, or run lunamill update",
     );
   });
 
@@ -866,7 +866,7 @@ describe("lunamill doctor", () => {
     const { run, out } = doctor({ newest: new Error("HTTP 503") });
     expect(await run()).toBe(0);
     expect(out[2]).toBe(
-      "? lunamill 0.2.0. The newest release could not be read: HTTP 503",
+      "? Lunamill 0.2.0. The newest release could not be read: HTTP 503",
     );
   });
 
@@ -874,18 +874,18 @@ describe("lunamill doctor", () => {
     const { run, out } = doctor({ locked: null });
     expect(await run()).toBe(1);
     expect(out[2]).toBe(
-      "✗ The repository names a version of lunamill. Run lunamill sync",
+      "✗ The repository names a version of Lunamill. Run lunamill sync",
     );
   });
 
-  it("asks for no release in lunamill's own repository, which runs its source", async () => {
+  it("asks for no release in Lunamill's own repository, which runs its source", async () => {
     const { run, out } = doctor({
       own: true,
       locked: "0.0.0-development",
       newest: new Error("never asked"),
     });
     await run();
-    expect(out[2]).toBe("✓ lunamill runs from its source here");
+    expect(out[2]).toBe("✓ Lunamill runs from its source here");
   });
 
   it("checks each secret a part that is on reads", async () => {
@@ -978,8 +978,8 @@ describe("lunamill doctor", () => {
       const r = doctor({});
       expect(await r.run()).toBe(0);
       expect(section(r.printed, "Claude Code")).toEqual([
-        "✓ CLAUDE.md imports lunamill's rules",
-        "✓ .claude/settings.json has lunamill's hooks",
+        "✓ CLAUDE.md imports Lunamill's rules",
+        "✓ .claude/settings.json has Lunamill's hooks",
         "✓ The claude command is installed",
       ]);
     });
@@ -988,11 +988,11 @@ describe("lunamill doctor", () => {
       const r = doctor({ files: { "CLAUDE.md": "# Ours\n" } });
       expect(await r.run()).toBe(1);
       expect(r.out).toContain(
-        "✗ CLAUDE.md imports lunamill's rules. Run lunamill sync",
+        "✗ CLAUDE.md imports Lunamill's rules. Run lunamill sync",
       );
     });
 
-    it("fails when one of lunamill's hooks is gone, saying to sync", async () => {
+    it("fails when one of Lunamill's hooks is gone, saying to sync", async () => {
       const synced = JSON.parse(
         withHooks(null, "node_modules/@lunamill-ai/lunamill/bin/lunamill.js"),
       );
@@ -1002,7 +1002,7 @@ describe("lunamill doctor", () => {
       });
       expect(await r.run()).toBe(1);
       expect(r.out).toContain(
-        "✗ .claude/settings.json has lunamill's hooks. Run lunamill sync",
+        "✗ .claude/settings.json has Lunamill's hooks. Run lunamill sync",
       );
     });
 
@@ -1175,7 +1175,7 @@ describe("lunamill doctor", () => {
     });
 
     describe("on a repository an organization owns", () => {
-      it("passes a secret the organization shares, saying so, for any secret lunamill reads", async () => {
+      it("passes a secret the organization shares, saying so, for any secret Lunamill reads", async () => {
         const { run, out } = doctor({
           raw: { "pr-review": true },
           files: { ".npmrc": NPMRC },

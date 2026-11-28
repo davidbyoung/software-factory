@@ -2,7 +2,7 @@
 
 ### Requirement: Init writes version 1
 
-lunamill SHALL behave as this line says: When `lunamill init` or `lunamill init --org` writes a settings file that has no `version`, it writes `version: 1`, and the lock it writes records `version: 1`.
+Lunamill SHALL behave as this line says: When `lunamill init` or `lunamill init --org` writes a settings file that has no `version`, it writes `version: 1`, and the lock it writes records `version: 1`.
 
 #### Scenario: Init writes version 1
 

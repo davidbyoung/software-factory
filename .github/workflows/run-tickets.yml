@@ -1,7 +1,7 @@
 # The jobs of run.yml's "Tickets" group: what tells the other
 # repositories, opens the ticked tickets, and syncs the board. run.yml
 # calls this file only on the events one of them starts on.
-name: lunamill tickets
+name: Lunamill tickets
 
 on:
   workflow_call:
@@ -54,7 +54,7 @@ jobs:
           node-version: 22
 
       - &install
-        name: Install lunamill
+        name: Install Lunamill
         run: |
           if [ "$(jq -r '.name // empty' package.json 2> /dev/null)" = "@lunamill-ai/lunamill" ]; then
             npm ci --ignore-scripts
@@ -62,7 +62,7 @@ jobs:
           else
             version="$(sed -n 's/^version: *//p' .claude/lunamill.lock | head -n 1)"
             if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-              echo "::error::.claude/lunamill.lock names no release of lunamill. Run lunamill sync, and commit what it writes."
+              echo "::error::.claude/lunamill.lock names no release of Lunamill. Run lunamill sync, and commit what it writes."
               exit 1
             fi
             npm install --global --no-audit --no-fund "@lunamill-ai/lunamill@$version"
@@ -197,7 +197,7 @@ jobs:
         name: Say that the app is not installed
         if: failure() && steps.app.outcome == 'failure'
         run: |
-          echo "::error::lunamill's app for $GITHUB_REPOSITORY_OWNER is not installed on $GITHUB_REPOSITORY. An owner of $GITHUB_REPOSITORY_OWNER adds it: $GITHUB_SERVER_URL/organizations/$GITHUB_REPOSITORY_OWNER/settings/installations"
+          echo "::error::Lunamill's app for $GITHUB_REPOSITORY_OWNER is not installed on $GITHUB_REPOSITORY. An owner of $GITHUB_REPOSITORY_OWNER adds it: $GITHUB_SERVER_URL/organizations/$GITHUB_REPOSITORY_OWNER/settings/installations"
 
       - *extra
 

@@ -246,7 +246,7 @@ describe("lunamill sync", () => {
     expect(existsSync(join(root, ".github/actions"))).toBe(false);
   });
 
-  it("calls lunamill's workflows at the package's version", async () => {
+  it("calls Lunamill's workflows at the package's version", async () => {
     await sync();
 
     expect(factoryFile().jobs.lunamill.uses).toBe(`${HOME}/run.yml@v1.2.3`);
@@ -445,7 +445,7 @@ describe("lunamill sync", () => {
     expect(JSON.parse(read(".claude/settings.json")!).attribution).toEqual(own);
   });
 
-  it("keeps an entry in .claude/settings.json that is not lunamill's, in place", async () => {
+  it("keeps an entry in .claude/settings.json that is not Lunamill's, in place", async () => {
     const own = { type: "command", command: "echo own", timeout: 5 };
     put(
       root,
@@ -536,7 +536,7 @@ describe("lunamill sync", () => {
     },
   );
 
-  it("passes every part that is on, in the order lunamill's workflows list them", async () => {
+  it("passes every part that is on, in the order Lunamill's workflows list them", async () => {
     put(root, DEPENDABOT, "version: 1\n");
     await sync(
       [],
@@ -607,7 +607,7 @@ describe("lunamill sync", () => {
       );
     });
 
-    it("passes none with the default, which lunamill's workflow has", async () => {
+    it("passes none with the default, which Lunamill's workflow has", async () => {
       await sync([], settings());
 
       expect(factoryFile().jobs.lunamill.with).not.toHaveProperty(
@@ -627,7 +627,7 @@ describe("lunamill sync", () => {
   });
 });
 
-describe("lunamill's core", () => {
+describe("Lunamill's core", () => {
   // What lunamill's own steps call is written to every repository,
   // whatever its settings and files. Anything else is written only when a
   // setting or a file turns it on.
@@ -666,7 +666,7 @@ describe("lunamill's core", () => {
 });
 
 describe("lunamill sync: how long each session may run", () => {
-  it("passes no minutes with the defaults, which lunamill's workflow has", async () => {
+  it("passes no minutes with the defaults, which Lunamill's workflow has", async () => {
     await sync([], settings());
 
     expect(minutesIn()).toEqual({});
@@ -818,7 +818,7 @@ describe("lunamill sync: the default branch in the push trigger", () => {
 
     expect(r.code).toBe(1);
     expect(r.err).toEqual([
-      "✗ 1 of lunamill's files doesn't match the settings:",
+      "✗ 1 of Lunamill's files doesn't match the settings:",
       `  ${LUNAMILL_FILE}`,
       "Run lunamill sync and commit what it writes.",
     ]);
@@ -865,7 +865,7 @@ describe("lunamill sync --check", () => {
 
     expect(r.code).toBe(1);
     expect(r.err).toEqual([
-      "✗ 1 of lunamill's files doesn't match the settings:",
+      "✗ 1 of Lunamill's files doesn't match the settings:",
       "  .claude/lunamill/rules.md",
       "Run lunamill sync and commit what it writes.",
     ]);
@@ -878,7 +878,7 @@ describe("lunamill sync --check", () => {
     const r = await sync(["--check"]);
 
     expect(r.code).toBe(0);
-    expect(r.out).toEqual(["✓ lunamill's files match the settings."]);
+    expect(r.out).toEqual(["✓ Lunamill's files match the settings."]);
   });
 
   it("says nothing changed when a person's sync writes nothing", async () => {
@@ -887,7 +887,7 @@ describe("lunamill sync --check", () => {
     const again = await sync([], settings(FULL), "main", { announce: true });
 
     expect(again.out.at(-1)).toBe(
-      "lunamill's files already match the settings. Nothing changed.",
+      "Lunamill's files already match the settings. Nothing changed.",
     );
   });
 
@@ -895,7 +895,7 @@ describe("lunamill sync --check", () => {
     await sync();
 
     expect((await sync()).out).not.toContain(
-      "lunamill's files already match the settings. Nothing changed.",
+      "Lunamill's files already match the settings. Nothing changed.",
     );
   });
 
@@ -908,7 +908,7 @@ describe("lunamill sync --check", () => {
 
     expect(r.code).toBe(1);
     expect(r.err).toEqual([
-      "✗ 2 of lunamill's files don't match the settings:",
+      "✗ 2 of Lunamill's files don't match the settings:",
       `  ${LUNAMILL_FILE}`,
       `  ${REVIEW_FILE}`,
       "Run lunamill sync and commit what it writes.",
@@ -926,7 +926,7 @@ describe("lunamill sync --check", () => {
     expect(r.err).not.toContain(`  ${REVIEW_FILE}`);
   });
 
-  it("exits 1 naming both workflow files when lunamill's version changed and sync did not run", async () => {
+  it("exits 1 naming both workflow files when Lunamill's version changed and sync did not run", async () => {
     await sync();
     put(pkg, "package.json", '{"name": "@o/factory", "version": "1.3.0"}');
 
@@ -934,7 +934,7 @@ describe("lunamill sync --check", () => {
 
     expect(r.code).toBe(1);
     expect(r.err).toEqual([
-      "✗ 3 of lunamill's files don't match the settings:",
+      "✗ 3 of Lunamill's files don't match the settings:",
       `  ${LUNAMILL_FILE}`,
       `  ${REVIEW_FILE}`,
       "  .claude/lunamill.lock",
@@ -1065,7 +1065,7 @@ describe("factoryHooks", () => {
       expect(run("Read", { file_path: FILE })).toEqual({
         status: 2,
         stderr:
-          "lunamill's credentials file is not for sessions to read. Its commands read it themselves: run the lunamill command you need, such as lunamill ticket view.",
+          "Lunamill's credentials file is not for sessions to read. Its commands read it themselves: run the Lunamill command you need, such as lunamill ticket view.",
         started: ["guard credentials"],
       });
     });
@@ -1086,7 +1086,7 @@ describe("factoryHooks", () => {
       });
     });
 
-    it("stops every call, saying how to install lunamill, on a machine without it", () => {
+    it("stops every call, saying how to install Lunamill, on a machine without it", () => {
       expect(
         run("Read", { file_path: "/home/dana/site/README.md" }, false),
       ).toEqual({ status: 2, stderr: MISSING, started: [] });

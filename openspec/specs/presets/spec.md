@@ -2,22 +2,22 @@
 
 ## Purpose
 
-Presets: folders of settings, agents, and skills in a repository on the code host, each pinned to a commit in the lock, that several repositories share, how `lunamill sync` combines them with lunamill's defaults and `.claude/lunamill.yaml`, and the `lunamill preset` commands that add, remove, choose between, check, and report on them.
+Presets: folders of settings, agents, and skills in a repository on the code host, each pinned to a commit in the lock, that several repositories share, how `lunamill sync` combines them with Lunamill's defaults and `.claude/lunamill.yaml`, and the `lunamill preset` commands that add, remove, choose between, check, and report on them.
 
 ## Requirements
 
 ### Requirement: The order of the layers
 
-lunamill SHALL behave as this line says: When `.claude/lunamill.yaml` lists `presets`, the settings in effect are lunamill's defaults, then each preset in the order listed, then `.claude/lunamill.yaml`, each applied on top of the ones before it.
+Lunamill SHALL behave as this line says: When `.claude/lunamill.yaml` lists `presets`, the settings in effect are Lunamill's defaults, then each preset in the order listed, then `.claude/lunamill.yaml`, each applied on top of the ones before it.
 
 #### Scenario: The order of the layers
 
 - **WHEN** `.claude/lunamill.yaml` lists `presets`
-- **THEN** the settings in effect are lunamill's defaults, then each preset in the order listed, then `.claude/lunamill.yaml`, each applied on top of the ones before it.
+- **THEN** the settings in effect are Lunamill's defaults, then each preset in the order listed, then `.claude/lunamill.yaml`, each applied on top of the ones before it.
 
 ### Requirement: A single value
 
-lunamill SHALL behave as this line says: When two layers set the same single value, the later one applies, unless `.claude/lunamill.choices.yaml` names an earlier preset for that setting. A value set in `.claude/lunamill.yaml` applies over every preset's.
+Lunamill SHALL behave as this line says: When two layers set the same single value, the later one applies, unless `.claude/lunamill.choices.yaml` names an earlier preset for that setting. A value set in `.claude/lunamill.yaml` applies over every preset's.
 
 #### Scenario: A single value
 
@@ -26,7 +26,7 @@ lunamill SHALL behave as this line says: When two layers set the same single val
 
 ### Requirement: A list of commands
 
-lunamill SHALL behave as this line says: When two layers set a key under `commands`, a preset for some folders adds its commands after the list that applies without it, and among the other layers `commands.gate`, `commands.before-commit`, and `commands.build-setup` take one layer's whole list, chosen as line 16 chooses a single value.
+Lunamill SHALL behave as this line says: When two layers set a key under `commands`, a preset for some folders adds its commands after the list that applies without it, and among the other layers `commands.gate`, `commands.before-commit`, and `commands.build-setup` take one layer's whole list, chosen as line 16 chooses a single value.
 
 #### Scenario: A list of commands
 
@@ -35,7 +35,7 @@ lunamill SHALL behave as this line says: When two layers set a key under `comman
 
 ### Requirement: A list of plugins
 
-lunamill SHALL behave as this line says: When layers set `plugins.build.builders`, `plugins.build.reviewers`, `plugins.test.reviewers`, or `plugins.conflicts.resolvers`, every plugin from every layer applies, in layer order. A plugin that two layers name, by its agent or skill, is chosen as line 16 chooses a single value, its whole entry from one layer.
+Lunamill SHALL behave as this line says: When layers set `plugins.build.builders`, `plugins.build.reviewers`, `plugins.test.reviewers`, or `plugins.conflicts.resolvers`, every plugin from every layer applies, in layer order. A plugin that two layers name, by its agent or skill, is chosen as line 16 chooses a single value, its whole entry from one layer.
 
 #### Scenario: A list of plugins
 
@@ -44,7 +44,7 @@ lunamill SHALL behave as this line says: When layers set `plugins.build.builders
 
 ### Requirement: Leaving a plugin out
 
-lunamill SHALL behave as this line says: When `.claude/lunamill.yaml` names a plugin with `off: true`, that plugin does not apply, and `lunamill plugins` does not list it.
+Lunamill SHALL behave as this line says: When `.claude/lunamill.yaml` names a plugin with `off: true`, that plugin does not apply, and `lunamill plugins` does not list it.
 
 #### Scenario: Leaving a plugin out
 
@@ -53,7 +53,7 @@ lunamill SHALL behave as this line says: When `.claude/lunamill.yaml` names a pl
 
 ### Requirement: A list of values
 
-lunamill SHALL behave as this line says: When layers set `auto-merge.deny`, `site.pages`, `site.widths`, `site.checks`, or `site.hide`, every value from every layer applies, each once, in layer order.
+Lunamill SHALL behave as this line says: When layers set `auto-merge.deny`, `site.pages`, `site.widths`, `site.checks`, or `site.hide`, every value from every layer applies, each once, in layer order.
 
 #### Scenario: A list of values
 
@@ -62,7 +62,7 @@ lunamill SHALL behave as this line says: When layers set `auto-merge.deny`, `sit
 
 ### Requirement: A setting with a type
 
-lunamill SHALL behave as this line says: When a later layer sets `tickets`, `specs`, or `code-host` with a different `type` from an earlier one, the later layer's whole block applies, and nothing of the earlier block's.
+Lunamill SHALL behave as this line says: When a later layer sets `tickets`, `specs`, or `code-host` with a different `type` from an earlier one, the later layer's whole block applies, and nothing of the earlier block's.
 
 #### Scenario: A setting with a type
 
@@ -71,7 +71,7 @@ lunamill SHALL behave as this line says: When a later layer sets `tickets`, `spe
 
 ### Requirement: Two presets ship the same file
 
-lunamill SHALL behave as this line says: When two presets ship an agent or a skill of the same name, the later preset's file is written, unless `.claude/lunamill.choices.yaml` names the earlier one for that file's path.
+Lunamill SHALL behave as this line says: When two presets ship an agent or a skill of the same name, the later preset's file is written, unless `.claude/lunamill.choices.yaml` names the earlier one for that file's path.
 
 #### Scenario: Two presets ship the same file
 
@@ -80,7 +80,7 @@ lunamill SHALL behave as this line says: When two presets ship an agent or a ski
 
 ### Requirement: The repository's own file stays
 
-lunamill SHALL behave as this line says: When a preset ships an agent or a skill whose path is a file the repository wrote itself, one the lock does not list, `lunamill sync` leaves that file and prints `kept PATH, this repository's own, over NAME`.
+Lunamill SHALL behave as this line says: When a preset ships an agent or a skill whose path is a file the repository wrote itself, one the lock does not list, `lunamill sync` leaves that file and prints `kept PATH, this repository's own, over NAME`.
 
 #### Scenario: The repository's own file stays
 
@@ -89,7 +89,7 @@ lunamill SHALL behave as this line says: When a preset ships an agent or a skill
 
 ### Requirement: Keys of one block
 
-lunamill SHALL behave as this line says: When two layers set different keys of the same block, such as `tickets.columns` or `session-minutes`, both apply, each key chosen as line 16 chooses a single value.
+Lunamill SHALL behave as this line says: When two layers set different keys of the same block, such as `tickets.columns` or `session-minutes`, both apply, each key chosen as line 16 chooses a single value.
 
 #### Scenario: Keys of one block
 
@@ -98,25 +98,25 @@ lunamill SHALL behave as this line says: When two layers set different keys of t
 
 ### Requirement: An emptied role gets no built-in plugin
 
-lunamill SHALL behave as this line says: When `off: true` leaves a role's list empty, the role has no plugin, and lunamill's built-in plugin for it does not come back.
+Lunamill SHALL behave as this line says: When `off: true` leaves a role's list empty, the role has no plugin, and Lunamill's built-in plugin for it does not come back.
 
 #### Scenario: An emptied role gets no built-in plugin
 
 - **WHEN** `off: true` leaves a role's list empty
-- **THEN** the role has no plugin, and lunamill's built-in plugin for it does not come back.
+- **THEN** the role has no plugin, and Lunamill's built-in plugin for it does not come back.
 
-### Requirement: lunamill's own file stays
+### Requirement: Lunamill's own file stays
 
-lunamill SHALL behave as this line says: When a preset ships an agent or a skill at the path of one of lunamill's own files, `lunamill sync` writes lunamill's and prints `kept PATH, lunamill's own, over NAME`.
+Lunamill SHALL behave as this line says: When a preset ships an agent or a skill at the path of one of Lunamill's own files, `lunamill sync` writes Lunamill's and prints `kept PATH, lunamill's own, over NAME`.
 
-#### Scenario: lunamill's own file stays
+#### Scenario: Lunamill's own file stays
 
-- **WHEN** a preset ships an agent or a skill at the path of one of lunamill's own files
-- **THEN** `lunamill sync` writes lunamill's and prints `kept PATH, lunamill's own, over NAME`.
+- **WHEN** a preset ships an agent or a skill at the path of one of Lunamill's own files
+- **THEN** `lunamill sync` writes Lunamill's and prints `kept PATH, lunamill's own, over NAME`.
 
 ### Requirement: Settings a preset can't set
 
-lunamill SHALL behave as this line says: When a preset sets `repository`, `auto-merge.allow`, or `auto-merge.commands`, `lunamill sync` and `lunamill config check` print `NAME: KEY: a preset can't set this`.
+Lunamill SHALL behave as this line says: When a preset sets `repository`, `auto-merge.allow`, or `auto-merge.commands`, `lunamill sync` and `lunamill config check` print `NAME: KEY: a preset can't set this`.
 
 #### Scenario: Settings a preset can't set
 
@@ -125,7 +125,7 @@ lunamill SHALL behave as this line says: When a preset sets `repository`, `auto-
 
 ### Requirement: A preset that names a preset
 
-lunamill SHALL behave as this line says: When a preset sets `presets`, they print `NAME: presets: a preset can't name another preset`.
+Lunamill SHALL behave as this line says: When a preset sets `presets`, they print `NAME: presets: a preset can't name another preset`.
 
 #### Scenario: A preset that names a preset
 
@@ -134,7 +134,7 @@ lunamill SHALL behave as this line says: When a preset sets `presets`, they prin
 
 ### Requirement: Off in a preset
 
-lunamill SHALL behave as this line says: When a preset writes `off: true` on a plugin, they print `NAME: KEY: off: only .claude/lunamill.yaml can leave a plugin out`.
+Lunamill SHALL behave as this line says: When a preset writes `off: true` on a plugin, they print `NAME: KEY: off: only .claude/lunamill.yaml can leave a plugin out`.
 
 #### Scenario: Off in a preset
 
@@ -143,16 +143,16 @@ lunamill SHALL behave as this line says: When a preset writes `off: true` on a p
 
 ### Requirement: An unknown key or version in a preset
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: An unknown key or version in a preset
 
-- **WHEN** a preset has a key lunamill doesn't know, in effect or as the first fault of the preset by itself
+- **WHEN** a preset has a key Lunamill doesn't know, in effect or as the first fault of the preset by itself
 - **THEN** `lunamill sync` and `lunamill config check` print the message `lunamill config check` prints for the same fault in `.claude/lunamill.yaml`, prefixed with `NAME: `. A preset with a `version` other than 2 is refused the same way when it is added or updated.
 
 ### Requirement: A preset listed twice
 
-lunamill SHALL behave as this line says: When `presets` lists the same preset twice with the same `in`, or twice without one, they print `presets: NAME is listed twice`, with ` --in IN` after NAME when it has one.
+Lunamill SHALL behave as this line says: When `presets` lists the same preset twice with the same `in`, or twice without one, they print `presets: NAME is listed twice`, with ` --in IN` after NAME when it has one.
 
 #### Scenario: A preset listed twice
 
@@ -161,7 +161,7 @@ lunamill SHALL behave as this line says: When `presets` lists the same preset tw
 
 ### Requirement: Off on a plugin no preset names
 
-lunamill SHALL behave as this line says: When `.claude/lunamill.yaml` writes `off: true` on a plugin that no preset names, they print `KEY: NAME: off, but no preset names it`.
+Lunamill SHALL behave as this line says: When `.claude/lunamill.yaml` writes `off: true` on a plugin that no preset names, they print `KEY: NAME: off, but no preset names it`.
 
 #### Scenario: Off on a plugin no preset names
 
@@ -170,7 +170,7 @@ lunamill SHALL behave as this line says: When `.claude/lunamill.yaml` writes `of
 
 ### Requirement: Preset add shows a summary
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Preset add shows a summary
 
@@ -179,7 +179,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: Preset add asks where presets disagree
 
-lunamill SHALL behave as this line says: When the summary has a value two presets set differently, `preset add` asks which to follow, as Proposed docs shows, and records the answer in `.claude/lunamill.choices.yaml`.
+Lunamill SHALL behave as this line says: When the summary has a value two presets set differently, `preset add` asks which to follow, as Proposed docs shows, and records the answer in `.claude/lunamill.choices.yaml`.
 
 #### Scenario: Preset add asks where presets disagree
 
@@ -188,7 +188,7 @@ lunamill SHALL behave as this line says: When the summary has a value two preset
 
 ### Requirement: Preset add asks about the repository's own value
 
-lunamill SHALL behave as this line says: When the summary has a value `.claude/lunamill.yaml` sets, `preset add` asks `keep` or `drop`. `drop` deletes that key from `.claude/lunamill.yaml`, and `keep` changes nothing.
+Lunamill SHALL behave as this line says: When the summary has a value `.claude/lunamill.yaml` sets, `preset add` asks `keep` or `drop`. `drop` deletes that key from `.claude/lunamill.yaml`, and `keep` changes nothing.
 
 #### Scenario: Preset add asks about the repository's own value
 
@@ -197,7 +197,7 @@ lunamill SHALL behave as this line says: When the summary has a value `.claude/l
 
 ### Requirement: Preset add applies
 
-lunamill SHALL behave as this line says: When `Apply?` is answered `y`, `preset add` adds NAME, quoted, at the end of `presets`, writes the answers, runs the sync, and prints the lines "What preset add prints when applied" gives.
+Lunamill SHALL behave as this line says: When `Apply?` is answered `y`, `preset add` adds NAME, quoted, at the end of `presets`, writes the answers, runs the sync, and prints the lines "What preset add prints when applied" gives.
 
 #### Scenario: Preset add applies
 
@@ -206,7 +206,7 @@ lunamill SHALL behave as this line says: When `Apply?` is answered `y`, `preset 
 
 ### Requirement: Preset add declined
 
-lunamill SHALL behave as this line says: When `Apply?` is answered anything but `y`, `preset add` changes nothing, prints `Nothing changed.`, and exits 0.
+Lunamill SHALL behave as this line says: When `Apply?` is answered anything but `y`, `preset add` changes nothing, prints `Nothing changed.`, and exits 0.
 
 #### Scenario: Preset add declined
 
@@ -215,7 +215,7 @@ lunamill SHALL behave as this line says: When `Apply?` is answered anything but 
 
 ### Requirement: Preset add outside a terminal
 
-lunamill SHALL behave as this line says: When `preset add` runs outside a terminal without `--yes`, it prints the summary, changes nothing as line 35 does, prints `Run it in a terminal to choose, or add --yes to apply it.`, and exits 1.
+Lunamill SHALL behave as this line says: When `preset add` runs outside a terminal without `--yes`, it prints the summary, changes nothing as line 35 does, prints `Run it in a terminal to choose, or add --yes to apply it.`, and exits 1.
 
 #### Scenario: Preset add outside a terminal
 
@@ -224,7 +224,7 @@ lunamill SHALL behave as this line says: When `preset add` runs outside a termin
 
 ### Requirement: Preset add with yes
 
-lunamill SHALL behave as this line says: When `preset add` runs with `--yes`, it applies the summary without asking or recording a choice: where presets disagree the later applies, and `.claude/lunamill.yaml` keeps its own values.
+Lunamill SHALL behave as this line says: When `preset add` runs with `--yes`, it applies the summary without asking or recording a choice: where presets disagree the later applies, and `.claude/lunamill.yaml` keeps its own values.
 
 #### Scenario: Preset add with yes
 
@@ -233,7 +233,7 @@ lunamill SHALL behave as this line says: When `preset add` runs with `--yes`, it
 
 ### Requirement: Preset add with dry run
 
-lunamill SHALL behave as this line says: When `preset add` runs with `--dry-run`, it prints the summary, changes nothing as line 35 does, and exits 0.
+Lunamill SHALL behave as this line says: When `preset add` runs with `--dry-run`, it prints the summary, changes nothing as line 35 does, and exits 0.
 
 #### Scenario: Preset add with dry run
 
@@ -242,7 +242,7 @@ lunamill SHALL behave as this line says: When `preset add` runs with `--dry-run`
 
 ### Requirement: A preset already listed
 
-lunamill SHALL behave as this line says: When NAME is already in `presets` with the `in` given, or without one when none is given, `preset add` prints `NAME is already in presets`, with ` --in IN` after NAME when one is given, and exits 1.
+Lunamill SHALL behave as this line says: When NAME is already in `presets` with the `in` given, or without one when none is given, `preset add` prints `NAME is already in presets`, with ` --in IN` after NAME when one is given, and exits 1.
 
 #### Scenario: A preset already listed
 
@@ -251,7 +251,7 @@ lunamill SHALL behave as this line says: When NAME is already in `presets` with 
 
 ### Requirement: Preset remove shows a summary
 
-lunamill SHALL behave as this line says: When `lunamill preset remove NAME` runs, it prints the summary of Proposed docs: `removed`, `back to the default`, `back to another preset's value` (`KEY OLD → NEW, from NAME`), `back to a value you chose against`, and `deletes PATH`, then asks about each value that goes back to one the repository chose against, before changing anything.
+Lunamill SHALL behave as this line says: When `lunamill preset remove NAME` runs, it prints the summary of Proposed docs: `removed`, `back to the default`, `back to another preset's value` (`KEY OLD → NEW, from NAME`), `back to a value you chose against`, and `deletes PATH`, then asks about each value that goes back to one the repository chose against, before changing anything.
 
 #### Scenario: Preset remove shows a summary
 
@@ -260,7 +260,7 @@ lunamill SHALL behave as this line says: When `lunamill preset remove NAME` runs
 
 ### Requirement: Keeping a value on remove
 
-lunamill SHALL behave as this line says: When a value would go back to one the repository chose against and the answer is to keep the current one, `preset remove` writes that value into `.claude/lunamill.yaml`.
+Lunamill SHALL behave as this line says: When a value would go back to one the repository chose against and the answer is to keep the current one, `preset remove` writes that value into `.claude/lunamill.yaml`.
 
 #### Scenario: Keeping a value on remove
 
@@ -269,7 +269,7 @@ lunamill SHALL behave as this line says: When a value would go back to one the r
 
 ### Requirement: Preset remove applies
 
-lunamill SHALL behave as this line says: When `preset remove` is applied, it takes NAME out of `presets`, removes each choice that names it, drops it from the lock, deletes the files only it shipped, runs the sync, and prints the lines "What preset remove prints" gives.
+Lunamill SHALL behave as this line says: When `preset remove` is applied, it takes NAME out of `presets`, removes each choice that names it, drops it from the lock, deletes the files only it shipped, runs the sync, and prints the lines "What preset remove prints" gives.
 
 #### Scenario: Preset remove applies
 
@@ -278,7 +278,7 @@ lunamill SHALL behave as this line says: When `preset remove` is applied, it tak
 
 ### Requirement: Preset remove declined, outside a terminal, dry run, or yes
 
-lunamill SHALL behave as this line says: When `preset remove` is answered no, run outside a terminal, or run with `--dry-run`, it behaves as lines 35, 36, and 38 say for `preset add`, with nothing changed on a no. With `--yes`, a value that goes back to one the repository chose against takes that value, and nothing is written into `.claude/lunamill.yaml`.
+Lunamill SHALL behave as this line says: When `preset remove` is answered no, run outside a terminal, or run with `--dry-run`, it behaves as lines 35, 36, and 38 say for `preset add`, with nothing changed on a no. With `--yes`, a value that goes back to one the repository chose against takes that value, and nothing is written into `.claude/lunamill.yaml`.
 
 #### Scenario: Preset remove declined, outside a terminal, dry run, or yes
 
@@ -287,7 +287,7 @@ lunamill SHALL behave as this line says: When `preset remove` is answered no, ru
 
 ### Requirement: A preset not listed
 
-lunamill SHALL behave as this line says: When NAME is not in `presets`, `preset remove` prints `NAME is not in presets` and exits 1.
+Lunamill SHALL behave as this line says: When NAME is not in `presets`, `preset remove` prints `NAME is not in presets` and exits 1.
 
 #### Scenario: A preset not listed
 
@@ -296,7 +296,7 @@ lunamill SHALL behave as this line says: When NAME is not in `presets`, `preset 
 
 ### Requirement: Prompts ask again
 
-lunamill SHALL behave as this line says: When a prompt gets an empty or unrecognized answer, it asks again. `Apply? [y/N]` is the exception: anything but `y` is no.
+Lunamill SHALL behave as this line says: When a prompt gets an empty or unrecognized answer, it asks again. `Apply? [y/N]` is the exception: anything but `y` is no.
 
 #### Scenario: Prompts ask again
 
@@ -305,7 +305,7 @@ lunamill SHALL behave as this line says: When a prompt gets an empty or unrecogn
 
 ### Requirement: The choices file
 
-lunamill SHALL behave as this line says: When `.claude/lunamill.choices.yaml` holds a choice, the choice is one line, `SETTING: "PRESET"` for a setting or `PATH: "PRESET"` for a file, under the comment Proposed docs shows. The `preset` commands write the file, create it with its first choice, and delete it when its last choice goes.
+Lunamill SHALL behave as this line says: When `.claude/lunamill.choices.yaml` holds a choice, the choice is one line, `SETTING: "PRESET"` for a setting or `PATH: "PRESET"` for a file, under the comment Proposed docs shows. The `preset` commands write the file, create it with its first choice, and delete it when its last choice goes.
 
 #### Scenario: The choices file
 
@@ -314,7 +314,7 @@ lunamill SHALL behave as this line says: When `.claude/lunamill.choices.yaml` ho
 
 ### Requirement: Preset choices in a terminal
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Preset choices in a terminal
 
@@ -323,7 +323,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: Preset choices outside a terminal
 
-lunamill SHALL behave as this line says: When `lunamill preset choices` runs outside a terminal, it prints the same list without asking, and exits 0.
+Lunamill SHALL behave as this line says: When `lunamill preset choices` runs outside a terminal, it prints the same list without asking, and exits 0.
 
 #### Scenario: Preset choices outside a terminal
 
@@ -332,7 +332,7 @@ lunamill SHALL behave as this line says: When `lunamill preset choices` runs out
 
 ### Requirement: Nothing to choose
 
-lunamill SHALL behave as this line says: When nothing two presets set differs, `lunamill preset choices` prints `No two presets disagree here.` and exits 0.
+Lunamill SHALL behave as this line says: When nothing two presets set differs, `lunamill preset choices` prints `No two presets disagree here.` and exits 0.
 
 #### Scenario: Nothing to choose
 
@@ -341,7 +341,7 @@ lunamill SHALL behave as this line says: When nothing two presets set differs, `
 
 ### Requirement: Preset choose
 
-lunamill SHALL behave as this line says: When `lunamill preset choose KEY PRESET` runs, it records that choice, runs the sync, and exits 0. When no two presets set KEY differently, it prints `KEY: no two presets disagree on this` and exits 1. When PRESET doesn't set KEY, it prints `KEY: PRESET doesn't set this` and exits 1.
+Lunamill SHALL behave as this line says: When `lunamill preset choose KEY PRESET` runs, it records that choice, runs the sync, and exits 0. When no two presets set KEY differently, it prints `KEY: no two presets disagree on this` and exits 1. When PRESET doesn't set KEY, it prints `KEY: PRESET doesn't set this` and exits 1.
 
 #### Scenario: Preset choose
 
@@ -350,7 +350,7 @@ lunamill SHALL behave as this line says: When `lunamill preset choose KEY PRESET
 
 ### Requirement: A stale choice is dropped
 
-lunamill SHALL behave as this line says: When `lunamill sync` finds a choice naming a preset not in `presets`, or one that no longer sets that key, it drops the choice and prints `dropped the choice for KEY: REASON`, with REASON `NAME is no longer in presets` or `NAME no longer sets it`.
+Lunamill SHALL behave as this line says: When `lunamill sync` finds a choice naming a preset not in `presets`, or one that no longer sets that key, it drops the choice and prints `dropped the choice for KEY: REASON`, with REASON `NAME is no longer in presets` or `NAME no longer sets it`.
 
 #### Scenario: A stale choice is dropped
 
@@ -359,25 +359,25 @@ lunamill SHALL behave as this line says: When `lunamill sync` finds a choice nam
 
 ### Requirement: Preset check names each problem
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Preset check names each problem
 
 - **WHEN** a preset sets what a preset can't set, names another preset, or leaves a plugin out
-- **THEN** `preset check` prints `FILE: KEY: MESSAGE` for each and exits 1. MESSAGE is the one "Settings a preset can't set", "A preset that names a preset", or "Off in a preset" gives, with `. Remove it, and set it in each repository that wants it`, `. Remove it, and list each preset in the repositories that use this one`, or `. Remove it: only a repository can leave a plugin out`. A key lunamill doesn't know and a `version` other than 2 are faults of the shared rules, which "Every problem only a preset has, then the first fault" describes.
+- **THEN** `preset check` prints `FILE: KEY: MESSAGE` for each and exits 1. MESSAGE is the one "Settings a preset can't set", "A preset that names a preset", or "Off in a preset" gives, with `. Remove it, and set it in each repository that wants it`, `. Remove it, and list each preset in the repositories that use this one`, or `. Remove it: only a repository can leave a plugin out`. A key Lunamill doesn't know and a `version` other than 2 are faults of the shared rules, which "Every problem only a preset has, then the first fault" describes.
 
 ### Requirement: A plugin the package doesn't ship
 
-lunamill SHALL behave as this line says: When a preset's plugin names an agent or a skill that no preset in the same repository ships, `preset check` prints `FILE: KEY: NAME: not shipped here, so each repository that uses this preset must provide it`, and doesn't fail on it. A name that starts with `lunamill-` is lunamill's own and gets no line.
+Lunamill SHALL behave as this line says: When a preset's plugin names an agent or a skill that no preset in the same repository ships, `preset check` prints `FILE: KEY: NAME: not shipped here, so each repository that uses this preset must provide it`, and doesn't fail on it. A name that starts with `lunamill-` is Lunamill's own and gets no line.
 
 #### Scenario: A plugin the package doesn't ship
 
 - **WHEN** a preset's plugin names an agent or a skill that no preset in the same repository ships
-- **THEN** `preset check` prints `FILE: KEY: NAME: not shipped here, so each repository that uses this preset must provide it`, and doesn't fail on it. A name that starts with `lunamill-` is lunamill's own and gets no line.
+- **THEN** `preset check` prints `FILE: KEY: NAME: not shipped here, so each repository that uses this preset must provide it`, and doesn't fail on it. A name that starts with `lunamill-` is Lunamill's own and gets no line.
 
 ### Requirement: Preset changes
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Preset changes
 
@@ -386,7 +386,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: A preset's name
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A preset's name
 
@@ -395,7 +395,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: Preset add reads the repository
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Preset add reads the repository
 
@@ -404,7 +404,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: The summary's heading
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The summary's heading
 
@@ -413,7 +413,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: The summary's runs lines
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The summary's runs lines
 
@@ -422,7 +422,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: What preset add prints when applied
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: What preset add prints when applied
 
@@ -431,7 +431,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: A preset of another owner
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A preset of another owner
 
@@ -440,7 +440,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: Sync reads no preset's repository
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Sync reads no preset's repository
 
@@ -449,7 +449,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: A preset not pinned yet
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A preset not pinned yet
 
@@ -458,7 +458,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: What preset remove prints
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: What preset remove prints
 
@@ -467,7 +467,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: The check reads a preset whose commit changed
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The check reads a preset whose commit changed
 
@@ -476,7 +476,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: Preset check lists each preset by its file
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Preset check lists each preset by its file
 
@@ -485,7 +485,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: Preset changes names commits
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Preset changes names commits
 
@@ -494,7 +494,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: Doctor's line for each preset
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Doctor's line for each preset
 
@@ -503,7 +503,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: Preset check refuses a value that is not valid
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Preset check refuses a value that is not valid
 
@@ -512,7 +512,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: Every problem only a preset has, then the first fault
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Every problem only a preset has, then the first fault
 
@@ -521,7 +521,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: A preset that leaves out the board
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A preset that leaves out the board
 
@@ -530,7 +530,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: A preset that holds part of the columns, or no branch name
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A preset that holds part of the columns, or no branch name
 
@@ -539,7 +539,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: An interval with no trigger
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: An interval with no trigger
 
@@ -548,7 +548,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: A spec check with no spec tool
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A spec check with no spec tool
 
@@ -557,7 +557,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: A reviewer whose setting another layer supplies
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A reviewer whose setting another layer supplies
 
@@ -566,7 +566,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: Part of site, or of coverage
 
-lunamill SHALL behave as this line says: When a preset writes part of `site` and leaves out `site.start` or `site.url`, or writes one of `commands.coverage.run` and `commands.coverage.report` as a single map, `lunamill preset check` passes; a coverage item in a list needs `run` and `report`.
+Lunamill SHALL behave as this line says: When a preset writes part of `site` and leaves out `site.start` or `site.url`, or writes one of `commands.coverage.run` and `commands.coverage.report` as a single map, `lunamill preset check` passes; a coverage item in a list needs `run` and `report`.
 
 #### Scenario: Part of site, or of coverage
 
@@ -575,7 +575,7 @@ lunamill SHALL behave as this line says: When a preset writes part of `site` and
 
 ### Requirement: A value that is not valid beside a setting left out
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A value that is not valid beside a setting left out
 
@@ -584,7 +584,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: Two settings of one preset that contradict
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Two settings of one preset that contradict
 
@@ -593,7 +593,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: A preset in the older version
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A preset in the older version
 
@@ -602,7 +602,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: A preset's file that is not YAML
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A preset's file that is not YAML
 
@@ -611,7 +611,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: Preset add refuses a value that is not valid
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Preset add refuses a value that is not valid
 
@@ -620,7 +620,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: A pinned preset's value in effect
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A pinned preset's value in effect
 
@@ -629,7 +629,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: A pinned preset's value that is replaced
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A pinned preset's value that is replaced
 
@@ -638,7 +638,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: A preset and a repository valid alone and not together
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A preset and a repository valid alone and not together
 
@@ -647,7 +647,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: A preset for some folders
 
-lunamill SHALL behave as this line says: When a `presets` entry is `name` with `in`, `lunamill preset add NAME --in IN` writes it, and the preset applies only in those folders. A preset already listed without `in` can be added again with it.
+Lunamill SHALL behave as this line says: When a `presets` entry is `name` with `in`, `lunamill preset add NAME --in IN` writes it, and the preset applies only in those folders. A preset already listed without `in` can be added again with it.
 
 #### Scenario: A preset for some folders
 
@@ -656,7 +656,7 @@ lunamill SHALL behave as this line says: When a `presets` entry is `name` with `
 
 ### Requirement: A folder preset's paths
 
-lunamill SHALL behave as this line says: When a preset has `in`, each command it gives runs in each of those folders, and each path and pattern it gives, `commands.ignore` included, is read from each folder as if it started with `./`.
+Lunamill SHALL behave as this line says: When a preset has `in`, each command it gives runs in each of those folders, and each path and pattern it gives, `commands.ignore` included, is read from each folder as if it started with `./`.
 
 #### Scenario: A folder preset's paths
 
@@ -665,7 +665,7 @@ lunamill SHALL behave as this line says: When a preset has `in`, each command it
 
 ### Requirement: A folder preset's commands are added
 
-lunamill SHALL behave as this line says: When a folder preset sets any key under `commands`, its commands are added after the list that applies without it, which is chosen among the other layers as today; a single map, such as `coverage`, joins as a list of one. In `test-one` and `end-to-end`, text moves last.
+Lunamill SHALL behave as this line says: When a folder preset sets any key under `commands`, its commands are added after the list that applies without it, which is chosen among the other layers as today; a single map, such as `coverage`, joins as a list of one. In `test-one` and `end-to-end`, text moves last.
 
 #### Scenario: A folder preset's commands are added
 
@@ -674,7 +674,7 @@ lunamill SHALL behave as this line says: When a folder preset sets any key under
 
 ### Requirement: A folder preset's relock
 
-lunamill SHALL behave as this line says: When a folder preset sets `relock`, its commands are added to the default `npm install`; only the repository's own `relock` replaces the default.
+Lunamill SHALL behave as this line says: When a folder preset sets `relock`, its commands are added to the default `npm install`; only the repository's own `relock` replaces the default.
 
 #### Scenario: A folder preset's relock
 
@@ -683,7 +683,7 @@ lunamill SHALL behave as this line says: When a folder preset sets `relock`, its
 
 ### Requirement: A folder preset's sites
 
-lunamill SHALL behave as this line says: When a folder preset sets `site`, its sites are added to the others.
+Lunamill SHALL behave as this line says: When a folder preset sets `site`, its sites are added to the others.
 
 #### Scenario: A folder preset's sites
 
@@ -692,7 +692,7 @@ lunamill SHALL behave as this line says: When a folder preset sets `site`, its s
 
 ### Requirement: A folder preset's reviewers
 
-lunamill SHALL behave as this line says: When a folder preset gives a reviewer with no `files`, the reviewer reads changes matching `./**` in each of its folders; when two folder presets give the same reviewer, it is one reviewer reading both presets' folders.
+Lunamill SHALL behave as this line says: When a folder preset gives a reviewer with no `files`, the reviewer reads changes matching `./**` in each of its folders; when two folder presets give the same reviewer, it is one reviewer reading both presets' folders.
 
 #### Scenario: A folder preset's reviewers
 
@@ -701,7 +701,7 @@ lunamill SHALL behave as this line says: When a folder preset gives a reviewer w
 
 ### Requirement: The same preset for different folders
 
-lunamill SHALL behave as this line says: When the same preset is listed twice with different `in`, or once with `in` and once without, both apply, sharing its one pin in `.claude/lunamill.lock`.
+Lunamill SHALL behave as this line says: When the same preset is listed twice with different `in`, or once with `in` and once without, both apply, sharing its one pin in `.claude/lunamill.lock`.
 
 #### Scenario: The same preset for different folders
 
@@ -710,7 +710,7 @@ lunamill SHALL behave as this line says: When the same preset is listed twice wi
 
 ### Requirement: What a folder preset can set
 
-lunamill SHALL behave as this line says: When a folder preset sets anything but `commands`, `plugins`, or `site`, `lunamill config check` and `lunamill sync` fail with `presets[N]: NAME sets KEY, which a preset for some folders can't`.
+Lunamill SHALL behave as this line says: When a folder preset sets anything but `commands`, `plugins`, or `site`, `lunamill config check` and `lunamill sync` fail with `presets[N]: NAME sets KEY, which a preset for some folders can't`.
 
 #### Scenario: What a folder preset can set
 
@@ -719,7 +719,7 @@ lunamill SHALL behave as this line says: When a folder preset sets anything but 
 
 ### Requirement: The summary for a folder preset
 
-lunamill SHALL behave as this line says: When `lunamill preset add` shows its summary for a folder preset, each command's row names the folders it runs in.
+Lunamill SHALL behave as this line says: When `lunamill preset add` shows its summary for a folder preset, each command's row names the folders it runs in.
 
 #### Scenario: The summary for a folder preset
 
@@ -728,7 +728,7 @@ lunamill SHALL behave as this line says: When `lunamill preset add` shows its su
 
 ### Requirement: A preset's approval policies are copied
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A preset's approval policies are copied
 
@@ -737,7 +737,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: A preset's policies under --in
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A preset's policies under --in
 
@@ -746,7 +746,7 @@ lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: A policy of the same name
 
-lunamill SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A policy of the same name
 

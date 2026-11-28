@@ -1,4 +1,4 @@
-// Claude Code as lunamill's coding agent: the token it needs, the
+// Claude Code as Lunamill's coding agent: the token it needs, the
 // configuration `lunamill sync` writes for it, how `remove` takes that
 // configuration out, and how it answers one question for `init`.
 import { spawn } from "node:child_process";
@@ -155,21 +155,21 @@ export function claudeCodeSetupWith(
       hasImport(read(c.root, CLAUDE_MD))
         ? {
             state: "pass",
-            text: `${CLAUDE_MD} imports lunamill's rules`,
+            text: `${CLAUDE_MD} imports Lunamill's rules`,
           }
         : {
             state: "fail",
-            text: `${CLAUDE_MD} imports lunamill's rules`,
+            text: `${CLAUDE_MD} imports Lunamill's rules`,
             fix: SYNC,
           },
       hasFactoryHooks(read(c.root, SETTINGS_JSON))
         ? {
             state: "pass",
-            text: `${SETTINGS_JSON} has lunamill's hooks`,
+            text: `${SETTINGS_JSON} has Lunamill's hooks`,
           }
         : {
             state: "fail",
-            text: `${SETTINGS_JSON} has lunamill's hooks`,
+            text: `${SETTINGS_JSON} has Lunamill's hooks`,
             fix: SYNC,
           },
       c.hasCommand(COMMAND)

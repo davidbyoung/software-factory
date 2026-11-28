@@ -1,6 +1,6 @@
-# Developing lunamill
+# Developing Lunamill
 
-How to work on lunamill itself. For using it, start with the
+How to work on Lunamill itself. For using it, start with the
 [quick start](get-started/quick-start.md).
 
 ## Where it lives
@@ -12,7 +12,7 @@ here with a fresh history. Its tickets are issues here, shown on a board
 it shares with that repository: each repository's sync reads only its own
 cards.
 
-**It uses lunamill on itself.** `.claude/lunamill.yaml` here sets the
+**It uses Lunamill on itself.** `.claude/lunamill.yaml` here sets the
 board, OpenSpec, the gate, and the pull request review, and `node bin/lunamill.js sync` copies
 this repository's own skills, agents, and rules into `.claude/` and
 `.github/`, with hooks that run `bin/lunamill.js` at the root. So a
@@ -27,14 +27,14 @@ calls it. `CLAUDE.md` says
 what is this repository's own, and the `lunamill` command, run here, runs
 this repository's source.
 
-A change reaches a repository that uses lunamill as a release: a new
+A change reaches a repository that uses Lunamill as a release: a new
 version on npm and its tag here, then a pull request there, which that
 repository's update job opens with the files the version writes
 ([Updating](maintain/updating.md)).
 
 ## What is built
 
-lunamill is the npm package `@lunamill-ai/lunamill`. Parts not
+Lunamill is the npm package `@lunamill-ai/lunamill`. Parts not
 marked working below exist only in these docs.
 
 | Part                                                                                                                                                                            | State                                               |
@@ -47,15 +47,15 @@ marked working below exist only in these docs.
 | Who merges, and the review's verdict                                                                                                                                            | Working                                             |
 | The labels `merge-manual` and `verdict-override`                                                                                                                                | Working                                             |
 | These docs                                                                                                                                                                      | Working                                             |
-| `.claude/lunamill.yaml`, and lunamill's files kept apart from the host's                                                                                                        | Working                                             |
+| `.claude/lunamill.yaml`, and Lunamill's files kept apart from the host's                                                                                                        | Working                                             |
 | Follow-ups, listed in the pull request and opened as tickets when it merges                                                                                                     | Working                                             |
 | The `lunamill` tool, `sync`, and the package folder                                                                                                                             | Working                                             |
 | One install on a machine: the `lunamill` command runs the version each repository's lock names, downloading it once                                                             | Working                                             |
-| Nothing of lunamill's installed in a repository: no `package.json` entry, and hooks that run the machine's `lunamill`                                                           | Working                                             |
-| Two workflow files in a repository, which call lunamill's own workflows at the version its lock names                                                                           | Working                                             |
+| Nothing of Lunamill's installed in a repository: no `package.json` entry, and hooks that run the machine's `lunamill`                                                           | Working                                             |
+| Two workflow files in a repository, which call Lunamill's own workflows at the version its lock names                                                                           | Working                                             |
 | A job that passes or is skipped when its part is off, and a session job that looks for work before a token                                                                      | Working                                             |
 | The Actions policy a public repository needs for `pull_request_target`, added by `init` and checked by `doctor`                                                                 | Working                                             |
-| The automated review as one of lunamill's runs, and [`pr-review`](reference/settings/pr-review.md#pr-review)                                                                    | Working                                             |
+| The automated review as one of Lunamill's runs, and [`pr-review`](reference/settings/pr-review.md#pr-review)                                                                    | Working                                             |
 | Nothing in the package names the repository it was drawn out of, checked in the folder and the packed tarball                                                                   | Working                                             |
 | The `lunamill-` names and the `LUNAMILL_` secrets                                                                                                                               | Working                                             |
 | Ticket commands that go through one interface                                                                                                                                   | Working                                             |
@@ -66,7 +66,7 @@ marked working below exist only in these docs.
 | `lunamill board --dry-run`                                                                                                                                                      | Working                                             |
 | Your own column names on a board                                                                                                                                                | Working                                             |
 | `init` suggesting a board's columns through the coding agent                                                                                                                    | Working                                             |
-| Refinement's lunamill fields in your ticket fields, suggested by `init`                                                                                                         | Working                                             |
+| Refinement's Lunamill fields in your ticket fields, suggested by `init`                                                                                                         | Working                                             |
 | A UI reviewer for any website                                                                                                                                                   | Working                                             |
 | Built-in measurements for any website                                                                                                                                           | Working                                             |
 | A design skill for any website                                                                                                                                                  | Working                                             |
@@ -204,7 +204,7 @@ package to parse YAML with. [Which version runs](get-started/install.md#which-ve
 is what a user is told.
 
 Hooks here run the launcher by its path with `node`. In a repository that
-uses lunamill they run `lunamill` from the machine's `PATH`, and where
+uses Lunamill they run `lunamill` from the machine's `PATH`, and where
 it is missing, the two guards block the call and print how to install it
 (`factoryHooks` in `src/sync.mts`).
 
@@ -228,13 +228,13 @@ LUNAMILL_SETTINGS=/tmp/try.yaml lunamill board check
 
 ## Changing a skill, an agent, or a rule
 
-Edit the source here. A repository that uses lunamill gets the change
+Edit the source here. A repository that uses Lunamill gets the change
 in the next release, as a copy under its `.claude/` and `.github/` that
 `lunamill sync` writes; CI there runs `lunamill sync --check`, which fails
 when a copy differs from its source, so an edit made to a copy by mistake
 cannot merge.
 
-A skill or agent that lunamill's own steps call is its core, and every
+A skill or agent that Lunamill's own steps call is its core, and every
 repository gets it. Anything else is written only when a setting or a
 file in the repository turns it on: add it to `NEEDS` in `src/sync.mts`,
 so a repository that does not use it never carries it.
@@ -243,7 +243,7 @@ so a repository that does not use it never carries it.
 the three groups it calls (`run-pull-request.yml`, `run-tickets.yml`, and
 `run-default-branch.yml`), `review.yml`, `session.yml`, and `poller.yml`
 are edited where they are,
-and nothing copies them. A repository that uses lunamill gets two files,
+and nothing copies them. A repository that uses Lunamill gets two files,
 `.github/workflows/lunamill.yml` and `.github/workflows/lunamill-review.yml`,
 which `src/workflow-files.mts` writes from its settings: the default
 branch, the parts that are on, the poller's schedule, each session's
@@ -312,7 +312,7 @@ set, every `lunamill` command works from that folder.
   writes its settings, which pass on the command line, so a repository's
   own settings can't loosen them.
 
-A lunamill file must name nothing that belongs to the host repository: not
+A Lunamill file must name nothing that belongs to the host repository: not
 its paths, its commands, its subject, or its own skills. A test fails when
 one does. That is what keeps the folder movable.
 
@@ -329,14 +329,14 @@ since it works a dependency bot's pull requests.
 
 ## Adding a ticket system
 
-Only GitHub is built. lunamill is built so that a second system is an
+Only GitHub is built. Lunamill is built so that a second system is an
 addition, not a rewrite. Four rules keep it that way, and its setup is
 [declared like any tool's](#setting-a-tool-up).
 
 **1. Nothing talks to the ticket system except through the tool.** A skill
 never runs `gh issue` or calls GitHub's issues or projects API. It runs
 `lunamill ticket view 12`, `lunamill ticket comment 12`, and the other
-commands under [Tickets](reference/cli-internal.md#tickets). A test fails when a lunamill
+commands under [Tickets](reference/cli-internal.md#tickets). A test fails when a Lunamill
 skill, agent, rule, review instruction, or workflow contains a direct call.
 
 **2. Three folders are the only code that calls GitHub.**
@@ -376,7 +376,7 @@ the work to that type's adapter.** An adapter is one module in
 | The address of a ticket | `address`                 | Its page, which the views link a ticket to                                                                                                                                                                                                                                               |
 | Finish a ticket         | `finish`                  | Marks it finished once the pull request that closes it merged. GitHub closes it if it is open                                                                                                                                                                                            |
 | Statuses                | `statuses`                | Whether the ticket system has statuses of its own, which [`tickets.columns`](reference/settings/tickets.md#ticketscolumns) then maps with or without a board                                                                                                                             |
-| The record              | `record`                  | Adds, updates, removes, and reads the entries lunamill records on a ticket: a claim, a start, a cost. Each is text and marker lines, and says whether a person must read it. GitHub's adapter keeps each as a comment; one that can hide them comments only for those a person must read |
+| The record              | `record`                  | Adds, updates, removes, and reads the entries Lunamill records on a ticket: a claim, a start, a cost. Each is text and marker lines, and says whether a person must read it. GitHub's adapter keeps each as a comment; one that can hide them comments only for those a person must read |
 
 No code above the adapter reads a marker out of a comment: the record is
 the adapter's to keep, and `tests/memory-tickets.ts` with `strict` keeps
@@ -390,9 +390,9 @@ its adapter lacks exits non-zero, names the group, and posts nothing.
 
 | Group           | In `Tickets`   | Operations                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | --------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `board`         | `board`        | Read every card, with its place in the board's order, and the board's fields; list a board's columns, in the board's order; add a ticket to the board; move it to a column; set lunamill's fields. Creating a board, adding columns, and adding fields are optional, and `lunamill init` names what to add by hand without them. Listing the repositories with a ticket in a column, `readyRepositories`, is optional too: an organization's poller needs it |
+| `board`         | `board`        | Read every card, with its place in the board's order, and the board's fields; list a board's columns, in the board's order; add a ticket to the board; move it to a column; set Lunamill's fields. Creating a board, adding columns, and adding fields are optional, and `lunamill init` names what to add by hand without them. Listing the repositories with a ticket in a column, `readyRepositories`, is optional too: an organization's poller needs it |
 | `blockers`      | `blockers`     | List what a ticket waits on; record that it waits on another; remove that                                                                                                                                                                                                                                                                                                                                                                                    |
-| `label-history` | `labelHistory` | Whether a label was ever removed from a ticket, which is how lunamill knows the owner took `spec` off                                                                                                                                                                                                                                                                                                                                                        |
+| `label-history` | `labelHistory` | Whether a label was ever removed from a ticket, which is how Lunamill knows the owner took `spec` off                                                                                                                                                                                                                                                                                                                                                        |
 | `attachments`   | `attachments`  | Comment with images attached, or write a body with them                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `fields`        | `fields`       | List the ticket fields that hold text, with their descriptions; say whether a ticket can hold one, and how much; read a ticket's field values; set or clear them                                                                                                                                                                                                                                                                                             |
 
@@ -402,7 +402,7 @@ no board, state lives in the ticket's comments. With no blockers, the build
 order is prose in the ticket and nothing enforces it.
 
 The GitHub adapter's `fields` are issue fields, which it reads and
-writes with the `repo` scope. With no fields group, every lunamill field
+writes with the `repo` scope. With no fields group, every Lunamill field
 of a refined ticket stays in its description. `lunamill ticket view` and
 `edit` join and split a ticket's document above the interface, so no
 skill or agent knows whether a ticket has fields.
@@ -417,7 +417,7 @@ package.
 
 What stays above the interface: working out a ticket's state from its
 marker comments, costs, and the formatting of every view, in
-`src/lib/work-status.mts` and the commands. They are lunamill's own
+`src/lib/work-status.mts` and the commands. They are Lunamill's own
 logic, the same for any system. Nothing there writes `#` or reads a link
 from a pull request's body itself: it asks the adapter. The code host's
 own links, such as GitHub's closing references, count only when the
@@ -563,7 +563,7 @@ call them, and their secrets are GitHub Actions' own. `lunamill sync` writes the
 `builds.runner` says, and another runner would need its own set, written
 for it.
 
-Three things stay in GitHub Actions' words whatever the runner: lunamill's messages and comments say "GitHub Actions", the marker comments
+Three things stay in GitHub Actions' words whatever the runner: Lunamill's messages and comments say "GitHub Actions", the marker comments
 on tickets say `actions`, and the board's "Runs in" field says "Actions".
 The commands only a workflow runs (`review verdict`, `merge-policy`, and
 those of `lunamill session`) read GitHub Actions' event file and its `GITHUB_*`
@@ -588,7 +588,7 @@ adapter is registered.
 `new N`, `check`, and `finish N` ([Your repository's
 commands](reference/cli.md#your-repositorys-commands)), which print one line and
 exit 0 with no spec tool, so a skill need not ask which is set. A test
-fails when a lunamill skill, agent, rule, review instruction, or workflow
+fails when a Lunamill skill, agent, rule, review instruction, or workflow
 runs OpenSpec itself.
 
 | What it gives                 | In `SpecTool`                     | OpenSpec's                                                                                                   |
@@ -636,8 +636,8 @@ when the two differ. Every member of a setup is optional.
 | `checks`      | Its own lines in `doctor`: that it is reachable, signed in, or configured, each failure with its fix in the tool's words                                                                    | `doctor`                                             |
 | `credential`  | A secret of more than one part, checked together, which a ticket system that is not GitHub also keeps on the machine                                                                        | `init`, `doctor`, `remove`, and every ticket command |
 | `kept`        | The one secret among its steps that a person also keeps on their machine, for their next repository: the name it is filed under, what a line calls it, and every secret a job reads it from | `init`, `remove`                                     |
-| `leftovers`   | What removing lunamill leaves outside the repository, such as its secrets                                                                                                                   | `remove`                                             |
-| `unconfigure` | Its own files with lunamill's part taken out, such as a coding agent's settings without lunamill's hooks                                                                                    | `remove`                                             |
+| `leftovers`   | What removing Lunamill leaves outside the repository, such as its secrets                                                                                                                   | `remove`                                             |
+| `unconfigure` | Its own files with Lunamill's part taken out, such as a coding agent's settings without Lunamill's hooks                                                                                    | `remove`                                             |
 
 **A value** is asked for once, after the parts are chosen, and written
 under the tool's block: a ticket system's under `tickets`, which accepts a
@@ -696,7 +696,7 @@ second agent adds only its `answer`. `lunamill init` stops before its
 first question when the coding agent's command isn't installed, by the
 agent's `installed` method.
 
-The tests show a tool that lunamill does not ship going through all
+The tests show a tool that Lunamill does not ship going through all
 three commands: `tests/fake-tools.ts` has a ticket system with a site
 address and a token of its own, and a coding agent whose configuration is
 one file.
@@ -719,7 +719,7 @@ last row is the only real proof that a change to one still works.
 
 1. On the Actions tab, run **Release** on `main` and choose the part of
    the version to raise: patch for fixes alone, minor for something new,
-   and major for a change that breaks a repository using lunamill. From
+   and major for a change that breaks a repository using Lunamill. From
    0.1.2, they give 0.1.3, 0.2.0, and 1.0.0.
 2. The run raises the highest `vX.Y.Z` tag by that part, and runs the
    whole CI on `main`'s commit, the same jobs a pull request gets. Only
@@ -732,7 +732,7 @@ last row is the only real proof that a change to one still works.
    Those notes are the changelog, and the update's pull request in each
    repository links them, so a pull request's title is the line a user
    reads. When a release needs something done by hand in a repository
-   that uses lunamill, edit its GitHub Release as soon as the run
+   that uses Lunamill, edit its GitHub Release as soon as the run
    ends, and put the steps first.
 3. A run that stops partway has made no tag. Re-running its failed jobs,
    from the run's page, finishes it on the same commit and version, and
@@ -758,16 +758,16 @@ npm publish --access public
 Then, on npmjs.com, the package's settings name this repository's
 `release.yml` as its trusted publisher, so later versions publish with no
 token. Nothing published can be taken back after 72 hours, and
-`pack-check` fails when a packed file names the repository lunamill was
+`pack-check` fails when a packed file names the repository Lunamill was
 drawn out of.
 
-## Writing for lunamill
+## Writing for Lunamill
 
 - **American English, with the Oxford comma.**
-- **lunamill's own words:** ticket, follow-up, the six states, the seven
+- **Lunamill's own words:** ticket, follow-up, the six states, the seven
   roles. Not issue, card, or sweep.
 - **A key name must make sense unexplained.** Each reference settings file
-  is read cold by a fresh agent that is told only what lunamill is. A key
+  is read cold by a fresh agent that is told only what Lunamill is. A key
   it explains wrongly, or cannot tell from another, is renamed or given a
   better comment.
 - **A setting has a default, or it has a reason not to.**
@@ -790,7 +790,7 @@ drawn out of.
 ### A page a reader follows
 
 `README.md` and every page under `docs/` but this one is read by someone
-who has never seen lunamill and wants one thing done. `docs-reader`,
+who has never seen Lunamill and wants one thing done. `docs-reader`,
 this repository's own reviewer, reads a changed page as that person.
 
 - **A page says who it is for and what they will have at the end,** in its
@@ -821,8 +821,8 @@ this repository's own reviewer, reads a changed page as that person.
   goes wrong; On your tools. Its own sections are `###` under them. "On
   your tools" links each integration page the feature uses, and holds no
   step of that tool's own.
-- **An integration page has these `##` headings, in order:** What lunamill uses it for; You need; Set it up; What setup adds; Tokens and
-  secrets; What lunamill can and cannot do there; Limits that come
+- **An integration page has these `##` headings, in order:** What Lunamill uses it for; You need; Set it up; What setup adds; Tokens and
+  secrets; What Lunamill can and cannot do there; Limits that come
   from the tool, named for it; When something goes wrong; By hand.
 - **A heading a page has nothing for stays, with one line** that says
   so. A test fails on a page whose headings are not its list.
@@ -839,7 +839,7 @@ this repository's own reviewer, reads a changed page as that person.
 - **Each fact has one home.** Every other page links to it.
 - **Write it as you would say it to a new teammate.** Whole sentences, a
   person doing each thing, and an example where the rule is abstract. A
-  word lunamill gives its own meaning, such as "the sync" or "a
+  word Lunamill gives its own meaning, such as "the sync" or "a
   session", is explained or linked where the page first uses it. A table
   cell reads as part of a sentence, and no column repeats another. A
   column header names what its cells hold, such as "What it does" or
@@ -896,5 +896,5 @@ A person reads it in a terminal, often while doing something else.
   fails on a row or a step printed as `text`.
 - **Piped output is the same text,** without color. Lines a skill reads
   keep their format.
-- **Another tool's output passes through unchanged.** lunamill adds
+- **Another tool's output passes through unchanged.** Lunamill adds
   its own line after it, never rewrites it.

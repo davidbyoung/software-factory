@@ -1,6 +1,6 @@
 # Features
 
-For someone whose first tickets are built and who wants more from lunamill. Each feature is optional and stands alone. `lunamill init` offers
+For someone whose first tickets are built and who wants more from Lunamill. Each feature is optional and stands alone. `lunamill init` offers
 the first five in the table, from the automated review to pull requests
 that merge themselves, as parts you check: run it again and check the ones
 you want ([Set up a repository](../setup/repository.md)). When you check

@@ -271,7 +271,7 @@ describe("tickets.columns and tickets.fields in the settings", () => {
       "tickets.fields.Notes: must be a heading in lowercase, with hyphens for spaces",
     ],
     [
-      "two lunamill fields in one ticket field",
+      "two Lunamill fields in one ticket field",
       { fields: { decisions: "Notes", "for-the-builder": "notes" } },
       "tickets.fields.for-the-builder: names the same field as decisions",
     ],
@@ -718,7 +718,7 @@ describe("the sentences that name a column", () => {
       expect(commentBody(kind, none)).not.toMatch(/move it to|moves to/i);
   });
 
-  it("keeps the markers in lunamill's words whatever the columns", () => {
+  it("keeps the markers in Lunamill's words whatever the columns", () => {
     expect(
       commentBody(
         { kind: "ended", issue: { key: "7", ref: "#7" } },
@@ -875,7 +875,7 @@ describe("lunamill status", () => {
       { color: false, width: null, columns },
     ).map(plainOf);
 
-  it("heads each group with the repository's column, or lunamill's name for a state with none", () => {
+  it("heads each group with the repository's column, or Lunamill's name for a state with none", () => {
     const heads = lines(STOCK_COLUMNS).filter(
       (l) => l && !l.startsWith(" ") && !l.startsWith("#"),
     );

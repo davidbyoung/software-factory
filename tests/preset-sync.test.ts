@@ -391,7 +391,7 @@ describe("the agents and skills lunamill sync copies from presets", () => {
     expect(read(root, DEPS)).toBe("mine\n");
   });
 
-  it("keeps lunamill's own file at a path a preset ships, saying so", async () => {
+  it("keeps Lunamill's own file at a path a preset ships, saying so", async () => {
     root = repo(own([ACME]));
     install(root, ACME, {
       "": {
@@ -401,7 +401,7 @@ describe("the agents and skills lunamill sync copies from presets", () => {
     });
     const r = await sync();
     expect(r.out).toContain(
-      `kept .claude/agents/lunamill-test-reviewer.md, lunamill's own, over ${ACME}`,
+      `kept .claude/agents/lunamill-test-reviewer.md, Lunamill's own, over ${ACME}`,
     );
     expect(read(root, ".claude/agents/lunamill-test-reviewer.md")).not.toBe(
       "imposter\n",
@@ -410,7 +410,7 @@ describe("the agents and skills lunamill sync copies from presets", () => {
 });
 
 describe("lunamill sync --check with presets", () => {
-  const MATCH = "✓ lunamill's files match the settings.";
+  const MATCH = "✓ Lunamill's files match the settings.";
 
   it("passes with no repository to read while each copy is what the lock records", async () => {
     acme();
@@ -433,7 +433,7 @@ describe("lunamill sync --check with presets", () => {
       const r = await sync(["--check"]);
       expect(r.code).toBe(1);
       expect(r.err).toEqual([
-        "✗ 1 of lunamill's files doesn't match the settings:",
+        "✗ 1 of Lunamill's files doesn't match the settings:",
         `  ${DEPS}`,
         "Run lunamill sync and commit what it writes.",
       ]);
@@ -457,7 +457,7 @@ describe("lunamill sync --check with presets", () => {
 });
 
 describe("lunamill sync --check --against the base branch's commit", () => {
-  const MATCH = "✓ lunamill's files match the settings.";
+  const MATCH = "✓ Lunamill's files match the settings.";
   const AGAINST = ["--check", "--against", "BASE"];
   /** The lock on the base branch, then both pins moved to a newer commit
    * in the working tree, synced. */

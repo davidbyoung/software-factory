@@ -1,9 +1,9 @@
 # Settings
 
-This page and the ones it lists are for changing what lunamill does in
+This page and the ones it lists are for changing what Lunamill does in
 your repository once it is set up. Everything you can change is in one file,
 `.claude/lunamill.yaml`, which [`lunamill init`](../../setup/README.md) writes when
-you set lunamill up. You don't need to read this page top to bottom:
+you set Lunamill up. You don't need to read this page top to bottom:
 start with
 [the settings most repositories change](#the-settings-most-repositories-change),
 and look up any other setting under [Every setting](#every-setting).
@@ -15,14 +15,14 @@ and look up any other setting under [Every setting](#every-setting).
   local session. One that runs in the cloud with nobody at the keyboard is
   an unattended session.
 - **Build:** a session taking one approved ticket to a pull request.
-- **The cloud runner:** where lunamill's unattended work runs. Today
+- **The cloud runner:** where Lunamill's unattended work runs. Today
   that is [GitHub Actions](../../integrations/github-actions.md).
 - **The board:** a view showing each ticket's state as a column, today a
   [GitHub Project](../../integrations/github-projects.md). It is optional.
 - **The board sync:** a job on the cloud runner that moves each ticket to
   its column on the board and fills in its fields. It is the only thing
   that writes to the board.
-- **`lunamill sync`:** a command you run. It copies lunamill's skills,
+- **`lunamill sync`:** a command you run. It copies Lunamill's skills,
   agents, and rules into your repository, choosing which ones from this
   file, writes its two workflow files, and writes the settings in effect
   into `.claude/lunamill.lock`. It has nothing to do with the board sync.
@@ -68,8 +68,8 @@ The [glossary](../glossary.md) has the rest.
 - **Your comments are kept.** `lunamill init` writes a comment above each
   section, and updates never remove yours.
 - **Every command reads the lock, not this file.** `lunamill sync` combines
-  lunamill's defaults, any [`presets`](presets.md#presets) you list, and this
-  file, and writes every setting lunamill will use, defaults included,
+  Lunamill's defaults, any [`presets`](presets.md#presets) you list, and this
+  file, and writes every setting Lunamill will use, defaults included,
   into `.claude/lunamill.lock`, which you commit and never edit. Until you
   sync after a change, every command stops and says so, but the ones that
   fix or report it: `lunamill sync`, `lunamill doctor`,
@@ -84,7 +84,7 @@ The [glossary](../glossary.md) has the rest.
 
 ## The shortest file
 
-These are the settings lunamill needs before a session can build a
+These are the settings Lunamill needs before a session can build a
 ticket. Every other setting has a default.
 
 ```yaml
@@ -106,10 +106,10 @@ commands:
 - [`commands.gate`](commands.md#commandsgate) is how a session checks a change, such
   as your tests and linter. `lunamill init` asks for one command and
   writes it. Left empty, it lists the gate under "Left to do", and you
-  add it. Without it lunamill still [refines](../../workflow/README.md) tickets,
+  add it. Without it Lunamill still [refines](../../workflow/README.md) tickets,
   but a session can't build one.
 
-With these, lunamill refines a ticket when you run `/lunamill-refine N`
+With these, Lunamill refines a ticket when you run `/lunamill-refine N`
 in a session, builds it when you run `/lunamill-build N`, nothing merges
 without you, and there is no board.
 
@@ -190,18 +190,18 @@ own:
 | [`site`](site.md)                           | A website's pages, for the website review                     |
 | [`auto-merge`](auto-merge.md)               | The pull requests that merge themselves                       |
 | [`pr-review`](pr-review.md)                 | The automated review                                          |
-| [`rules`](rules.md)                         | lunamill's rules, tuned for your repository                   |
+| [`rules`](rules.md)                         | Lunamill's rules, tuned for your repository                   |
 | [`approval-policies`](approval-policies.md) | The checks a person approves                                  |
 
 [Example settings files](examples.md) shows three whole files.
 
 ### `version`
 
-Which layout of this file you are using. It is not lunamill's version.
+Which layout of this file you are using. It is not Lunamill's version.
 Write `2`.
 
 - **Default:** none. `lunamill init` writes it.
-- **If it is wrong,** every lunamill command that reads this file stops
+- **If it is wrong,** every Lunamill command that reads this file stops
   with `version: must be 2`. For a version 1 file, it also says where
   [Upgrade notes](../../maintain/upgrade-notes.md#moving-to-settings-version-2) shows each setting
   that moved.
@@ -225,7 +225,7 @@ Your repository, as `owner/name`, such as `harbor-goods/storefront`.
 
 - **In a run in the cloud too, commands take the repository from this
   line,** and not from the run. After you rename a repository, change the
-  line: the "lunamill files in step" check fails on each pull request until
+  line: the "Lunamill files in step" check fails on each pull request until
   you do, with both names:
 
   ```text
@@ -241,12 +241,12 @@ needs it too.
 | Command or tool           | What it does                                                                                      |
 | ------------------------- | ------------------------------------------------------------------------------------------------- |
 | Your editor               | Flags a misspelled setting as you type, using the schema named on the file's first line           |
-| `lunamill config check`   | Stops on anything lunamill can't use, and warns about patterns that match nothing. CI runs it     |
-| `lunamill config explain` | Prints the whole file as lunamill reads it, with every default written out and marked `# default` |
-| `lunamill doctor`         | Checks the file against your real board, and that each secret lunamill needs is set               |
+| `lunamill config check`   | Stops on anything Lunamill can't use, and warns about patterns that match nothing. CI runs it     |
+| `lunamill config explain` | Prints the whole file as Lunamill reads it, with every default written out and marked `# default` |
+| `lunamill doctor`         | Checks the file against your real board, and that each secret Lunamill needs is set               |
 
 A first line like this one is optional. It points your editor at the
-schema, in lunamill's own repository:
+schema, in Lunamill's own repository:
 
 ```yaml
 # $schema: https://raw.githubusercontent.com/lunamill-ai/lunamill/main/settings.schema.json

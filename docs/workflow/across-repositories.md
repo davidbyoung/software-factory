@@ -16,7 +16,7 @@ merge its pull requests.
 
 - **Each repository set up** with [`lunamill init`](../get-started/quick-start.md). The
   first step below prints which ones are not, and which are on a version of
-  lunamill too old for this.
+  Lunamill too old for this.
 - **The same owner for all of them.** A ticket can't span two accounts or
   two organizations.
 - **A board or builds in the cloud, set up in each one**
@@ -63,10 +63,10 @@ Either way, this is printed:
 Recorded on #12. acme/web merges after acme/api.
 ```
 
-A repository on a version of lunamill too old for this shows its own fix:
+A repository on a version of Lunamill too old for this shows its own fix:
 
 ```text
-  ✗ acme/web   on lunamill 0.9.0, which can't build a ticket from another repository: run lunamill update in acme/web
+  ✗ acme/web   on Lunamill 0.9.0, which can't build a ticket from another repository: run lunamill update in acme/web
 ```
 
 Refinement goes on past a ✗. A build refuses to start until you have done

@@ -1,6 +1,6 @@
 // `lunamill remove`: takes lunamill out of a repository. It shows every
 // file it will delete or change, and once told to go ahead deletes the
-// lunamill's files, takes its part out of the files it shares with the
+// Lunamill's files, takes its part out of the files it shares with the
 // coding agent, and prints what is left outside the repository for you to
 // remove by hand. It commits nothing.
 import {
@@ -96,7 +96,7 @@ function credentialLeftovers(
   return lines;
 }
 
-/** lunamill's own files and folders, each a path from the root. */
+/** Lunamill's own files and folders, each a path from the root. */
 function factoryFiles(root: string): string[] {
   const named = (dir: string, match: RegExp) =>
     existsSync(join(root, dir))
@@ -168,7 +168,7 @@ export async function main(_argv: string[], d: RemoveDeps): Promise<number> {
     (t) => t.setup.unconfigure?.(context) ?? [],
   );
   if (deletes.length === 0 && changes.length === 0) {
-    d.out(say.text("Nothing of lunamill's is here."));
+    d.out(say.text("Nothing of Lunamill's is here."));
     return 0;
   }
   if (unread !== null)

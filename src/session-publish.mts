@@ -547,7 +547,7 @@ export async function postCost(
 
 type Ci = "passed" | "failed" | "not finished" | "not started";
 
-/** How CI ended on the commit, waited for up to `CI_MS`. lunamill's own
+/** How CI ended on the commit, waited for up to `CI_MS`. Lunamill's own
  * check runs on every pull request, so no run at all means something kept
  * them from starting, and not that there is no CI. */
 async function ciOn(d: PublishDeps, tip: string): Promise<Ci> {

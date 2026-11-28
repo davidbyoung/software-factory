@@ -3,7 +3,7 @@
 //
 //   lunamill merge-policy PR_NUMBER    # prints the labels to set
 //
-// "merge-automatic" only when no changed file is one of lunamill's own,
+// "merge-automatic" only when no changed file is one of Lunamill's own,
 // none matches auto-merge.deny in .claude/lunamill.yaml, every one matches
 // auto-merge.allow, and every command under auto-merge.commands exits 0;
 // "merge-manual" otherwise. The merge-policy workflow runs this from main's copy,
@@ -73,7 +73,7 @@ export type Risk = {
   reasons: string[];
 };
 
-/** lunamill's own files, held whatever the settings allow: a pull request
+/** Lunamill's own files, held whatever the settings allow: a pull request
  * must not be able to change how pull requests are judged. Every spec tool's
  * process files are among them, whichever the settings name, since a pull
  * request could change that setting too. */
@@ -84,7 +84,7 @@ export type Policy = { allow: readonly string[]; deny: readonly string[] };
 
 function classifyPath(path: string, policy: Policy): string | null {
   if (LUNAMILL_FILES.test(path) || SPEC_TOOL_FILES.has(path))
-    return "lunamill's own files";
+    return "Lunamill's own files";
   if (matchesAny(path, policy.deny)) return "held by auto-merge.deny";
   return matchesAny(path, policy.allow) ? null : "not in auto-merge.allow";
 }

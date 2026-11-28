@@ -5,12 +5,12 @@ wants to know what it checks, and how to turn it off.
 
 ## What you get
 
-### lunamill's own policy
+### Lunamill's own policy
 
 Every repository has the policy `credentials`, with nothing to write. A
 change that adds a credential, or lets a workflow do more, is read for
 security by an agent that didn't build it, before the change merges.
-`lunamill sync` writes its two files, as it writes lunamill's skills:
+`lunamill sync` writes its two files, as it writes Lunamill's skills:
 the script `.claude/approval-policies/credentials/find.mts`, and the
 agent's instructions, `.claude/agents/lunamill-credentials-reader.md`.
 `lunamill config explain` shows it among your settings:
@@ -25,13 +25,13 @@ approval-policies:
 
 ## What it needs
 
-Nothing to add: `find.mts` runs on Node 22.18 or later, which lunamill
+Nothing to add: `find.mts` runs on Node 22.18 or later, which Lunamill
 needs anyway, and the agent runs on your coding agent's token.
 
 ## Turn it on
 
 Nothing to turn on: every repository has the credentials policy from the
-moment it uses lunamill. To turn it off, set `off: true` on it in your
+moment it uses Lunamill. To turn it off, set `off: true` on it in your
 settings, as below.
 
 ### Turning it off
@@ -77,7 +77,7 @@ a pull request, for the agent to read, when it adds any of these:
 
 Most pull requests add none of these. Their **Approval policies** status
 reads `Nothing to approve`, and the agent never runs. In two
-repositories that use lunamill, it picked 31 of 259 merged changes,
+repositories that use Lunamill, it picked 31 of 259 merged changes,
 about 1 in 8. Each of the 31 changed at least 99 lines.
 
 ### What the agent does

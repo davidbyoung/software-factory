@@ -31,8 +31,8 @@ slash command, such as `/lunamill-refine 12`. [Skills and agents](skills.md) lis
 | `lunamill init`               | Once, to set a repository up. Again, to turn a part on or off. It opens a pull request with the files it wrote, on a first run and whenever a later run changes one                              |
 | `lunamill init --preset NAME` | The same, following the [presets](../customize/presets.md) you name, once for each, in place of those `init` would look for                                                                      |
 | `lunamill init --org ADDRESS` | Once, as an owner of an organization, to set the organization up for all its repositories. ADDRESS is the organization's, such as `https://github.com/acme`, and the command needs no repository |
-| `lunamill sync`               | After editing `.claude/lunamill.yaml`, to write lunamill's files from your settings                                                                                                              |
-| `lunamill sync --check`       | To see that lunamill's files match your settings. It also runs in CI                                                                                                                             |
+| `lunamill sync`               | After editing `.claude/lunamill.yaml`, to write Lunamill's files from your settings                                                                                                              |
+| `lunamill sync --check`       | To see that Lunamill's files match your settings. It also runs in CI                                                                                                                             |
 | `lunamill config check`       | To validate your settings. It also runs in CI                                                                                                                                                    |
 | `lunamill board check`        | After pointing [`tickets.board`](settings/tickets.md#tickets) at your board, to see how it reads it                                                                                              |
 | `lunamill doctor`             | When something seems off. It checks the settings, files, version, secrets, board, and each tool's own setup                                                                                      |
@@ -79,9 +79,9 @@ each of a ticket's states, such as `backlog` or `review`, with the
 [board](glossary.md) column it sits in. Under
 [`tickets.fields`](settings/tickets.md#ticketsfields) is a row for each
 field the [board sync](glossary.md) fills in on a card. A row is a mark,
-the state or the field, and what lunamill makes of it, such as
+the state or the field, and what Lunamill makes of it, such as
 `✗ review     In review: no such column on the board`. When every row is
-✓ or -, lunamill reads your board as your settings say. A ✗ makes the
+✓ or -, Lunamill reads your board as your settings say. A ✗ makes the
 command exit 1.
 
 | Mark | Words after the state or field     | What to do                                                                                                  |
@@ -89,7 +89,7 @@ command exit 1.
 | ✓    | the column's name, or `synced`     | Nothing                                                                                                     |
 | -    | `none, shows in Backlog`, or `off` | Nothing: the settings set it to `none`, so the ticket shows in the column named, or the field is left empty |
 | ?    | `skipped: no such field`           | Add the field to the board, or set it to `none` under `tickets.fields`, if you want it gone from this list  |
-| ?    | `no state: left alone`             | Name the column under `tickets.columns` if lunamill should move cards there; otherwise nothing              |
+| ?    | `no state: left alone`             | Name the column under `tickets.columns` if Lunamill should move cards there; otherwise nothing              |
 | ✗    | `no such column on the board`      | Add the column to the board, or change its name under `tickets.columns` to one the board has                |
 
 ## Every day
@@ -113,13 +113,13 @@ stops working, `status` ends with a line that says when.
 | ------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ----- |
 | `lunamill config get KEY` | To print one setting in effect, such as `tickets.board`                                                                | Built |
 | `lunamill config explain` | To see every setting in effect, defaults included                                                                      | Built |
-| `lunamill plugins`        | To see the plugins lunamill will use, by role                                                                          | Built |
+| `lunamill plugins`        | To see the plugins Lunamill will use, by role                                                                          | Built |
 | `lunamill site compare`   | To picture a website's pages before and after a change ([Website review](../features/website-review.md#lunamill-site)) | Built |
 | `lunamill site stop`      | To end the sites `compare --keep` left running                                                                         | Built |
-| `lunamill update`         | To raise lunamill to its newest release, and each preset to its newest commit, without waiting for the job             | Built |
-| `lunamill remove`         | To take lunamill out of a repository                                                                                   | Built |
+| `lunamill update`         | To raise Lunamill to its newest release, and each preset to its newest commit, without waiting for the job             | Built |
+| `lunamill remove`         | To take Lunamill out of a repository                                                                                   | Built |
 
-`lunamill plugins` prints one line for each plugin, lunamill's own
+`lunamill plugins` prints one line for each plugin, Lunamill's own
 included: its kind, its name, its [role](../customize/plugins.md#the-roles), then its
 files or labels. `lunamill plugins ROLE` prints one role's lines.
 
@@ -173,7 +173,7 @@ You can run them too.
 | `lunamill specs new N`                        | Starts ticket N's spec: with `specs: openspec`, it creates `openspec/changes/issue-N/`. Then it prints each file to write or update there, which part of the ticket goes in it, and, last, the command to run once they are written. It writes none of them itself, and run again, it prints them again                                                                                                                                                                                                                                                    |
 | `lunamill specs check`                        | Runs [`specs.check`](settings/specs.md#specscheck), the check of your written specs, ending with `✓ The specs check passed.` or `✗ The specs check failed.`                                                                                                                                                                                                                                                                                                                                                                                                |
 | `lunamill specs finish N`                     | With `specs: openspec`, folds ticket N's spec into `openspec/specs/`, ending with `✓ Folded ticket N's spec into openspec/specs/.` It changes files and commits nothing                                                                                                                                                                                                                                                                                                                                                                                    |
-| `lunamill default-branch`                     | Prints the name of your repository's default branch, which nothing in lunamill assumes is `main`                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `lunamill default-branch`                     | Prints the name of your repository's default branch, which nothing in Lunamill assumes is `main`                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | `lunamill approval-policies check [--pull N]` | Runs your [approval policies](../features/approval-policies.md) against what your branch changes since the default branch, uncommitted and untracked files included, or against pull request N, and posts nothing. Prints `? NAME: N waiting for approval` and each finding, `✓ NAME: nothing to approve`, or `- No approval policy applies to this change`. Exits 1 only when a check fails                                                                                                                                                               |
 
 With [`specs: none`](settings/specs.md#specs), each of the four

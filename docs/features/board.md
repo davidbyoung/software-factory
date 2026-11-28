@@ -1,12 +1,12 @@
 # The board
 
 For someone who wants every ticket's state in one view. At the end your
-board has a column for each state, and lunamill keeps it up to date.
+board has a column for each state, and Lunamill keeps it up to date.
 
 ## What you get
 
 A column for each of a ticket's
-[six states](../workflow/README.md#the-six-states), and four fields lunamill keeps up to date. The board sync, a workflow in your repository
+[six states](../workflow/README.md#the-six-states), and four fields Lunamill keeps up to date. The board sync, a workflow in your repository
 that reads what each session recorded on its ticket, moves each ticket to
 its column and fills in the fields
 ([The fields the sync writes](#the-fields-the-sync-writes)).
@@ -20,11 +20,11 @@ own account ([GitHub Projects](../integrations/github-projects.md)).
 ## Turn it on
 
 Run `lunamill init` and check "A board". It asks which board to use: a new
-one, made with lunamill's columns, or one you already have, whose
+one, made with Lunamill's columns, or one you already have, whose
 columns it reads ([You already have a board](#you-already-have-a-board)).
 
 **It worked when** `lunamill doctor` shows ✓ beside the board, and the
-board shows your open tickets that carry lunamill's label.
+board shows your open tickets that carry Lunamill's label.
 
 The two sections below are for a board, or tickets, you already have:
 which of your columns shows each state, and which of your ticket fields
@@ -33,11 +33,11 @@ holds what refinement writes.
 ### You already have a board
 
 A ticket is always in one of six [states](../workflow/README.md#the-six-states),
-and lunamill shows each state as a column of your board. The settings
+and Lunamill shows each state as a column of your board. The settings
 call the states `backlog`, `refining`, `ready`, `building`, `review`, and
 `done`, in that order. `lunamill init` saves which of your columns shows
 each in [`tickets.columns`](../reference/settings/tickets.md#ticketscolumns), always all
-six, and every lunamill command needs all six there.
+six, and every Lunamill command needs all six there.
 
 **In an organization,** the board is chosen once, by the owner who runs
 [`lunamill init --org`](../setup/organization.md#set-an-organization-up-once).
@@ -51,7 +51,7 @@ boards or columns.
 
 When you run `lunamill init`, step 2 of the
 [quick start](../get-started/quick-start.md#2-set-it-up), it lists your boards to choose
-from. If the one you choose already has lunamill's own columns,
+from. If the one you choose already has Lunamill's own columns,
 Backlog, In refinement, Ready, In progress, In review, and Done, init
 asks nothing and saves them. Capitals don't matter, so your
 "In Progress" is its "In progress":
@@ -59,7 +59,7 @@ asks nothing and saves them. Capitals don't matter, so your
 ```text
 ? Which board? Use an existing one: Shop board (#3)
 
-Board 3 has a column for each of lunamill's six states:
+Board 3 has a column for each of Lunamill's six states:
 
   State      Column
   backlog    Backlog
@@ -80,7 +80,7 @@ On a board with the columns Todo, In Progress, Code review, and Done:
 ? Which board? Use an existing one: Shop board (#3)
 
 Board 3 has the columns Todo, In Progress, Code review, and Done.
-Asking Claude Code which of them shows each of lunamill's six states...
+Asking Claude Code which of them shows each of Lunamill's six states...
 
   State      Column
   backlog    Todo
@@ -93,7 +93,7 @@ Asking Claude Code which of them shows each of lunamill's six states...
 ? Use these columns? (Use arrow keys)
 ❯ Yes
   Change some
-  No: add lunamill's columns instead
+  No: add Lunamill's columns instead
 ```
 
 A state with no column shows its tickets in the column of the state
@@ -118,12 +118,12 @@ for ready only when [`builds.trigger`](../reference/settings/builds.md#builds) i
   ```
 
 - **Change some** lets you pick the states to change from a list, then,
-  for each, pick one of your columns, no column, or a new column with lunamill's name, which init adds to your board. Each state needs a column
+  for each, pick one of your columns, no column, or a new column with Lunamill's name, which init adds to your board. Each state needs a column
   of its own: two states can't share one.
-- **No** adds each of lunamill's six columns your board lacks, here
+- **No** adds each of Lunamill's six columns your board lacks, here
   Backlog, In refinement, Ready, and In review, and saves the six
-  names lunamill gives them. Your Todo, In Progress, Code review, and Done columns
-  stay. In Progress and Done are used, since their names match. lunamill ignores the tickets in Todo and Code review: nothing moves or
+  names Lunamill gives them. Your Todo, In Progress, Code review, and Done columns
+  stay. In Progress and Done are used, since their names match. Lunamill ignores the tickets in Todo and Code review: nothing moves or
   builds them until you move them to one of its columns.
 
 Init ends by running its checks. When the columns are right, you see:
@@ -137,7 +137,7 @@ Checks
 when the coding agent isn't signed in, or when its answer can't be used,
 such as one column for two states. Init prints the agent's own reason, then
 asks for each state's column in turn, offering your columns, no column,
-or a new column with lunamill's name, and shows you the table to
+or a new column with Lunamill's name, and shows you the table to
 confirm as above:
 
 ```text
@@ -157,7 +157,7 @@ run `lunamill init`:
 - add the six columns to your board yourself, so init has nothing to ask.
 
 Running init again is safe: it keeps what your settings already say. If
-the block leaves a state out, every lunamill command stops and names it,
+the block leaves a state out, every Lunamill command stops and names it,
 and running init asks you only for that state. If you change your
 board's columns later, edit the block, or delete it and run
 `lunamill init` again for a new suggestion.
@@ -168,17 +168,17 @@ yourself: see [`tickets.columns`](../reference/settings/tickets.md#ticketscolumn
 
 What else to expect on a board you already use:
 
-- **lunamill never renames or deletes your columns,** and only adds the
+- **Lunamill never renames or deletes your columns,** and only adds the
   ones you agree to.
 - **It adds three fields to your board,** Session, Runs in, and Cost, and
   overwrites them on every sync, so don't type into them. Your own board
   fields are never touched. [`tickets.fields`](../reference/settings/tickets.md#ticketsfields)
   says what each holds.
 - **Your board's own automations**, such as moving a closed ticket to
-  Done, have not been tested alongside lunamill. Turn them off if
+  Done, have not been tested alongside Lunamill. Turn them off if
   tickets jump unexpectedly.
 
-To see what lunamill will do with your board at any time, run
+To see what Lunamill will do with your board at any time, run
 `lunamill board check`. It lists each state's column, as the table above
 does, and each field the sync fills in, and marks a problem with ✗ on its
 row, such as a column your settings name that the board lacks.
@@ -186,7 +186,7 @@ row, such as a column your settings name that the board lacks.
 ### Your tickets already have fields
 
 If your tickets have text fields of their own, such as an "Acceptance
-criteria" field your team fills in by hand, lunamill can write what
+criteria" field your team fills in by hand, Lunamill can write what
 it settles when it refines a ticket into those fields instead of the
 ticket's description. At the end, refining a ticket fills in your
 fields, and the description holds your text and whatever has no field.
@@ -194,9 +194,9 @@ If your tickets have no such field, skip this section: nothing changes.
 
 [Refining a ticket](../workflow/refine.md#lunamill-refine), with `/lunamill-refine N`,
 writes four parts after your own text, each under its own heading. These
-are lunamill's fields for a refined ticket:
+are Lunamill's fields for a refined ticket:
 
-| lunamill field      | What it holds                                              |
+| Lunamill field      | What it holds                                              |
 | ------------------- | ---------------------------------------------------------- |
 | Decisions           | The questions refinement settled, and what was chosen      |
 | Spec                | What a change your users will notice must do, line by line |
@@ -209,7 +209,7 @@ a Spec when the change is one
 Acceptance criteria otherwise.
 
 This page calls a field of yours that is set on the ticket itself a
-ticket field. A field you add to your board can't hold a lunamill field,
+ticket field. A field you add to your board can't hold a Lunamill field,
 since a Spec is often several thousand characters, more than a board's
 field holds ([GitHub Projects](../integrations/github-projects.md#limits-that-come-from-github)
 gives its limit). Create the ticket field before you run init, since
@@ -219,7 +219,7 @@ init offers only ticket fields that exist
 When you run `lunamill init`, step 2 of the
 [quick start](../get-started/quick-start.md#2-set-it-up), it finds your text ticket
 fields and asks your coding agent which of them should hold
-each lunamill field. If you already ran init, run it again after creating
+each Lunamill field. If you already ran init, run it again after creating
 the field: it keeps what your settings say and asks only about ticket
 fields. As for your board's columns, this is one short request with no
 tools, and it sends your ticket fields' names and descriptions and
@@ -229,9 +229,9 @@ Design notes, and Customer, init shows:
 
 ```text
 acme/shop's tickets have the text fields Acceptance criteria, Design notes, and Customer.
-Asking Claude Code which of them should hold each of lunamill's fields...
+Asking Claude Code which of them should hold each of Lunamill's fields...
 
-  lunamill field        Ticket field
+  Lunamill field        Ticket field
   Decisions             the description
   Spec                  Acceptance criteria
   Acceptance criteria   Acceptance criteria
@@ -246,13 +246,13 @@ GitHub Issues shows a field's text as typed, without Markdown formatting.
   No: keep everything in the description
 ```
 
-A lunamill field goes in the description unless a ticket field clearly
+A Lunamill field goes in the description unless a ticket field clearly
 fits it, so here Decisions stays there, and nothing goes in Customer.
 Spec and Acceptance criteria share a ticket field here, since a ticket
 has only one of them.
 
 - **Yes** saves the table in your settings, `.claude/lunamill.yaml`, one
-  line for each lunamill field, with `none` for one that stays in the
+  line for each Lunamill field, with `none` for one that stays in the
   description:
 
   ```yaml
@@ -264,7 +264,7 @@ has only one of them.
       for-the-builder: Design notes
   ```
 
-- **Change some** lets you pick lunamill fields to change from a list,
+- **Change some** lets you pick Lunamill fields to change from a list,
   then, for each, pick one of your ticket fields or the description.
 - **No** saves all four as `none`, so everything stays in the
   description, as it would with no ticket fields.
@@ -289,13 +289,13 @@ difference: the agent still reads the whole ticket, fields included.
 **When init can't get an answer, it asks you instead.** That happens
 when the coding agent isn't signed in, or when its answer can't be used,
 such as a ticket field your tickets don't have. Init prints the agent's own
-reason and what each lunamill field holds, then asks where each one goes,
+reason and what each Lunamill field holds, then asks where each one goes,
 offering the description, which is selected, and your ticket fields. It
 shows you the table to confirm as above:
 
 ```text
 Claude Code's answer could not be used: it failed: Failed to authenticate: OAuth session expired and could not be refreshed.
-Choose where each of lunamill's fields goes yourself.
+Choose where each of Lunamill's fields goes yourself.
 ```
 
 To have the coding agent suggest them instead, press Ctrl-C, sign it in
@@ -310,7 +310,7 @@ again. To be asked again, for example after creating another ticket
 field, delete the four lines and run `lunamill init`.
 
 **If you change a line later,** a ticket refined before keeps its
-lunamill fields where they were written, and a ticket field it no longer
+Lunamill fields where they were written, and a ticket field it no longer
 uses keeps its text until you clear it. For a ticket not yet built, run
 `/lunamill-refine N` again: it rewrites the four parts where the settings
 now say, and leaves your own text as it is.
@@ -322,7 +322,7 @@ ticket field too: see [`tickets.fields`](../reference/settings/tickets.md#ticket
 
 ### The fields the sync writes
 
-lunamill writes four fields of the board: its Status, and three of its
+Lunamill writes four fields of the board: its Status, and three of its
 own, Session, Runs in, and Cost. Anything you type into those three is
 overwritten on the next sync.
 
@@ -347,7 +347,7 @@ on the ticket, its history survives even if the board is rebuilt.
 board, [`tickets.columns`](../reference/settings/tickets.md#ticketscolumns)
 the column that shows each state, and
 [`tickets.fields`](../reference/settings/tickets.md#ticketsfields) the
-ticket field that holds each lunamill field. `lunamill init` writes all
+ticket field that holds each Lunamill field. `lunamill init` writes all
 three.
 
 ## When something goes wrong

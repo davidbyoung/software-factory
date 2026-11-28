@@ -1,6 +1,6 @@
 # Use a preset
 
-This page is for a team that sets lunamill up the same way in several
+This page is for a team that sets Lunamill up the same way in several
 repositories. A preset is a folder in a repository on your code host. It
 holds the settings those repositories share, along with any agents and
 skills of your own that the settings name.
@@ -44,8 +44,8 @@ One kept in a folder of that repository adds `//` and the folder:
 `acme/lunamill-config//node` is the folder `node` in `acme/lunamill-config`.
 The repository is always on the same code host as yours.
 
-`lunamill sync`, the command that writes lunamill's files into your
-repository, combines lunamill's defaults, each preset in the order
+`lunamill sync`, the command that writes Lunamill's files into your
+repository, combines Lunamill's defaults, each preset in the order
 listed, and your own settings. It writes the result into
 `.claude/lunamill.lock`, which you commit and never edit. The lock also
 pins each preset to one commit of its repository, so a preset changes
@@ -61,7 +61,7 @@ setting, a command stops until you sync, and tells you so:
 
 ### Adding a preset
 
-You need lunamill already set up in the repository, which it is when
+You need Lunamill already set up in the repository, which it is when
 `.claude/lunamill.yaml` exists ([Quick start](../get-started/quick-start.md)), and to be
 able to read the preset's repository:
 [Who can read a preset](#who-can-read-a-preset) says what that takes.
@@ -132,7 +132,7 @@ each change by what happens to it:
   line from your `lunamill.yaml`, so the preset's value applies.
 - **Writes** is an agent or a skill the preset ships, copied into your
   repository.
-- **Runs** is a command the preset would have lunamill run here, and
+- **Runs** is a command the preset would have Lunamill run here, and
   when, such as "at the gate". A command your own settings replace is not
   listed, since it never runs.
 
@@ -230,10 +230,10 @@ lunamill preset choose rules.review-rounds acme/lunamill-config//node
 
 A change to a preset is whatever someone merges into the default branch
 of its repository. It reaches each repository that follows the preset as
-a pull request, the way a new version of lunamill does
+a pull request, the way a new version of Lunamill does
 ([Updating](../maintain/updating.md#what-happens)):
 
-1. lunamill's [update job](../maintain/updating.md#what-happens) compares the
+1. Lunamill's [update job](../maintain/updating.md#what-happens) compares the
    commit each preset is pinned to with the newest one. Where one of
    that preset's files changed, it opens a pull request that moves the
    pin and holds what `lunamill sync` then wrote. A change to another
@@ -332,7 +332,7 @@ even when the preset's repository is gone.
 
 ### How presets combine
 
-lunamill's defaults come first, then each preset in the order
+Lunamill's defaults come first, then each preset in the order
 `presets` lists them, then your own `lunamill.yaml`. When more than one of
 them sets the same thing, what applies depends on its kind:
 
@@ -386,7 +386,7 @@ maintains the preset.
 
 A preset's repository is read in three places only: when you add the
 preset, when the update job or `lunamill update` looks for a newer
-commit, and when a pull request moves a preset's pin, where lunamill's check on that pull request reads the commit to see that the
+commit, and when a pull request moves a preset's pin, where Lunamill's check on that pull request reads the commit to see that the
 lock matches it. Every other command, a build included, reads the lock
 and the copies in your own repository. So a preset's repository that is
 deleted, renamed, or made private breaks nothing that is already set up.
@@ -422,7 +422,7 @@ Apply? [y/N] y
 ✓ Wrote .claude/agents/bar-reviewer.md.
 ```
 
-Read it before you answer. A preset brings commands lunamill runs, on
+Read it before you answer. A preset brings commands Lunamill runs, on
 your machines and in CI, and agent and skill files your sessions follow.
 What stands between another owner's preset and your repository:
 

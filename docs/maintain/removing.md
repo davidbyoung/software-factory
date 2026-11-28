@@ -1,6 +1,6 @@
 # What it changes, and removing it
 
-What lunamill adds to your repository, your code host, and your board,
+What Lunamill adds to your repository, your code host, and your board,
 and how to undo it. Read this before you set it up, and again if you
 decide to take it out. Each tool's page lists what setup adds there:
 [Claude Code](../integrations/claude-code.md#what-setup-adds) for the
@@ -20,7 +20,7 @@ files in your repository,
   into. Nothing is installed there: no `package.json` entry and
   no `node_modules/`.
 - **On your machine:** the `lunamill` command, installed once, and the
-  versions of lunamill it downloads, in `~/.cache/lunamill/`.
+  versions of Lunamill it downloads, in `~/.cache/lunamill/`.
   In `~/.local/share/lunamill/work/`, the clones of a ticket's other
   repositories, until `lunamill workspace N --remove` removes them.
   In `~/.config/lunamill/`, on your own account, the access
@@ -31,7 +31,7 @@ files in your repository,
   the labels and statuses that say who merges a pull request and whether
   the automated review found it ready; comments on the tickets it works;
   the tickets it opened; and, on a public repository, the policy named
-  "lunamill", which lets lunamill's workflow run where the code
+  "lunamill", which lets Lunamill's workflow run where the code
   host needs one ([GitHub](../integrations/github.md#a-public-repository)).
 - **On your code host, once for an organization,** when an owner set it
   up with `lunamill init --org`: the organization's App, which its
@@ -62,11 +62,11 @@ files in your repository,
 ## What it never touches
 
 Your code, your tickets, and your pull requests. Your own skills, agents,
-plugins, and CI workflows, which lunamill never writes to.
+plugins, and CI workflows, which Lunamill never writes to.
 
-One file belongs to you, and removing lunamill leaves it: the review
+One file belongs to you, and removing Lunamill leaves it: the review
 notes you write for the automated review. The two workflow files are
-lunamill's: every sync rewrites them, and removing lunamill
+Lunamill's: every sync rewrites them, and removing Lunamill
 deletes them.
 
 ## Removing it
@@ -76,7 +76,7 @@ lunamill remove
 ```
 
 It shows every file it will delete or change and asks
-before changing anything. It then deletes lunamill's files, takes its
+before changing anything. It then deletes Lunamill's files, takes its
 hooks and its import line out of the files it shares with your coding
 agent, and prints what is left outside the repository for you to remove by
 hand, grouped by the tool it belongs to: secrets, the rule that requires
@@ -87,7 +87,7 @@ In a repository of an organization that is set up, the list starts with
 the one thing only an owner can do:
 
 ```text
-Ask an owner of acme to set the lunamill property to "off" for acme/web: until then every pull request waits on its "Review verdict" check
+Ask an owner of acme to set the Lunamill property to "off" for acme/web: until then every pull request waits on its "Review verdict" check
 ```
 
 It commits nothing. Review the changes, commit them on a branch, and
@@ -142,19 +142,19 @@ For an owner of an organization that was set up with
 the code host, in this order.
 
 1. **Delete the rule, then the property.** In the organization's
-   Settings, under Rules, delete the rule "lunamill". Then,
+   Settings, under Rules, delete the rule "Lunamill". Then,
    under Custom properties, delete the property `lunamill`. With
    the rule gone, no pull request waits on "Review verdict", so the next
    step's pull requests can merge.
-2. **Take lunamill out of each repository.** Run `lunamill remove`
+2. **Take Lunamill out of each repository.** Run `lunamill remove`
    there, as [Removing it](#removing-it) shows, and merge what it
    changed. Do this before step 4: once the app is gone, a repository
-   that still has lunamill's workflows fails its runs.
+   that still has Lunamill's workflows fails its runs.
 3. **Delete the repository `lunamill-config`.** That stops the
    organization's one [poller](../features/builds-from-the-board.md#the-poller), which starts
    builds from the board.
 4. **Uninstall the app, then delete it.** Uninstall the app whose name
-   starts "lunamill for", then delete it, as
+   starts "Lunamill for", then delete it, as
    [By hand on GitHub organizations](../integrations/github-organizations.md#by-hand)
    shows.
 5. **Delete the secrets and the variable.** In the organization's

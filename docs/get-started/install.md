@@ -1,6 +1,6 @@
 # Install
 
-For anyone about to use lunamill on a machine for the first time. At
+For anyone about to use Lunamill on a machine for the first time. At
 the end the `lunamill` command runs there, in every repository you use it
 in. You need Node 22.18 or later.
 
@@ -28,7 +28,7 @@ npm install -g @lunamill-ai/lunamill@latest
 
 ## Which version runs
 
-The command you installed only starts lunamill. Each repository names
+The command you installed only starts Lunamill. Each repository names
 the version it uses, in the `version:` line of `.claude/lunamill.lock`,
 and that is the one that runs there:
 
@@ -40,7 +40,7 @@ and that is the one that runs there:
 | With `LUNAMILL_VERSION` set to a release                   | That release, for that one command, whatever the lock names                       |
 
 ```text
-Downloading lunamill 0.3.0, which this repository names. This happens once.
+Downloading Lunamill 0.3.0, which this repository names. This happens once.
 ```
 
 `LUNAMILL_VERSION=0.3.0 lunamill init` runs that one `init` at 0.3.0.
@@ -56,14 +56,14 @@ delete. When a version cannot be downloaded, the command stops, exits 1,
 and ends its line with npm's own reason:
 
 ```text
-✗ This repository names lunamill 0.3.0, and it could not be downloaded: npm error 404 Not Found
+✗ This repository names Lunamill 0.3.0, and it could not be downloaded: npm error 404 Not Found
 ```
 
 A session's hooks run the same command. On a machine without it, they
 stop each command the session tries to run, and print:
 
 ```text
-lunamill is not installed on this machine. Install it once: npm install -g @lunamill-ai/lunamill
+Lunamill is not installed on this machine. Install it once: npm install -g @lunamill-ai/lunamill
 ```
 
 Next: [Quick start](quick-start.md).

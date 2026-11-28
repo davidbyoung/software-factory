@@ -7,7 +7,7 @@ which session has it, what it cost, and which ones wait on you.
 lunamill status
 ```
 
-It lists lunamill's open tickets, those with its
+It lists Lunamill's open tickets, those with its
 [label](tickets.md#which-tickets-are-lunamills), under their
 [six states](README.md#the-six-states), each with how long it has been in
 its state, what it has cost, and the session that has it:

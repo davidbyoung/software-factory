@@ -1,4 +1,4 @@
-// lunamill's optional parts: which a repository has on, which secrets
+// Lunamill's optional parts: which a repository has on, which secrets
 // they read, and which turn another on. `lunamill init` and
 // `lunamill doctor` share these rules; the secrets each tool reads come from
 // its steps (`setup.mts`).
@@ -38,8 +38,8 @@ export const PART_TEXT: Record<Part, { name: string; gives: string }> = {
     gives: "changes to files you list as safe do not wait for you",
   },
   signing: {
-    name: "Signed commits on lunamill's updates",
-    gives: "the pull requests that update lunamill show as verified",
+    name: "Signed commits on Lunamill's updates",
+    gives: "the pull requests that update Lunamill show as verified",
   },
 };
 
@@ -113,11 +113,11 @@ export function resolveParts(
   return { parts, notes };
 }
 
-/** A secret read, by the tool whose step reads it, or lunamill's own. */
+/** A secret read, by the tool whose step reads it, or Lunamill's own. */
 export type Needed = Need & { tool: string };
 
 /** The secrets read for the parts on, from the tools' secret steps, with
- * the signing key, which is lunamill's own. Each is met by any one of
+ * the signing key, which is Lunamill's own. Each is met by any one of
  * its names. */
 export function neededSecrets(
   parts: ReadonlySet<Part>,

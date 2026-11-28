@@ -535,7 +535,7 @@ describe("the runs lines of lunamill preset add's summary", () => {
     return r.out.filter((l) => l.trimStart().startsWith("runs"));
   };
 
-  it("say each command the preset has lunamill run, and when", async () => {
+  it("say each command the preset has Lunamill run, and when", async () => {
     expect(await add()).toEqual([
       "  runs   npm run check, at the gate",
       "  runs   npm run lint, at the gate",
@@ -1004,7 +1004,7 @@ describe("lunamill preset check", () => {
     ]);
   });
 
-  it("notes a plugin the repository doesn't ship without failing, and says nothing of lunamill's own", async () => {
+  it("notes a plugin the repository doesn't ship without failing, and says nothing of Lunamill's own", async () => {
     const r = await checkIn({
       "": {
         settings:

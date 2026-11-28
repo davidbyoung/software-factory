@@ -1437,7 +1437,7 @@ describe("when a ticket became done", () => {
     ).toEqual([]);
   });
 
-  it("takes a merge lunamill recorded over the card's time", () => {
+  it("takes a merge Lunamill recorded over the card's time", () => {
     const merged = issue({ comments: [said(50, "merged")] });
     expect(doneAt(merged, { status: "Done", updatedAt: at(1) })).toBe(at(50));
   });

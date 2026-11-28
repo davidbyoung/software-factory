@@ -5,7 +5,7 @@
 // `lunamill ticket ready` sets Status to Ready when the owner asks a local
 // session to, and the rules read that as the owner's own move.
 //
-// In the board job of lunamill's run.yml it runs in two steps, so the board's
+// In the board job of Lunamill's run.yml it runs in two steps, so the board's
 // token reaches only the second:
 //   collect  with the workflow's token: posts the comments a closed pull
 //            request or the nightly run calls for, then saves the repository
@@ -402,7 +402,7 @@ export type Plan = {
   cost: number | null;
   /** The column to move the card to, or null when it stays. */
   column: string | null;
-  /** lunamill's own fields to write. */
+  /** Lunamill's own fields to write. */
   writes: Write[];
   /** Why the repositories of a ticket that names several could not be
    * read: the sync leaves such a card alone. */
@@ -617,7 +617,7 @@ export type Deps = {
   err: say.Out;
   readFile: (path: string) => string;
   writeFile: (path: string, text: string) => void;
-  /** lunamill's settings: the ticket system, and the board's number
+  /** Lunamill's settings: the ticket system, and the board's number
    * and the repository where LUNAMILL_BOARD_NUMBER and GITHUB_REPOSITORY do
    * not name them. */
   settings: () => Promise<Settings>;

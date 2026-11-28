@@ -123,7 +123,7 @@ export type BoardOps = {
   add(ticket: Key): Promise<string>;
   /** Moves a card already on the board to the column of that name. */
   move(itemId: string, column: string): Promise<void>;
-  /** Writes lunamill's own fields of a card already on the board. */
+  /** Writes Lunamill's own fields of a card already on the board. */
   set(itemId: string, writes: Write[]): Promise<void>;
   /** The repositories with an unfinished ticket in that column of board
    * `number`, each once, in the board's order. Optional. */

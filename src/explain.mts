@@ -195,7 +195,7 @@ export async function explainLines(
   if (s.commands.ignore.length) put(["commands", "ignore"], s.commands.ignore);
 
   // Each role holds what `lunamill plugins` prints for it: the settings'
-  // own plugins, or lunamill's where they name none.
+  // own plugins, or Lunamill's where they name none.
   const used = pluginsOf(s, exists);
   block(["plugins"]);
   for (const phase of PHASES) {
@@ -256,7 +256,7 @@ export async function explainLines(
     put(["site", "url"], site.url);
     if (site.designGuide === null) comment(1, "design-guide: none (default)");
     else put(["site", "design-guide"], site.designGuide);
-    if (site.pages === null) comment(1, "pages: found by lunamill (default)");
+    if (site.pages === null) comment(1, "pages: found by Lunamill (default)");
     else put(["site", "pages"], site.pages);
     put(["site", "widths"], site.widths);
     put(["site", "hide"], site.hide);

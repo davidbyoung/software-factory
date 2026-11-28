@@ -10,12 +10,12 @@ _[Planned](../developing.md#what-is-built)_: Jira. Until it is built, GitHub
 Issues is the only ticket system, and nothing in this section applies.
 
 Your GitHub CLI login reaches GitHub and nothing else, so another ticket
-system's token has to be kept by lunamill, in two places:
+system's token has to be kept by Lunamill, in two places:
 
 | Where the token is kept  | What reads it                              | Who stores it there                                          |
 | ------------------------ | ------------------------------------------ | ------------------------------------------------------------ |
 | The repository's secrets | The workflows                              | Whoever sets the repository up, by running `lunamill init`   |
-| A file on your machine   | Your sessions, through lunamill's commands | Each person, by running `lunamill init` on their own machine |
+| A file on your machine   | Your sessions, through Lunamill's commands | Each person, by running `lunamill init` on their own machine |
 
 Whoever sets the repository up pastes the token once, and `lunamill init`
 stores it in both. The workflows then act in the ticket system as that
@@ -30,7 +30,7 @@ For Jira the token is two values, stored under two names:
 
 On your machine, the token goes in
 [the file](../security/credentials.md#the-file-on-your-machine) that holds a GitHub account's
-tokens, and every lunamill command reads it from there, so a second
+tokens, and every Lunamill command reads it from there, so a second
 repository on the same Jira site asks for nothing. `LUNAMILL_JIRA_EMAIL`
 and `LUNAMILL_JIRA_TOKEN`, set in the environment, take priority over the
 file. Set them only where a platform keeps them as secrets and passes
@@ -71,7 +71,7 @@ Jira.
 
 ## Jira in a session on another machine
 
-Every such machine needs lunamill installed first:
+Every such machine needs Lunamill installed first:
 
 ```bash
 npm install -g @lunamill-ai/lunamill
@@ -94,7 +94,7 @@ in the state of the tickets it shows you, and names
 Jira's tokens expire on the date you choose when you make one, at most a
 year later. When Jira
 refuses the one on your machine, a session says so as it starts, and
-every lunamill command that reads tickets fails with the same line. Run
+every Lunamill command that reads tickets fails with the same line. Run
 `lunamill init`: it opens the page that makes a new token, and stores the
 one you paste in place of the refused one.
 

@@ -8,7 +8,7 @@ The container image each release publishes, so a repository that hosts the polle
 
 ### Requirement: The image is published
 
-lunamill SHALL behave as this line says: When a version is released, the release workflow publishes `ghcr.io/lunamill-ai/lunamill-poller` tagged with the version and `latest`, after the npm package publishes, and built from that published version.
+Lunamill SHALL behave as this line says: When a version is released, the release workflow publishes `ghcr.io/lunamill-ai/lunamill-poller` tagged with the version and `latest`, after the npm package publishes, and built from that published version.
 
 #### Scenario: The image is published
 
@@ -17,7 +17,7 @@ lunamill SHALL behave as this line says: When a version is released, the release
 
 ### Requirement: The image runs the poller
 
-lunamill SHALL behave as this line says: When the image runs with `LUNAMILL_REPOSITORY` and `LUNAMILL_BOARD_TOKEN`, it runs that version's hosted poller.
+Lunamill SHALL behave as this line says: When the image runs with `LUNAMILL_REPOSITORY` and `LUNAMILL_BOARD_TOKEN`, it runs that version's hosted poller.
 
 #### Scenario: The image runs the poller
 
@@ -26,7 +26,7 @@ lunamill SHALL behave as this line says: When the image runs with `LUNAMILL_REPO
 
 ### Requirement: The image is public
 
-lunamill SHALL behave as this line says: When anyone pulls the image, no sign-in is needed.
+Lunamill SHALL behave as this line says: When anyone pulls the image, no sign-in is needed.
 
 #### Scenario: The image is public
 
@@ -35,7 +35,7 @@ lunamill SHALL behave as this line says: When anyone pulls the image, no sign-in
 
 ### Requirement: The image names its source
 
-lunamill SHALL behave as this line says: The image carries the `org.opencontainers.image.source` label naming this repository, so Dependabot can read its versions.
+Lunamill SHALL behave as this line says: The image carries the `org.opencontainers.image.source` label naming this repository, so Dependabot can read its versions.
 
 #### Scenario: The image names its source
 
@@ -44,7 +44,7 @@ lunamill SHALL behave as this line says: The image carries the `org.opencontaine
 
 ### Requirement: The poller's image
 
-lunamill SHALL behave as this line says: When a release publishes the poller's image, it is `ghcr.io/lunamill-ai/lunamill-poller:VERSION` and `:latest`, and the poller reads `LUNAMILL_REPOSITORY` and `LUNAMILL_BOARD_TOKEN`.
+Lunamill SHALL behave as this line says: When a release publishes the poller's image, it is `ghcr.io/lunamill-ai/lunamill-poller:VERSION` and `:latest`, and the poller reads `LUNAMILL_REPOSITORY` and `LUNAMILL_BOARD_TOKEN`.
 
 #### Scenario: The poller's image
 

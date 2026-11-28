@@ -70,7 +70,7 @@ if ("fault" in choice) {
 if ("download" in choice) {
   const { version, entry } = choice.download;
   report(
-    `Downloading lunamill ${version}, which this repository names. This happens once.`,
+    `Downloading Lunamill ${version}, which this repository names. This happens once.`,
     "note",
   );
   const why = install(choice.download, {
@@ -93,7 +93,7 @@ if ("download" in choice) {
   });
   if (why !== null) {
     report(
-      `✗ This repository names lunamill ${version}, and it could not be downloaded: ${why}`,
+      `✗ This repository names Lunamill ${version}, and it could not be downloaded: ${why}`,
     );
     process.exit(1);
   }

@@ -1,5 +1,5 @@
 // GitHub as the code host: the remotes it recognizes, the one access token
-// lunamill's jobs use, the signed-in check, and what removing the
+// Lunamill's jobs use, the signed-in check, and what removing the
 // factory leaves on it.
 import { gh, type Gh } from "../lib/gh.mts";
 import { listed } from "../lib/listed.mts";
@@ -106,7 +106,7 @@ const NEEDED_BY: Record<TokenNeed, string> = {
   board: "a board",
 };
 
-/** Whether lunamill's workflow may start on the event GitHub holds back
+/** Whether Lunamill's workflow may start on the event GitHub holds back
  * in a public repository: a line for a public one, and none for a private
  * one, where nothing is held back. */
 async function eventsCheck(c: SetupContext): Promise<Check[]> {
@@ -154,7 +154,7 @@ export const githubCodeHostSetup: ToolSetup = {
         intro: [
           "",
           `An access token: opening ${page}`,
-          `Check that ${listed(scopes)} ${scopes.length === 1 ? "is" : "are"} ticked, choose an expiry, and generate it. 90 days is a good balance: lunamill warns you 30 days before it.`,
+          `Check that ${listed(scopes)} ${scopes.length === 1 ? "is" : "are"} ticked, choose an expiry, and generate it. 90 days is a good balance: Lunamill warns you 30 days before it.`,
         ],
         get: { page },
         prompt: "Paste it (leave empty to do this later):",
