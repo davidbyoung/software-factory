@@ -1,12 +1,12 @@
-// The two workflow files `factory sync` writes into a repository, read as
-// YAML: each calls one of the factory's own workflows at one version, and
+// The two workflow files `kodor sync` writes into a repository, read as
+// YAML: each calls one of kodor's own workflows at one version, and
 // holds only what the repository's settings decide.
 import { describe, expect, it } from "vitest";
 import { format } from "prettier";
 import { parse } from "yaml";
 import { SESSION_MINUTES } from "../src/config.mts";
 import {
-  FACTORY_EVENTS,
+  KODOR_EVENTS,
   factoryWorkflow,
   HELD_EVENT,
   POLLER_FILE,
@@ -32,25 +32,25 @@ const factory = (over: Partial<WorkflowOptions> = {}) =>
 const review = (over: Partial<WorkflowOptions> = {}) =>
   parse(reviewWorkflow(options(over)));
 
-describe("factory.yml", () => {
-  it("calls the factory's run.yml at the version the lock names, from one job", () => {
+describe("kodor.yml", () => {
+  it("calls kodor's run.yml at the version the lock names, from one job", () => {
     const file = factory();
-    expect(file.name).toBe("Factory");
-    expect(Object.keys(file.jobs)).toEqual(["factory"]);
-    expect(file.jobs.factory.uses).toBe(
-      "davidbyoung/software-factory/.github/workflows/run.yml@v0.3.0",
+    expect(file.name).toBe("kodor");
+    expect(Object.keys(file.jobs)).toEqual(["kodor"]);
+    expect(file.jobs.kodor.uses).toBe(
+      "kodor-ai/kodor/.github/workflows/run.yml@v0.3.0",
     );
   });
 
-  it("calls the copy in the same commit in the factory's own repository", () => {
-    expect(factory({ version: null }).jobs.factory.uses).toBe(
+  it("calls the copy in the same commit in kodor's own repository", () => {
+    expect(factory({ version: null }).jobs.kodor.uses).toBe(
       "./.github/workflows/run.yml",
     );
   });
 
   it("starts on exactly the events a code host's policy for it lists", () => {
-    expect(Object.keys(factory().on)).toEqual(FACTORY_EVENTS);
-    expect(FACTORY_EVENTS).toContain(HELD_EVENT);
+    expect(Object.keys(factory().on)).toEqual(KODOR_EVENTS);
+    expect(KODOR_EVENTS).toContain(HELD_EVENT);
   });
 
   it("starts on everything that is judged from the default branch's copy", () => {
@@ -111,7 +111,7 @@ describe("factory.yml", () => {
     );
   });
 
-  it("grants what the factory's jobs post with, and no more", () => {
+  it("grants what kodor's jobs post with, and no more", () => {
     expect(factory().permissions).toEqual({
       actions: "read",
       checks: "read",
@@ -124,7 +124,7 @@ describe("factory.yml", () => {
   });
 
   it("passes the parts that are on, a run by hand's inputs, and each token by name", () => {
-    const job = factory({ parts: ["review", "board"] }).jobs.factory;
+    const job = factory({ parts: ["review", "board"] }).jobs.kodor;
     expect(job.with).toEqual({
       parts: "review board",
       job: "${{ inputs.job }}",
@@ -134,21 +134,21 @@ describe("factory.yml", () => {
     });
     expect(job.secrets).toEqual({
       "build-token":
-        "${{ secrets.FACTORY_BUILD_TOKEN || secrets.FACTORY_BOARD_TOKEN }}",
-      "board-token": "${{ secrets.FACTORY_BOARD_TOKEN }}",
-      "automerge-token": "${{ secrets.FACTORY_AUTOMERGE_TOKEN }}",
-      "app-key": "${{ secrets.FACTORY_APP_PRIVATE_KEY }}",
-      "signing-key": "${{ secrets.FACTORY_SIGNING_KEY }}",
+        "${{ secrets.KODOR_BUILD_TOKEN || secrets.KODOR_BOARD_TOKEN }}",
+      "board-token": "${{ secrets.KODOR_BOARD_TOKEN }}",
+      "automerge-token": "${{ secrets.KODOR_AUTOMERGE_TOKEN }}",
+      "app-key": "${{ secrets.KODOR_APP_PRIVATE_KEY }}",
+      "signing-key": "${{ secrets.KODOR_SIGNING_KEY }}",
       "claude-token": "${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}",
       "claude-api-key": "${{ secrets.ANTHROPIC_API_KEY }}",
     });
-    expect(factory().jobs.factory.with.parts).toBe("");
+    expect(factory().jobs.kodor.with.parts).toBe("");
   });
 
   it("passes a session's minutes, and its job's limit ten over, only where the settings change them", () => {
     const job = factory({
       minutes: { ...SESSION_MINUTES, build: 90, dependencies: 20 },
-    }).jobs.factory;
+    }).jobs.kodor;
     expect(job.with["build-minutes"]).toBe(90);
     expect(job.with["build-limit"]).toBe(100);
     expect(job.with["dependencies-minutes"]).toBe(20);
@@ -158,34 +158,34 @@ describe("factory.yml", () => {
   });
 
   it("passes the override label's name only when the settings rename it", () => {
-    expect(factory().jobs.factory.with).not.toHaveProperty("override-label");
+    expect(factory().jobs.kodor.with).not.toHaveProperty("override-label");
     expect(
-      factory({ overrideLabel: "ship it" }).jobs.factory.with["override-label"],
+      factory({ overrideLabel: "ship it" }).jobs.kodor.with["override-label"],
     ).toBe("ship it");
   });
 
   it("passes the policy label's name only when the settings rename it", () => {
-    expect(factory().jobs.factory.with).not.toHaveProperty("policy-label");
+    expect(factory().jobs.kodor.with).not.toHaveProperty("policy-label");
     expect(
-      factory({ policyLabel: "accepted" }).jobs.factory.with["policy-label"],
+      factory({ policyLabel: "accepted" }).jobs.kodor.with["policy-label"],
     ).toBe("accepted");
   });
 
   it("passes the secrets .npmrc and the ticket system read as one JSON object, by name", () => {
-    expect(factory().jobs.factory.secrets).not.toHaveProperty("extra");
+    expect(factory().jobs.kodor.secrets).not.toHaveProperty("extra");
     expect(
-      factory({ secrets: ["NPM_TOKEN", "FACTORY_JIRA_TOKEN"] }).jobs.factory
-        .secrets.extra,
+      factory({ secrets: ["NPM_TOKEN", "KODOR_JIRA_TOKEN"] }).jobs.kodor.secrets
+        .extra,
     ).toBe(
-      `\${{ format('{{"NPM_TOKEN":{0},"FACTORY_JIRA_TOKEN":{1}}}', toJSON(secrets.NPM_TOKEN), toJSON(secrets.FACTORY_JIRA_TOKEN)) }}`,
+      `\${{ format('{{"NPM_TOKEN":{0},"KODOR_JIRA_TOKEN":{1}}}', toJSON(secrets.NPM_TOKEN), toJSON(secrets.KODOR_JIRA_TOKEN)) }}`,
     );
   });
 });
 
-describe("factory-review.yml", () => {
-  it("calls the factory's review.yml on a pull request, from a job of another name", () => {
+describe("kodor-review.yml", () => {
+  it("calls kodor's review.yml on a pull request, from a job of another name", () => {
     const file = review({ parts: ["review", "dependabot"] });
-    expect(file.name).toBe("Factory review");
+    expect(file.name).toBe("kodor review");
     expect(file.on).toEqual({
       pull_request: {
         types: ["opened", "reopened", "synchronize", "ready_for_review"],
@@ -193,7 +193,7 @@ describe("factory-review.yml", () => {
     });
     expect(Object.keys(file.jobs)).toEqual(["review"]);
     expect(file.jobs.review.uses).toBe(
-      "davidbyoung/software-factory/.github/workflows/review.yml@v0.3.0",
+      "kodor-ai/kodor/.github/workflows/review.yml@v0.3.0",
     );
     expect(review({ version: null }).jobs.review.uses).toBe(
       "./.github/workflows/review.yml",
@@ -205,7 +205,7 @@ describe("factory-review.yml", () => {
     const text = reviewWorkflow(
       options({
         parts: ["review", "board", "auto-merge", "poller", "dependabot"],
-        secrets: ["NPM_TOKEN", "GITHUB_TOKEN", "FACTORY_JIRA_TOKEN"],
+        secrets: ["NPM_TOKEN", "GITHUB_TOKEN", "KODOR_JIRA_TOKEN"],
       }),
     );
     const file = parse(text);
@@ -217,10 +217,10 @@ describe("factory-review.yml", () => {
 
 describe("both files", () => {
   // A repository's own formatter must leave them alone, or its check and
-  // the factory's would each undo the other.
+  // kodor's would each undo the other.
   it.each([
-    ["factory.yml", factoryWorkflow],
-    ["factory-review.yml", reviewWorkflow],
+    ["kodor.yml", factoryWorkflow],
+    ["kodor-review.yml", reviewWorkflow],
   ])("%s is written as Prettier would leave it", async (_, write) => {
     const text = write(
       options({
@@ -235,7 +235,7 @@ describe("both files", () => {
   });
 });
 
-describe("factory-poller.yml", () => {
+describe("kodor-poller.yml", () => {
   const text = pollerWorkflow({
     owner: "acme",
     version: "0.4.0",
@@ -243,14 +243,14 @@ describe("factory-poller.yml", () => {
   });
 
   it("is the file an organization's setup writes, word for word", () => {
-    expect(POLLER_FILE).toBe(".github/workflows/factory-poller.yml");
+    expect(POLLER_FILE).toBe(".github/workflows/kodor-poller.yml");
     expect(text).toBe(
       [
-        "# .github/workflows/factory-poller.yml, written by factory init --org.",
+        "# .github/workflows/kodor-poller.yml, written by kodor init --org.",
         "# The one poller for acme's board. The cron line is yours to change, with",
-        "# builds.poll-minutes in factory-preset.yaml: factory preset check fails",
+        "# builds.poll-minutes in kodor-preset.yaml: kodor preset check fails",
         "# when the two differ.",
-        "name: Factory poller",
+        "name: kodor poller",
         "on:",
         "  schedule:",
         '    - cron: "*/30 * * * *" # the poller',
@@ -260,19 +260,19 @@ describe("factory-poller.yml", () => {
         "  contents: read",
         "jobs:",
         "  poller:",
-        "    uses: davidbyoung/software-factory/.github/workflows/poller.yml@v0.4.0",
+        "    uses: kodor-ai/kodor/.github/workflows/poller.yml@v0.4.0",
         "    secrets:",
-        "      app-key: ${{ secrets.FACTORY_APP_PRIVATE_KEY }}",
+        "      app-key: ${{ secrets.KODOR_APP_PRIVATE_KEY }}",
         "",
       ].join("\n"),
     );
   });
 
-  it("calls the factory's poller.yml from one job, with the app's key as its one secret", () => {
+  it("calls kodor's poller.yml from one job, with the app's key as its one secret", () => {
     const file = parse(text);
     expect(Object.keys(file.jobs)).toEqual(["poller"]);
     expect(file.jobs.poller.secrets).toEqual({
-      "app-key": "${{ secrets.FACTORY_APP_PRIVATE_KEY }}",
+      "app-key": "${{ secrets.KODOR_APP_PRIVATE_KEY }}",
     });
     expect(file.permissions).toEqual({ contents: "read" });
   });

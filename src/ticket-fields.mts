@@ -1,4 +1,4 @@
-// Refinement's factory fields in a ticket's own fields: which heading each
+// Refinement's kodor fields in a ticket's own fields: which heading each
 // key names, and how a ticket's document is split into its description and
 // its ticket fields and joined back, and `init`'s field step, which asks the
 // coding agent where each goes. It names no agent and no ticket system.
@@ -10,8 +10,8 @@ import type { Check } from "./setup.mts";
 import type { TicketField, Tickets } from "./tickets/types.mts";
 import * as say from "./lib/output.mts";
 
-/** The factory fields a refined ticket has, in the order its body has them. */
-export const FACTORY_FIELDS = [
+/** kodor fields a refined ticket has, in the order its body has them. */
+export const KODOR_FIELDS = [
   {
     key: "decisions",
     heading: "Decisions",
@@ -35,14 +35,14 @@ export const FACTORY_FIELDS = [
 ] as const;
 
 /** Every key under `tickets.fields` that holds part of a ticket. init asks
- * the coding agent about the factory fields alone: few tickets have
+ * the coding agent about kodor fields alone: few tickets have
  * repositories to hold. */
 export const TICKET_KEYS: readonly string[] = [
-  ...FACTORY_FIELDS.map((f) => f.key),
+  ...KODOR_FIELDS.map((f) => f.key),
   "repositories",
 ];
 
-export type FactoryKey = (typeof FACTORY_FIELDS)[number]["key"];
+export type FactoryKey = (typeof KODOR_FIELDS)[number]["key"];
 
 /** Each ticket-side key under `tickets.fields`, in settings order, with
  * the ticket field that holds it, or null for the description. */
@@ -52,10 +52,10 @@ const MOCKUPS = "mockups";
 /** Spec and Acceptance criteria may share a ticket field: a ticket has one. */
 const SHARED = ["spec", "acceptance-criteria"];
 
-/** The heading a key stands for: the factory's own, or the key with its
+/** The heading a key stands for: kodor's own, or the key with its
  * hyphens as spaces and its first letter capitalized. */
 export function headingOf(key: string): string {
-  const own = FACTORY_FIELDS.find((f) => f.key === key);
+  const own = KODOR_FIELDS.find((f) => f.key === key);
   if (own) return own.heading;
   const words = key.replace(/-/g, " ");
   return words.charAt(0).toUpperCase() + words.slice(1);
@@ -160,7 +160,7 @@ export function split(
 }
 
 /** The order of the sections a body has: a heading of the repository's own
- * first, in settings order, then the factory's. */
+ * first, in settings order, then kodor's. */
 const ORDER = [
   "decisions",
   "spec",
@@ -214,23 +214,23 @@ export function join(
   return document([lines]);
 }
 
-/** The agent's answer for a factory field no ticket field fits. A token,
+/** The agent's answer for a kodor field no ticket field fits. A token,
  * so a ticket field called "Description" stays usable. */
 export const DESCRIPTION = "__description__";
 export const TIMEOUT_MS = 60_000;
 
-/** Each factory field's ticket field, or null for the description. */
+/** Each kodor field's ticket field, or null for the description. */
 export type Suggestion = Record<FactoryKey, string | null>;
 
-const KEYS = FACTORY_FIELDS.map((f) => f.key);
+const KEYS = KODOR_FIELDS.map((f) => f.key);
 const HEADING = Object.fromEntries(
-  FACTORY_FIELDS.map((f) => [f.key, f.heading]),
+  KODOR_FIELDS.map((f) => [f.key, f.heading]),
 ) as Record<FactoryKey, string>;
 
 export function prompt(fields: readonly TicketFieldInfo[]): string {
   return [
     "A software factory refines each ticket into parts, each under its own heading:",
-    ...FACTORY_FIELDS.map((f) => `- ${f.key} (${f.heading}): ${f.holds}`),
+    ...KODOR_FIELDS.map((f) => `- ${f.key} (${f.heading}): ${f.holds}`),
     "",
     "The tickets have these text fields:",
     ...fields.map(
@@ -259,7 +259,7 @@ export function schema(fields: readonly TicketFieldInfo[]): object {
   };
 }
 
-/** Whether two factory fields may hold one ticket field. */
+/** Whether two kodor fields may hold one ticket field. */
 const mayShare = (a: string, b: string) =>
   SHARED.includes(a) && SHARED.includes(b) && a !== b;
 
@@ -300,12 +300,12 @@ export function check(
 
 const shownIn = (field: string | null) => field ?? "the description";
 
-/** The table of each factory field's ticket field. */
+/** The table of each kodor field's ticket field. */
 export function table(suggestion: Suggestion): say.Line[] {
   return [
     say.heads(
       [
-        ["Factory field", 22],
+        ["kodor field", 22],
         ["Ticket field", 0],
       ],
       { indent: 2 },
@@ -324,7 +324,7 @@ export type FieldStepDeps = {
   label: string;
 };
 
-/** The factory field that already holds `field`, other than `key` and the
+/** kodor field that already holds `field`, other than `key` and the
  * one it may share with, or null. */
 function holding(
   field: string,
@@ -337,7 +337,7 @@ function holding(
 }
 
 /** Asks where `key` goes, with `current` selected. A ticket field that
- * already holds another factory field in `s` is a clash, which it says. */
+ * already holds another kodor field in `s` is a clash, which it says. */
 async function pickField(
   d: Pick<FieldStepDeps, "ask" | "out">,
   key: FactoryKey,
@@ -364,7 +364,7 @@ async function pickField(
   return "clash";
 }
 
-/** The field step by hand: what each factory field holds, then where each
+/** The field step by hand: what each kodor field holds, then where each
  * goes, in turn. */
 async function chooseFields(
   d: Pick<FieldStepDeps, "ask" | "out">,
@@ -374,13 +374,13 @@ async function chooseFields(
   d.out(
     say.heads(
       [
-        ["Factory field", 22],
+        ["kodor field", 22],
         ["What it holds", 0],
       ],
       { indent: 2 },
     ),
   );
-  for (const f of FACTORY_FIELDS)
+  for (const f of KODOR_FIELDS)
     d.out(say.row(f.heading, f.holds, { width: 22, gap: 0 }));
   d.out(say.BLANK);
   d.out(
@@ -400,7 +400,7 @@ async function chooseFields(
   return s as Suggestion;
 }
 
-/** "Change some": the factory fields you pick, then a ticket field for
+/** "Change some": kodor fields you pick, then a ticket field for
  * each, until no two share one they may not. */
 async function changeSome(
   d: FieldStepDeps,
@@ -411,7 +411,7 @@ async function changeSome(
   let picked: string[] = [];
   for (;;) {
     picked = await d.ask.checkbox(
-      "Which factory fields do you want to change?",
+      "Which kodor fields do you want to change?",
       KEYS.map((k) => ({
         name: `${HEADING[k]}: ${shownIn(s[k])}`,
         value: k,
@@ -431,7 +431,7 @@ async function changeSome(
   }
 }
 
-/** The field step: the four factory fields' lines to write under
+/** The field step: the four kodor fields' lines to write under
  * `tickets.fields`. An answer that can't be used leaves each factory
  * field's place to be chosen by hand. */
 export async function suggestFields(
@@ -451,7 +451,7 @@ export async function suggestFields(
   );
   d.out(
     say.note(
-      `Asking ${d.label} which of them should hold each of the factory's fields...`,
+      `Asking ${d.label} which of them should hold each of kodor's fields...`,
     ),
   );
   const got = await d.agent.answer({
@@ -476,7 +476,7 @@ export async function suggestFields(
     d.out(
       say.text(`${d.label}'s answer could not be used: ${checked.reason}.`),
     );
-    d.out(say.text("Choose where each of the factory's fields goes yourself."));
+    d.out(say.text("Choose where each of kodor's fields goes yourself."));
     suggestion = await chooseFields(d, o.fields);
   } else suggestion = checked.suggestion;
   for (;;) {
@@ -508,10 +508,9 @@ export async function suggestFields(
   }
 }
 
-const FIX =
-  "Create the field, or change tickets.fields in .claude/factory.yaml";
+const FIX = "Create the field, or change tickets.fields in .claude/kodor.yaml";
 
-/** The checks `factory doctor` and `init` end with: that each ticket field
+/** The checks `kodor doctor` and `init` end with: that each ticket field
  * the settings name exists and holds text. None when they name none. */
 export async function fieldChecks(
   tickets: Tickets,

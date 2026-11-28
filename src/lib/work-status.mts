@@ -1,7 +1,7 @@
 // Who is working on what, read from the marker comments sessions post on a
 // ticket and from the board's Status. The terminal view
-// (`factory status`), the board sync (`factory board`), and the
-// poller (`factory poller`) all decide from this one module, so they
+// (`kodor status`), the board sync (`kodor board`), and the
+// poller (`kodor poller`) all decide from this one module, so they
 // cannot disagree. It reads tickets as the ticket interface returns them
 // (`tickets/types.mts`) and never calls a ticket system itself.
 import {
@@ -56,7 +56,7 @@ export type StateKey = keyof typeof STATE_KEYS;
  * moves to, or null for a board with none. */
 export type Columns = Record<Status, readonly string[] | null>;
 
-/** The factory's own board: every state has the column of its own name. */
+/** kodor's own board: every state has the column of its own name. */
 export const DEFAULT_COLUMNS: Columns = {
   Backlog: ["Backlog"],
   "In refinement": ["In refinement"],
@@ -222,7 +222,7 @@ export function issueCost(issue: Issue, pulls: PullRequest[]): number | null {
 
 // Reviewer runs, which the SubagentStart and SubagentStop hooks record in one
 // "Reviewers in this session" comment per session
-// (`factory reviewers`). Each row carries a hidden copy of itself.
+// (`kodor reviewers`). Each row carries a hidden copy of itself.
 
 export const REVIEWER_RUNS_MARK = "<!-- reviewer-runs session=";
 
@@ -329,7 +329,7 @@ export function workState(comments: Entry[]): WorkState {
 }
 
 /** A card's state, read through the board's columns. "Unmapped" is a column
- * no state names, which the factory leaves alone. */
+ * no state names, which kodor leaves alone. */
 export type BoardCard = {
   status: string | null;
   updatedAt: string | null;
@@ -426,7 +426,7 @@ function claimSession(
   };
 }
 
-/** When the ticket became done: the merge the factory recorded, else its
+/** When the ticket became done: the merge kodor recorded, else its
  * card's last move while in a done column, else when the ticket system
  * finished it. Undefined while it is not done; null when it is done and
  * nothing records when. */
@@ -646,7 +646,7 @@ export function watchOf(
       minutes: pollMinutes + 15,
       flag: pollerIn
         ? `not started, is the poller in ${pollerIn} running?`
-        : "not started, is the poller's job in factory.yml running?",
+        : "not started, is the poller's job in kodor.yml running?",
     };
   return { minutes: 5, flag: "not started, is the poller running?" };
 }
@@ -771,11 +771,11 @@ const waiting = (columns: Columns) =>
 const again = (issue: Named, columns: Columns) => {
   const ready = columns.Ready?.[0] ?? null;
   if (ready === null)
-    return `To try again, tell a session to build ${issue.ref}, or run \`factory build ${issue.key}\`.`;
+    return `To try again, tell a session to build ${issue.ref}, or run \`kodor build ${issue.key}\`.`;
   return `Move it to ${ready} to try again.`;
 };
 
-/** What the factory records for each kind, and whether a person has to
+/** What kodor records for each kind, and whether a person has to
  * read it: a stop that waits on someone, refinement's closing note, and
  * the merge's note do; a claim, a start, or a cost does not. */
 export function entryFor(
@@ -823,7 +823,7 @@ export function entryFor(
     case "refined": {
       const sentence =
         ready === null
-          ? `Refinement is done. This board has no column for approving a build: tell a session to build ${c.issue.ref}, or run \`factory build ${c.issue.key}\`.`
+          ? `Refinement is done. This board has no column for approving a build: tell a session to build ${c.issue.ref}, or run \`kodor build ${c.issue.key}\`.`
           : `Refinement is done. The card stays ${cardAt("In refinement", columns)} until it moves to ${ready}, which starts a build in GitHub Actions: move it there, or ask this session to. To build it on your machine instead, tell a local session to work ${c.issue.ref}.`;
       const before = c.before?.trimEnd();
       const lead = [before, c.cost?.text].filter(Boolean).join("\n\n");
@@ -856,7 +856,7 @@ export function entryFor(
       const head = `Stopped without a pull request: ${c.reason}. ${WAITING}`;
       const tail =
         c.where === "actions"
-          ? `Run \`factory build ${c.issue.key}\` to try again${ready === null ? "." : `, or move it to ${ready}.`}`
+          ? `Run \`kodor build ${c.issue.key}\` to try again${ready === null ? "." : `, or move it to ${ready}.`}`
           : `Tell a session to work ${c.issue.ref} again${ready === null ? "." : `, or move it to ${ready} to build it in GitHub Actions.`}`;
       return entry(
         "released",
@@ -891,7 +891,7 @@ export function entryFor(
       return entry(
         "released",
         ready === null
-          ? `${closed} was closed without merging. ${WAITING} Tell a session to build ${c.issue.ref}, or run \`factory build ${c.issue.key}\`, to rebuild it, or ask a session to refine it first.`
+          ? `${closed} was closed without merging. ${WAITING} Tell a session to build ${c.issue.ref}, or run \`kodor build ${c.issue.key}\`, to rebuild it, or ask a session to refine it first.`
           : `${closed} was closed without merging. ${WAITING} Move it to ${ready} to rebuild it, or ask a session to refine it first.`,
         true,
       );

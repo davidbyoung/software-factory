@@ -93,8 +93,8 @@ const RUN = /\bRun: (?=\S)/g;
 const OTHER_TOOLS =
   /\bnpm install(?: -[-\w]+)+ [@\w][\w@/.-]*|\bgit checkout -- \S+/g;
 const SKILL =
-  /(?<![\w./-])\/factory-[a-z][a-z-]*(?: (?:[A-Z][\w-]*|\d+)(?![\w-]))?/g;
-const FACTORY = /(?<![\w./@-])factory(?= [a-z])/g;
+  /(?<![\w./-])\/kodor-[a-z][a-z-]*(?: (?:[A-Z][\w-]*|\d+)(?![\w-]))?/g;
+const FACTORY = /(?<![\w./@-])kodor(?= [a-z])/g;
 /** What ends a sentence or a clause, and not a command or an address. */
 const ENDING = /[.,:;!?)'"`]+$/;
 
@@ -102,7 +102,7 @@ const ENDING = /[.,:;!?)'"`]+$/;
  * is lowercase letters alone. */
 const isArgument = (word: string) => /[^a-z]/.test(word);
 
-/** How long the `factory` command that starts `text` is, or 0 when the
+/** How long the `kodor` command that starts `text` is, or 0 when the
  * words name no command. */
 function commandLength(text: string): number {
   const words = text.split(" ");
@@ -327,7 +327,7 @@ export const verbatim = (line: string, skipFrom = line.length): Line =>
 export type Out = (line: Line) => void;
 
 /** Prints `text` and a line break. The console swallows what a closed pipe
- * throws, as in `factory status | head`; a stream's own write would not. */
+ * throws, as in `kodor status | head`; a stream's own write would not. */
 function printLine(text: string, stream: NodeJS.WritableStream): void {
   if (stream === process.stdout) console.log(text);
   else if (stream === process.stderr) console.error(text);

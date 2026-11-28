@@ -137,12 +137,12 @@ describe("newEvents", () => {
       comment({ id: 2, author: "owner" }),
     ];
     const running = [
-      check({ name: "factory / Review / Session", state: "passed" }),
-      check({ id: 2, name: "factory / Review / Publish", state: "pending" }),
+      check({ name: "kodor / Review / Session", state: "passed" }),
+      check({ id: 2, name: "kodor / Review / Publish", state: "pending" }),
     ];
     const ended = [
-      check({ name: "factory / Review / Session", state: "passed" }),
-      check({ id: 2, name: "factory / Review / Publish", state: "passed" }),
+      check({ name: "kodor / Review / Session", state: "passed" }),
+      check({ id: 2, name: "kodor / Review / Publish", state: "passed" }),
     ];
 
     expect(lines({ comments, checks: running })).toEqual([
@@ -206,10 +206,10 @@ describe("newEvents", () => {
 
   it("says nothing new when a workflow run adds skipped jobs to finished checks", () => {
     const conversation = [summary(1, SHA, "ready")];
-    const checks = [check(), check({ id: 2, name: "factory / Build" })];
+    const checks = [check(), check({ id: 2, name: "kodor / Build" })];
     const seen = keysOf({ checks, conversation });
     const skipped = [
-      check({ id: 3, name: "factory / Build" }),
+      check({ id: 3, name: "kodor / Build" }),
       check({ id: 4, name: "Tests" }),
     ];
 
@@ -264,7 +264,7 @@ describe("newEvents", () => {
 
   it("stops waiting for a review whose run failed and posted nothing", () => {
     const checks = [
-      check({ name: "factory / Review / Session", state: "failed" }),
+      check({ name: "kodor / Review / Session", state: "failed" }),
     ];
 
     expect(lines({ checks })).toContain(`every check has finished on ${SHA}`);

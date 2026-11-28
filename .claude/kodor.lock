@@ -1,0 +1,117 @@
+# Written by `kodor sync`: kodor's version, the presets, the
+# settings in effect, and the files it wrote. Do not edit.
+version: 0.0.0-development
+presets: []
+settings-hash: sha256:b295d97b2d026c5b9bc42e82376215a3600b63f3e41fc0a845be7d0c7bf46e3f
+npmrc-variables: []
+settings:
+  version: 1
+  repository: kodor-ai/kodor
+  tickets:
+    type: github
+    board: 1
+    columns:
+      backlog: Backlog
+      refining: In refinement
+      ready: Ready
+      building: In progress
+      review: In review
+      done: Done
+    fields:
+      session: Session                                                         # default
+      runs-in: Runs in                                                         # default
+      cost: Cost                                                               # default
+      decisions: none                                                          # default
+      spec: none                                                               # default
+      acceptance-criteria: none                                                # default
+      for-the-builder: none                                                    # default
+      repositories: none                                                       # default
+    labels:
+      spec: spec                                                               # default
+      kodor: kodor                                                             # default
+  code-host:
+    type: github
+    branch-name: "{ticket}"
+    labels:
+      merge-automatic: merge-automatic                                         # default
+      merge-manual: merge-manual                                               # default
+      verdict-override: verdict-override                                       # default
+      policy-override: policy-override                                         # default
+  builds:
+    trigger: manual
+    runner: github-actions                                                     # default
+    # poll-minutes: only with trigger github-action
+    max-per-hour: 20                                                           # default
+    hosts: []                                                                  # default
+  specs:
+    type: openspec
+    check: npx --no-install openspec validate --all --strict --no-interactive  # default
+  commands:
+    build-setup: []                                                            # default
+    before-commit:
+      - npm run -s format:check
+      - npx tsc --noEmit
+    gate:
+      - npm run check
+    test-one: npx vitest run $FILE -t "$NAME"
+    # end-to-end: none (default)
+    coverage:
+      run: npm run coverage
+      report: coverage/lcov.info
+    relock: npm install                                                        # default
+  plugins:
+    refine:
+      refiner:                                                                 # default
+        skill: kodor-refine                                                    # default
+      # mockups: none (default)
+    build:
+      builders: []                                                             # default
+      reviewers:
+        - agent: docs-reader
+          files:
+            - README.md
+            - docs/**
+    test:
+      prover:                                                                  # default
+        skill: kodor-mutate                                                    # default
+      reviewers:                                                               # default
+        - agent: kodor-test-reviewer                                           # default
+    conflicts:
+      resolvers: []                                                            # default
+  auto-merge:
+    allow: []                                                                  # default
+    deny: []                                                                   # default
+    commands: []                                                               # default
+  pr-review: true
+  # site: off
+  session-minutes:
+    build: 230                                                                 # default
+    conflicts: 110                                                             # default
+    review: 50                                                                 # default
+    dependencies: 50                                                           # default
+  rules:
+    small-change-lines: 30                                                     # default
+    review-rounds: 2                                                           # default
+  approval-policies:
+    - name: credentials                                                        # default
+      run: node .claude/approval-policies/credentials/find.mts                 # default
+      agent: kodor-credentials-reader                                          # default
+      files:                                                                   # default
+        - "**"                                                                 # default
+overridden: {}
+files:
+  - .claude/skills/kodor-address-review/SKILL.md
+  - .claude/skills/kodor-build/SKILL.md
+  - .claude/skills/kodor-diagnose/SKILL.md
+  - .claude/skills/kodor-mutate/SKILL.md
+  - .claude/skills/kodor-refine/SKILL.md
+  - .claude/skills/kodor-resolve-conflicts/SKILL.md
+  - .claude/skills/kodor-trace/SKILL.md
+  - .claude/agents/kodor-credentials-reader.md
+  - .claude/agents/kodor-test-reviewer.md
+  - .claude/agents/kodor-ticket-readiness.md
+  - .claude/approval-policies/credentials/find.mts
+  - .claude/kodor/rules.md
+  - .github/kodor-review.md
+  - .github/workflows/kodor.yml
+  - .github/workflows/kodor-review.yml

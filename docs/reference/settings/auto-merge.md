@@ -26,12 +26,11 @@ Otherwise it waits for you, and the pull request says why.
 
 - **By default every list is empty, so nothing merges without you.**
 - **`deny` carves exceptions out of `allow`,** and always wins.
-- **Some files always wait for you,** whatever `allow` says: the
-  factory's own, which are everything under `.claude/` and `.github/`,
+- **Some files always wait for you,** whatever `allow` says: kodor's own, which are everything under `.claude/` and `.github/`,
   every `CLAUDE.md` and `AGENTS.md`, and `openspec/config.yaml`.
 - **Start with a short `allow` list** and add to it. Too wide a list
   merges changes you meant to read.
-- **`factory config check` warns about a pattern that matches no file,**
+- **`kodor config check` warns about a pattern that matches no file,**
   since a stale pattern is how a policy quietly stops meaning anything.
 
 **A command under `commands`** is your own check. It runs once for each
@@ -62,7 +61,7 @@ it:
 
 | The status says                        | Why                                             |
 | -------------------------------------- | ----------------------------------------------- |
-| `PATH: the factory's own files`        | The file is one of the factory's, listed above  |
+| `PATH: kodor's own files`              | The file is one of kodor's, listed above        |
 | `PATH: held by auto-merge.deny`        | The file matches `deny`                         |
 | `PATH: not in auto-merge.allow`        | The file matches nothing in `allow`             |
 | What your command printed              | Your command exited with something other than 0 |

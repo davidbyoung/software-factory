@@ -1,4 +1,4 @@
-// GitHub Actions as the runner: a build is a run of the factory's workflow,
+// GitHub Actions as the runner: a build is a run of kodor's workflow,
 // started by a dispatch that names the job, and the review is one job of
 // the workflow a pull request starts.
 // With `src/tickets/` and `src/code-host/`, this is the only code that
@@ -9,11 +9,11 @@ import type { FailedJob, Run, Runner, StoredSecret } from "./types.mts";
 
 /** The workflow file every job judged from the default branch runs in: a
  * build, the board sync, and the poller among them. */
-export const FACTORY_WORKFLOW = "factory.yml";
+export const KODOR_WORKFLOW = "kodor.yml";
 /** The workflow file a pull request starts, and the review's job in it, as
  * its check is named: the calling job, then the job. */
 /** Opens the name of each job of a review's run. */
-export const REVIEW_JOBS = "factory / Review / ";
+export const REVIEW_JOBS = "kodor / Review / ";
 const SITE = "https://github.com";
 
 type RestRun = {
@@ -94,7 +94,7 @@ export function githubActionsRunner(o: {
       workflow_runs: (DispatchedRun & { id: number; status: string })[];
     }>(
       "GET",
-      `${API}/actions/workflows/${FACTORY_WORKFLOW}/runs?event=pull_request_target&head_sha=${sha}&per_page=100`,
+      `${API}/actions/workflows/${KODOR_WORKFLOW}/runs?event=pull_request_target&head_sha=${sha}&per_page=100`,
     );
     const found: { jobs: Job[]; status: string; conclusion: string | null }[] =
       [];
@@ -125,21 +125,21 @@ export function githubActionsRunner(o: {
     async startBuild(ticket, branch) {
       await t.rest(
         "POST",
-        `${API}/actions/workflows/${FACTORY_WORKFLOW}/dispatches`,
+        `${API}/actions/workflows/${KODOR_WORKFLOW}/dispatches`,
         { fields: { ref: branch, inputs: { job: "build", ticket } } },
       );
     },
     async startSync(branch) {
       await t.rest(
         "POST",
-        `${API}/actions/workflows/${FACTORY_WORKFLOW}/dispatches`,
+        `${API}/actions/workflows/${KODOR_WORKFLOW}/dispatches`,
         { fields: { ref: branch, inputs: { job: "board" } } },
       );
     },
     async startAnswer(pull, branch) {
       await t.rest(
         "POST",
-        `${API}/actions/workflows/${FACTORY_WORKFLOW}/dispatches`,
+        `${API}/actions/workflows/${KODOR_WORKFLOW}/dispatches`,
         {
           fields: { ref: branch, inputs: { job: "answer", pr: String(pull) } },
         },
@@ -148,7 +148,7 @@ export function githubActionsRunner(o: {
     async startOn(kind, pull, branch) {
       await t.rest(
         "POST",
-        `${API}/actions/workflows/${FACTORY_WORKFLOW}/dispatches`,
+        `${API}/actions/workflows/${KODOR_WORKFLOW}/dispatches`,
         { fields: { ref: branch, inputs: { job: kind, pr: String(pull) } } },
       );
     },
@@ -162,7 +162,7 @@ export function githubActionsRunner(o: {
           workflow_runs: DispatchedRun[];
         }>(
           "GET",
-          `${API}/actions/workflows/${FACTORY_WORKFLOW}/runs?event=workflow_dispatch&created=${from}&per_page=100&page=${page}`,
+          `${API}/actions/workflows/${KODOR_WORKFLOW}/runs?event=workflow_dispatch&created=${from}&per_page=100&page=${page}`,
         );
         count += runs.filter((r) => r.display_title === name).length;
         if (runs.length < 100) return count;
@@ -176,7 +176,7 @@ export function githubActionsRunner(o: {
       const from = Math.floor(since / 1000) * 1000;
       const answer = await t.rest<{ workflow_runs: DispatchedRun[] }>(
         "GET",
-        `${API}/actions/workflows/${FACTORY_WORKFLOW}/runs?event=workflow_dispatch&per_page=30`,
+        `${API}/actions/workflows/${KODOR_WORKFLOW}/runs?event=workflow_dispatch&per_page=30`,
       );
       const found = answer.workflow_runs.find(
         (r) => r.display_title === runName && Date.parse(r.created_at) >= from,
@@ -184,7 +184,7 @@ export function githubActionsRunner(o: {
       return found?.html_url ?? null;
     },
     buildsPage: () =>
-      `${SITE}/${o.repository}/actions/workflows/${FACTORY_WORKFLOW}`,
+      `${SITE}/${o.repository}/actions/workflows/${KODOR_WORKFLOW}`,
     runPage: (id) => `${SITE}/${o.repository}/actions/runs/${id}`,
     thisRun(env) {
       if (env.GITHUB_ACTIONS !== "true") return null;

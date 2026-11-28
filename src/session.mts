@@ -1,29 +1,29 @@
 #!/usr/bin/env node
 // Whether a cloud session runs, for the workflow that would run one.
 //
-//   factory session ready build TICKET
-//   factory session ready review|answer|conflict|dependency PR [REVIEW]
+//   kodor session ready build TICKET
+//   kodor session ready review|answer|conflict|dependency PR [REVIEW]
 //
 // It asks whether there is work first, with whatever token the step gives
 // it as GH_TOKEN, the workflow's own, and only then whether the build token
-// and Claude's credential are set (FACTORY_BUILD_TOKEN_SET and
-// FACTORY_CLAUDE_SET, each `true` or not). The key of the organization's
-// app counts as the build token (FACTORY_APP_KEY_SET). With work and a
+// and Claude's credential are set (KODOR_BUILD_TOKEN_SET and
+// KODOR_CLAUDE_SET, each `true` or not). The key of the organization's
+// app counts as the build token (KODOR_APP_KEY_SET). With work and a
 // token missing, a run that a push, a schedule, or a review started says so
 // and passes; a run someone started by hand, or the poller did, fails. It
 // writes `ran=true` or `ran=false` to GITHUB_OUTPUT.
 //
-//   factory session repositories
+//   kodor session repositories
 //
 // The repositories a run's token of the organization's app is made for, by
 // name and separated by commas: the run's own, and each of the same owner
 // that holds a preset the lock names.
 //
-//   factory session token
+//   kodor session token
 //
 // Signs a job in as that app: `session-token.mts`.
 //
-//   factory session prepare|run|publish|next|each
+//   kodor session prepare|run|publish|next|each
 //
 // The jobs of a run that starts a session: `session-jobs.mts`.
 import { appendFileSync, existsSync, readFileSync } from "node:fs";
@@ -68,7 +68,7 @@ const MISSING = {
   build: {
     notice: "no build token",
     error:
-      "No build token: set the secret FACTORY_BUILD_TOKEN, or FACTORY_BOARD_TOKEN.",
+      "No build token: set the secret KODOR_BUILD_TOKEN, or KODOR_BOARD_TOKEN.",
   },
   claude: {
     notice: "no Claude credential",
@@ -96,13 +96,13 @@ export async function ready(
     run: false,
     code: 0,
     lines: [
-      `${found}, and ${missing.notice} is set, so no session ran. Builds in the cloud are off: factory init turns them on.`,
+      `${found}, and ${missing.notice} is set, so no session ran. Builds in the cloud are off: kodor init turns them on.`,
     ],
   };
 }
 
 const USAGE =
-  "Usage: factory session ready build|review|answer|conflict|dependency ID [REVIEW]";
+  "Usage: kodor session ready build|review|answer|conflict|dependency ID [REVIEW]";
 
 /** All of a repository's name but its last part, and that part. */
 const split = (repository: string) => {
@@ -169,8 +169,8 @@ export function workOf(
   };
 }
 
-/** `factory session ready KIND ID [REVIEW]`, `factory session
- * repositories`, and `factory session token`. */
+/** `kodor session ready KIND ID [REVIEW]`, `kodor session
+ * repositories`, and `kodor session token`. */
 export async function run(argv: string[]): Promise<number> {
   const [step, kind, ...rest] = argv;
   const env = process.env;
@@ -198,9 +198,9 @@ export async function run(argv: string[]): Promise<number> {
       kind: kind as Kind,
       byHand: env.GITHUB_EVENT_NAME === "workflow_dispatch",
       buildToken:
-        env.FACTORY_BUILD_TOKEN_SET === "true" ||
-        env.FACTORY_APP_KEY_SET === "true",
-      claude: env.FACTORY_CLAUDE_SET === "true",
+        env.KODOR_BUILD_TOKEN_SET === "true" ||
+        env.KODOR_APP_KEY_SET === "true",
+      claude: env.KODOR_CLAUDE_SET === "true",
       work: workOf(
         kind as Kind,
         openCodeHost(repository, codeHost),

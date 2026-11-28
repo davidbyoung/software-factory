@@ -1,8 +1,8 @@
 # The workflow
 
-For anyone working tickets with the factory. At the end you know how a
+For anyone working tickets with kodor. At the end you know how a
 ticket moves from an idea to a merged pull request, who moves it at each
-step, and what the factory will not do on its own. Each step has a page
+step, and what kodor will not do on its own. Each step has a page
 of its own: [Write a ticket](tickets.md), [Refine](refine.md),
 [Build](build.md), [Review and answer](review.md), [Merge](merge.md), and
 [Follow-ups](follow-ups.md). [See where things stand](status.md) shows
@@ -15,7 +15,7 @@ is one conversation with your coding agent.
 | ----------------- | ------------------------------------------------------ | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
 | Write a ticket    | You                                                    | Your ticket system                                 | A ticket saying what, why, and when it is done                                                                         |
 | Refine it         | A session you start                                    | Your machine, in your coding agent                 | The ticket rewritten into acceptance criteria, after you answer its decisions                                          |
-| Approve it        | **You**                                                | A session, or your board                           | Run `/factory-build N` in a session, or move its card to Ready                                                         |
+| Approve it        | **You**                                                | A session, or your board                           | Run `/kodor-build N` in a session, or move its card to Ready                                                           |
 | Build it          | A session                                              | Your machine, or the cloud when started from Ready | A tested change in a pull request that closes the ticket, or one in [each repository it names](across-repositories.md) |
 | Review it         | The automated review, if you set it up                 | The cloud                                          | Comments and a verdict on the pull request                                                                             |
 | Answer the review | The session that built it, or, in the cloud, a new one | Where it was built                                 | Each comment fixed, or rejected with evidence                                                                          |
@@ -25,7 +25,7 @@ Everything a session on your machine does, it does as you: through your
 account on the code host and your coding agent's subscription. A session
 in the cloud has no account: a job with no AI checks what it left, and does
 it as [the account builds act as](../features/cloud-builds.md#what-a-build-in-the-cloud-does).
-No step needs a service of the factory's own.
+No step needs a service of kodor's own.
 
 ## The six states
 
@@ -33,12 +33,12 @@ A ticket is always in one of six states. They are fixed: you cannot add one
 or reorder them. Your board shows them as columns, and which column shows
 which state is your repository's choice
 ([`tickets.columns`](../reference/settings/tickets.md#ticketscolumns)). The table gives the
-names `factory init` gives the columns it adds.
+names `kodor init` gives the columns it adds.
 
 A state with no column of its own shows in the column of the nearest earlier
 state that has one, and a ticket is shown in the `ready` column only when it
 is approved. A board without a `ready` column approves a build by running
-`/factory-build N` in a session, or by running `factory build N`.
+`/kodor-build N` in a session, or by running `kodor build N`.
 
 | State    | Board column  | What it means                                                                                           |
 | -------- | ------------- | ------------------------------------------------------------------------------------------------------- |
@@ -57,13 +57,13 @@ backlog → refining → ready → building → review → done
 
 ## Who moves a ticket
 
-| Move               | Who                                                                                                 |
-| ------------------ | --------------------------------------------------------------------------------------------------- |
-| backlog → refining | The session you run `/factory-refine N` in                                                          |
-| refining → ready   | **You**, by moving the card, or by running `/factory-build N` in a session                          |
-| ready → building   | The session that claims it                                                                          |
-| building → review  | Opening the pull request                                                                            |
-| review → done      | The merge: the factory moves the ticket to the first done column, and closes it if it is still open |
+| Move               | Who                                                                                           |
+| ------------------ | --------------------------------------------------------------------------------------------- |
+| backlog → refining | The session you run `/kodor-refine N` in                                                      |
+| refining → ready   | **You**, by moving the card, or by running `/kodor-build N` in a session                      |
+| ready → building   | The session that claims it                                                                    |
+| building → review  | Opening the pull request                                                                      |
+| review → done      | The merge: kodor moves the ticket to the first done column, and closes it if it is still open |
 
 Approving a ticket is the only move a person has to make. A session moves
 the card to Ready only when you ask it to, as your own move.
@@ -83,9 +83,9 @@ These hold in every repository. They are not settings.
   a [reviewer](../customize/plugins.md#reviewer), not a column. A
   [plugin](../customize/plugins.md#the-roles) can take over a step, such as refining a
   ticket or proving a test, where the step stands.
-- **The factory's work ends at the merge.** A ticket in any column
+- **kodor's work ends at the merge.** A ticket in any column
   [`tickets.columns.done`](../reference/settings/tickets.md#ticketscolumns) lists is done,
-  and the factory never moves it out of them. A team with columns after
+  and kodor never moves it out of them. A team with columns after
   Done lists them all, and moves tickets through them itself:
 
   ```yaml

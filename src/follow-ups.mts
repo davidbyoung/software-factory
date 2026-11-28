@@ -2,8 +2,8 @@
 // description for a person to decide about, and the tickets opened from the
 // list when the pull request merges:
 //
-//   factory follow-up TITLE TEXT
-//   factory pr follow-ups --event FILE
+//   kodor follow-up TITLE TEXT
+//   kodor pr follow-ups --event FILE
 //
 // The first adds an item, unticked, to the open pull request of the branch
 // checked out. The second reads FILE, the event that a pull request closed,
@@ -107,7 +107,7 @@ const same = (a: string, b: string) =>
   a.trim().toLowerCase() === b.trim().toLowerCase();
 
 /** The words on one line, without what would end the title or pass for one
- * of the factory's markers. */
+ * of kodor's markers. */
 const oneLine = (words: string) =>
   withoutMarkers(words.replaceAll("**", "")).replace(/\s+/g, " ").trim();
 
@@ -227,7 +227,7 @@ export type OpenDeps = {
   /** Whether the code host's own links say which tickets it closes. */
   own: boolean;
   repository: string;
-  /** The name of the factory label. */
+  /** The name of the kodor label. */
   label: string;
   out: say.Out;
 };
@@ -298,7 +298,7 @@ async function openOne(
   );
 }
 
-/** `factory pr follow-ups`: the exit code. */
+/** `kodor pr follow-ups`: the exit code. */
 export async function openTicked(event: Event, d: OpenDeps): Promise<number> {
   const { number, merged, body, head } = event.pull_request;
   if (
@@ -338,12 +338,12 @@ export async function openTicked(event: Event, d: OpenDeps): Promise<number> {
   return code;
 }
 
-/** `factory follow-up TITLE TEXT`. */
+/** `kodor follow-up TITLE TEXT`. */
 export async function run(argv: string[]): Promise<number> {
   const { out, err } = say.printersFor("follow-up");
   const [title, text] = argv;
   if (!title?.trim() || !text?.trim() || argv.length > 2) {
-    err(say.text('Usage: factory follow-up "TITLE" "WHAT IS WRONG"'));
+    err(say.text('Usage: kodor follow-up "TITLE" "WHAT IS WRONG"'));
     return 2;
   }
   try {
@@ -369,7 +369,7 @@ export async function listOn(
   d.out(
     say.mark(
       "fail",
-      `Branch ${branch || "HEAD"} has no open pull request to list it in. Open one first: factory pr open`,
+      `Branch ${branch || "HEAD"} has no open pull request to list it in. Open one first: kodor pr open`,
     ),
   );
   return 1;
@@ -389,11 +389,11 @@ async function adapters() {
   return { settings, repository, tickets, codeHost };
 }
 
-/** `factory pr follow-ups --event FILE`. */
+/** `kodor pr follow-ups --event FILE`. */
 export async function runOpen(argv: string[]): Promise<number> {
   const { out, err } = say.printersFor("pr follow-ups");
   if (argv[0] !== "--event" || !argv[1]) {
-    err(say.text("Usage: factory pr follow-ups --event FILE"));
+    err(say.text("Usage: kodor pr follow-ups --event FILE"));
     return 2;
   }
   try {
@@ -404,7 +404,7 @@ export async function runOpen(argv: string[]): Promise<number> {
       {
         ...d,
         own: ownLinks(settings),
-        label: settings.tickets.labels.factory,
+        label: settings.tickets.labels.kodor,
         out,
       },
     );

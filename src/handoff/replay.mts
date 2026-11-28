@@ -28,7 +28,7 @@ export class NotHandedError extends Error {
         ? `Ticket ${words}`
         : `The ${LABEL[on]}'s ${call}${words ? ` of ${words}` : ""}`;
     const stop = ticket
-      ? `, or stop with: factory ticket stop ${ticket} "needs ${what[0].toLowerCase()}${what.slice(1)}"`
+      ? `, or stop with: kodor ticket stop ${ticket} "needs ${what[0].toLowerCase()}${what.slice(1)}"`
       : "";
     super(`✗ ${what} was not handed to this run. Go on without it${stop}`);
     this.name = "NotHandedError";

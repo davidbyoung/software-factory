@@ -496,7 +496,7 @@ describe("a build of a ticket across repositories", () => {
     [
       "one is not set up",
       { places: { "acme/web": { lock: null } } },
-      "#12 names acme/web, which is not set up: run factory init in acme/web",
+      "#12 names acme/web, which is not set up: run kodor init in acme/web",
     ],
     [
       "nobody who may confirmed the list",
@@ -504,7 +504,7 @@ describe("a build of a ticket across repositories", () => {
         tickets: [{ ...TICKET, comments: [confirming(LIST, "mallory")] }],
         places: { "acme/web": {} },
       },
-      `#12's repositories were not confirmed by someone who can write to ${REPOSITORY}: run factory ticket repositories 12 --set ${REPOSITORY} acme/web --after acme/web=${REPOSITORY}`,
+      `#12's repositories were not confirmed by someone who can write to ${REPOSITORY}: run kodor ticket repositories 12 --set ${REPOSITORY} acme/web --after acme/web=${REPOSITORY}`,
     ],
   ])("is stopped when %s", async (_, o, why, key = "12") => {
     const w = world({ tickets: [TICKET], ...o });
@@ -521,12 +521,12 @@ describe("a build of a ticket across repositories", () => {
     w.d.reach = async (name) => {
       if (name === REPOSITORY) return w.host.codeHost;
       throw new Error(
-        "The software factory's app for acme is not installed on acme/web. An owner of acme adds it: PAGE",
+        "kodor's app for acme is not installed on acme/web. An owner of acme adds it: PAGE",
       );
     };
     expect(await prepare("build", "12", w.d)).toBeNull();
     expect(last(w)).toContain(
-      "Stopped without a pull request: The software factory's app for acme is not installed on acme/web.",
+      "Stopped without a pull request: kodor's app for acme is not installed on acme/web.",
     );
   });
 

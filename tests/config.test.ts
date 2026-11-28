@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { load } from "js-yaml";
 import {
-  FACTORY_POLICY,
+  KODOR_POLICY,
   main,
   NO_DEPENDENCIES,
   parseSettings,
@@ -20,12 +20,12 @@ import { matchesGlob } from "../src/lib/glob.mts";
 import { explainedLines } from "../src/explain.mts";
 import { BUILT } from "../src/tool-names.mts";
 import { builtOf, TOOLS } from "../src/tools.mts";
-import { FACTORY_COLUMNS_YAML } from "./factory-columns";
+import { KODOR_COLUMNS_YAML } from "./kodor-columns";
 import { CODE_HOST, CODE_HOST_YAML } from "./settings-fixture";
 import { into, look } from "./printed";
 
 const MINIMAL = {
-  version: 2,
+  version: 1,
   repository: "owner/name",
   "code-host": CODE_HOST,
 };
@@ -36,7 +36,7 @@ const parse = (raw: unknown, exists: (p: string) => boolean = () => true) =>
 describe("parseSettings", () => {
   it("fills every default for the shortest file", () => {
     expect(parse(MINIMAL)).toEqual({
-      version: 2,
+      version: 1,
       repository: "owner/name",
       tickets: {
         type: "github",
@@ -59,7 +59,7 @@ describe("parseSettings", () => {
           "for-the-builder": null,
           repositories: null,
         },
-        labels: { spec: "spec", factory: "factory" },
+        labels: { spec: "spec", kodor: "kodor" },
       },
       codeHost: {
         type: "github",
@@ -102,7 +102,7 @@ describe("parseSettings", () => {
         dependencies: 50,
       },
       rules: { smallChangeLines: 30, reviewRounds: 2 },
-      approvalPolicies: [FACTORY_POLICY],
+      approvalPolicies: [KODOR_POLICY],
     });
   });
 
@@ -145,12 +145,12 @@ describe("parseSettings", () => {
       expect(() =>
         parse({ ...MINIMAL, rules: { "review-rounds": value } }),
       ).toThrow(
-        ".claude/factory.yaml: rules.review-rounds: must be a whole number above zero",
+        ".claude/kodor.yaml: rules.review-rounds: must be a whole number above zero",
       );
       expect(() =>
         parse({ ...MINIMAL, rules: { "small-change-lines": value } }),
       ).toThrow(
-        ".claude/factory.yaml: rules.small-change-lines: must be a whole number above zero",
+        ".claude/kodor.yaml: rules.small-change-lines: must be a whole number above zero",
       );
     });
   });
@@ -257,7 +257,7 @@ describe("parseSettings", () => {
 
   it("fails on a ticket system other than GitHub, naming the one supported", () => {
     expect(() => parse({ ...MINIMAL, tickets: { type: "jira" } })).toThrow(
-      '.claude/factory.yaml: tickets.type "jira" is not supported. "github" is the only ticket system built.',
+      '.claude/kodor.yaml: tickets.type "jira" is not supported. "github" is the only ticket system built.',
     );
   });
 
@@ -284,7 +284,7 @@ describe("parseSettings", () => {
     it("refuses its key under another ticket system", () => {
       expect(() =>
         parseWith({ ...MINIMAL, tickets: { site: "https://tickets.example" } }),
-      ).toThrow(".claude/factory.yaml: tickets.site: unknown key");
+      ).toThrow(".claude/kodor.yaml: tickets.site: unknown key");
     });
 
     it("takes a second code host's name and a second runner's", () => {
@@ -310,7 +310,7 @@ describe("parseSettings", () => {
       expect(() =>
         parseWith({ ...MINIMAL, tickets: { type: "jira" } }),
       ).toThrow(
-        '.claude/factory.yaml: tickets.type "jira" is not supported. The ticket systems built are "github" and "fake".',
+        '.claude/kodor.yaml: tickets.type "jira" is not supported. The ticket systems built are "github" and "fake".',
       );
     });
   });
@@ -329,7 +329,7 @@ describe("parseSettings", () => {
       return "accepted";
     };
     const REQUIRED =
-      '.claude/factory.yaml: code-host.branch-name: is required. Run factory init to set it, or add it, such as branch-name: "{ticket}"';
+      '.claude/kodor.yaml: code-host.branch-name: is required. Run kodor init to set it, or add it, such as branch-name: "{ticket}"';
 
     it("is required", () => {
       expect(() => parse({ ...MINIMAL, "code-host": undefined })).toThrow(
@@ -361,7 +361,7 @@ describe("parseSettings", () => {
 
     it("says to quote a pattern YAML read as a map", () => {
       expect(refusal(load("{ticket}"))).toBe(
-        '.claude/factory.yaml: code-host.branch-name: is a map, not a pattern. Quote it: branch-name: "{ticket}"',
+        '.claude/kodor.yaml: code-host.branch-name: is a map, not a pattern. Quote it: branch-name: "{ticket}"',
       );
     });
 
@@ -369,14 +369,14 @@ describe("parseSettings", () => {
       "refuses %j, which is not text",
       (value) => {
         expect(refusal(value)).toBe(
-          '.claude/factory.yaml: code-host.branch-name: must be a pattern, such as branch-name: "{ticket}"',
+          '.claude/kodor.yaml: code-host.branch-name: must be a pattern, such as branch-name: "{ticket}"',
         );
       },
     );
 
     it("names the first placeholder it doesn't know", () => {
       expect(refusal("{slug}/{ticket}-{type}")).toBe(
-        ".claude/factory.yaml: code-host.branch-name: {slug} is not a placeholder. The placeholders are {ticket} and {user}",
+        ".claude/kodor.yaml: code-host.branch-name: {slug} is not a placeholder. The placeholders are {ticket} and {user}",
       );
     });
 
@@ -384,7 +384,7 @@ describe("parseSettings", () => {
       "refuses %j, which has no {ticket}",
       (value) => {
         expect(refusal(value)).toBe(
-          ".claude/factory.yaml: code-host.branch-name: needs {ticket}, or every build gets the same branch",
+          ".claude/kodor.yaml: code-host.branch-name: needs {ticket}, or every build gets the same branch",
         );
       },
     );
@@ -412,7 +412,7 @@ describe("parseSettings", () => {
       ["a.lock/{ticket}", "a part ends with .lock"],
     ])("refuses %j, which git refuses: %s", (pattern, reason) => {
       expect(refusal(pattern)).toBe(
-        `.claude/factory.yaml: code-host.branch-name: ${pattern} can't be a git branch name: ${reason}`,
+        `.claude/kodor.yaml: code-host.branch-name: ${pattern} can't be a git branch name: ${reason}`,
       );
       const filled = pattern.replace("{ticket}", "1");
       expect(
@@ -422,13 +422,13 @@ describe("parseSettings", () => {
 
     it("names the first of several faults: an unknown placeholder before git's rules", () => {
       expect(refusal("a b/{slug}")).toBe(
-        ".claude/factory.yaml: code-host.branch-name: {slug} is not a placeholder. The placeholders are {ticket} and {user}",
+        ".claude/kodor.yaml: code-host.branch-name: {slug} is not a placeholder. The placeholders are {ticket} and {user}",
       );
     });
 
     it("names a missing {ticket} before git's rules", () => {
       expect(refusal("a b")).toBe(
-        ".claude/factory.yaml: code-host.branch-name: needs {ticket}, or every build gets the same branch",
+        ".claude/kodor.yaml: code-host.branch-name: needs {ticket}, or every build gets the same branch",
       );
     });
 
@@ -449,7 +449,7 @@ describe("parseSettings", () => {
   it("fails on a code host other than GitHub, naming the one supported", () => {
     for (const written of ["gitlab", { type: "gitlab" }])
       expect(() => parse({ ...MINIMAL, "code-host": written })).toThrow(
-        '.claude/factory.yaml: code-host.type "gitlab" is not supported. "github" is the only code host built.',
+        '.claude/kodor.yaml: code-host.type "gitlab" is not supported. "github" is the only code host built.',
       );
   });
 
@@ -472,7 +472,7 @@ describe("parseSettings", () => {
     expect(() =>
       parse({ ...MINIMAL, builds: { runner: "buildkite" } }),
     ).toThrow(
-      '.claude/factory.yaml: builds.runner "buildkite" is not supported. "github-actions" is the only runner built.',
+      '.claude/kodor.yaml: builds.runner "buildkite" is not supported. "github-actions" is the only runner built.',
     );
   });
 
@@ -501,7 +501,7 @@ describe("parseSettings", () => {
     expect(() =>
       parse({ ...MINIMAL, builds: { "max-per-hour": max } }),
     ).toThrow(
-      ".claude/factory.yaml: builds.max-per-hour: must be a whole number, 1 or more",
+      ".claude/kodor.yaml: builds.max-per-hour: must be a whole number, 1 or more",
     );
   });
 
@@ -552,7 +552,7 @@ describe("parseSettings", () => {
     ])("fails on %j, which is not a host name", (host) => {
       expect(() => hosts(["repo.packagist.org", host])).toThrow(
         new SettingsError(
-          ".claude/factory.yaml: builds.hosts[1]: must be a host name",
+          ".claude/kodor.yaml: builds.hosts[1]: must be a host name",
         ),
       );
     });
@@ -563,7 +563,7 @@ describe("parseSettings", () => {
       [[443], "builds.hosts[0]: must be text"],
     ])("fails on %j as any list of text does", (v, message) => {
       expect(() => hosts(v)).toThrow(
-        new SettingsError(`.claude/factory.yaml: ${message}`),
+        new SettingsError(`.claude/kodor.yaml: ${message}`),
       );
     });
 
@@ -580,7 +580,7 @@ describe("parseSettings", () => {
     ])("fails on %s, which is GitHub", (host) => {
       expect(() => hosts(["repo.packagist.org", host])).toThrow(
         new SettingsError(
-          ".claude/factory.yaml: builds.hosts can't name GitHub: a build has no GitHub access",
+          ".claude/kodor.yaml: builds.hosts can't name GitHub: a build has no GitHub access",
         ),
       );
     });
@@ -620,33 +620,33 @@ describe("parseSettings", () => {
       expect(() =>
         parse({ ...MINIMAL, builds: { trigger, "poll-minutes": 15 } }),
       ).toThrow(
-        ".claude/factory.yaml: builds.poll-minutes needs builds.trigger: github-action",
+        ".claude/kodor.yaml: builds.poll-minutes needs builds.trigger: github-action",
       );
     },
   );
 
-  it.each([3, "2", undefined])("fails on version %s", (version) => {
+  it.each([3, "1", undefined])("fails on version %s", (version) => {
     expect(() => parse({ ...MINIMAL, version })).toThrow(
-      ".claude/factory.yaml: version: must be 2",
+      ".claude/kodor.yaml: version: must be 1",
     );
   });
 
-  it("fails on version 1, saying where to read how to move the file", () => {
-    expect(() => parse({ ...MINIMAL, version: 1 })).toThrow(
-      ".claude/factory.yaml: version: must be 2: this file is version 1, see https://github.com/davidbyoung/software-factory/blob/main/docs/maintain/upgrade-notes.md#moving-to-settings-version-2",
+  it("fails on version 2, saying where to read how to move the file", () => {
+    expect(() => parse({ ...MINIMAL, version: 2 })).toThrow(
+      ".claude/kodor.yaml: version: must be 1: this file is version 2, see https://github.com/kodor-ai/kodor/blob/main/docs/maintain/upgrade-notes.md#moving-to-kodor",
     );
   });
 
   it("checks the version before any other key", () => {
     expect(() =>
       parse({
-        version: 1,
+        version: 2,
         repository: "owner/name",
         "before-commit": ["npm test"],
         plugins: [{ agent: "a", role: "reviewer" }],
         colour: "red",
       }),
-    ).toThrow("version: must be 2: this file is version 1");
+    ).toThrow("version: must be 1: this file is version 2");
   });
 
   describe("label names", () => {
@@ -660,7 +660,7 @@ describe("parseSettings", () => {
       const s = parse(MINIMAL);
       expect(s.tickets.labels).toEqual({
         spec: "spec",
-        factory: "factory",
+        kodor: "kodor",
       });
       expect(s.codeHost.labels).toEqual({
         "merge-automatic": "merge-automatic",
@@ -676,7 +676,7 @@ describe("parseSettings", () => {
       );
       expect(s.tickets.labels).toEqual({
         spec: "needs-spec",
-        factory: "factory",
+        kodor: "kodor",
       });
       expect(s.codeHost.labels["merge-manual"]).toBe("needs owner");
       expect(s.codeHost.labels["merge-automatic"]).toBe("merge-automatic");
@@ -685,15 +685,15 @@ describe("parseSettings", () => {
     it.each([
       [
         labeled({ "follow-up": "x" }),
-        ".claude/factory.yaml: tickets.labels.follow-up: unknown key",
+        ".claude/kodor.yaml: tickets.labels.follow-up: unknown key",
       ],
       [
         labeled({ "merge-manual": "x" }),
-        ".claude/factory.yaml: tickets.labels.merge-manual: unknown key",
+        ".claude/kodor.yaml: tickets.labels.merge-manual: unknown key",
       ],
       [
         labeled(undefined, { spec: "x" }),
-        ".claude/factory.yaml: code-host.labels.spec: unknown key",
+        ".claude/kodor.yaml: code-host.labels.spec: unknown key",
       ],
     ])("refuses a key that is not one of its side's", (raw, message) => {
       expect(() => parse(raw)).toThrow(message);
@@ -701,7 +701,7 @@ describe("parseSettings", () => {
 
     it.each(["", "   "])("refuses an empty name, %j", (name) => {
       expect(() => parse(labeled({ spec: name }))).toThrow(
-        ".claude/factory.yaml: tickets.labels.spec: must not be empty",
+        ".claude/kodor.yaml: tickets.labels.spec: must not be empty",
       );
     });
 
@@ -709,34 +709,34 @@ describe("parseSettings", () => {
       expect(() =>
         parse(labeled({ spec: "Spec" }, { "merge-manual": "spec" })),
       ).toThrow(
-        '.claude/factory.yaml: code-host.labels.merge-manual: "spec" is already tickets.labels.spec. Give each label its own name',
+        '.claude/kodor.yaml: code-host.labels.merge-manual: "spec" is already tickets.labels.spec. Give each label its own name',
       );
     });
 
     it("counts a default name, and names the key the file sets", () => {
-      expect(() => parse(labeled({ spec: "factory" }))).toThrow(
-        '.claude/factory.yaml: tickets.labels.spec: "factory" is already tickets.labels.factory. Give each label its own name',
+      expect(() => parse(labeled({ spec: "kodor" }))).toThrow(
+        '.claude/kodor.yaml: tickets.labels.spec: "kodor" is already tickets.labels.kodor. Give each label its own name',
       );
     });
 
-    it("takes the factory label's name", () => {
+    it("takes the kodor label's name", () => {
       expect(
-        parse(labeled({ factory: "built-by-factory" })).tickets.labels.factory,
+        parse(labeled({ kodor: "built-by-factory" })).tickets.labels.kodor,
       ).toBe("built-by-factory");
     });
 
-    it("puts the factory label after spec, and before a pull request's, in the order a clash names", () => {
-      expect(() => parse(labeled({ factory: "spec" }))).toThrow(
-        '.claude/factory.yaml: tickets.labels.factory: "spec" is already tickets.labels.spec. Give each label its own name',
+    it("puts the kodor label after spec, and before a pull request's, in the order a clash names", () => {
+      expect(() => parse(labeled({ kodor: "spec" }))).toThrow(
+        '.claude/kodor.yaml: tickets.labels.kodor: "spec" is already tickets.labels.spec. Give each label its own name',
       );
       expect(() =>
-        parse(labeled({ factory: "x" }, { "merge-manual": "X" })),
+        parse(labeled({ kodor: "x" }, { "merge-manual": "X" })),
       ).toThrow("code-host.labels.merge-manual");
     });
 
     it("names the later of two keys the file sets", () => {
-      expect(() => parse(labeled({ spec: "kind", factory: "Kind" }))).toThrow(
-        '.claude/factory.yaml: tickets.labels.factory: "Kind" is already tickets.labels.spec. Give each label its own name',
+      expect(() => parse(labeled({ spec: "kind", kodor: "Kind" }))).toThrow(
+        '.claude/kodor.yaml: tickets.labels.kodor: "Kind" is already tickets.labels.spec. Give each label its own name',
       );
     });
 
@@ -770,14 +770,14 @@ describe("parseSettings", () => {
       });
 
       it("still refuses two ticket labels with one name", () => {
-        expect(() => parseWith(fake({ spec: "x", factory: "x" }))).toThrow(
-          'tickets.labels.factory: "x" is already tickets.labels.spec',
+        expect(() => parseWith(fake({ spec: "x", kodor: "x" }))).toThrow(
+          'tickets.labels.kodor: "x" is already tickets.labels.spec',
         );
       });
 
       it("gives the ticket system's reason for a name it refuses", () => {
         expect(() => parseWith(fake({ spec: "needs spec" }))).toThrow(
-          ".claude/factory.yaml: tickets.labels.spec: Fake Tickets doesn't allow a space in a label",
+          ".claude/kodor.yaml: tickets.labels.spec: Fake Tickets doesn't allow a space in a label",
         );
       });
     });
@@ -803,7 +803,7 @@ describe("parseSettings", () => {
       expect(() =>
         parseWith({ ...MINIMAL, tickets: { type: "fake" } }),
       ).toThrow(
-        ".claude/factory.yaml: tickets.columns: is required with tickets.type: fake: run factory init to choose which status shows each state",
+        ".claude/kodor.yaml: tickets.columns: is required with tickets.type: fake: run kodor init to choose which status shows each state",
       );
     });
 
@@ -835,7 +835,7 @@ describe("parseSettings", () => {
       "says where a top-level %s moved to",
       (key) => {
         expect(() => parse({ ...MINIMAL, [key]: ["npm test"] })).toThrow(
-          `.claude/factory.yaml: ${key}: moved to commands.${key}`,
+          `.claude/kodor.yaml: ${key}: moved to commands.${key}`,
         );
       },
     );
@@ -844,7 +844,7 @@ describe("parseSettings", () => {
       expect(() =>
         parse({ ...MINIMAL, plugins: [{ agent: "a", role: "reviewer" }] }),
       ).toThrow(
-        ".claude/factory.yaml: plugins: must be grouped by phase: refine, build, test, conflicts",
+        ".claude/kodor.yaml: plugins: must be grouped by phase: refine, build, test, conflicts",
       );
     });
   });
@@ -882,7 +882,7 @@ describe("parseSettings", () => {
       "fails on %j, a check with no specs to check",
       (specs) => {
         expect(() => parse({ ...MINIMAL, specs })).toThrow(
-          ".claude/factory.yaml: specs.check needs specs.type: openspec",
+          ".claude/kodor.yaml: specs.check needs specs.type: openspec",
         );
       },
     );
@@ -892,7 +892,7 @@ describe("parseSettings", () => {
       (check) => {
         expect(() =>
           parse({ ...MINIMAL, specs: { type: "openspec", check } }),
-        ).toThrow(".claude/factory.yaml: specs.check: must be text");
+        ).toThrow(".claude/kodor.yaml: specs.check: must be text");
       },
     );
   });
@@ -937,10 +937,10 @@ describe("parseSettings", () => {
       "fails on %s that is not a list of text, naming the key",
       (key) => {
         expect(() => commands({ [key]: "npm test" })).toThrow(
-          `.claude/factory.yaml: commands.${key}: must be a list`,
+          `.claude/kodor.yaml: commands.${key}: must be a list`,
         );
         expect(() => commands({ [key]: ["npm test", 1] })).toThrow(
-          `.claude/factory.yaml: commands.${key}[1]: must be text`,
+          `.claude/kodor.yaml: commands.${key}[1]: must be text`,
         );
       },
     );
@@ -950,7 +950,7 @@ describe("parseSettings", () => {
       (key) => {
         for (const value of ["", 7, null])
           expect(() => commands({ [key]: value })).toThrow(
-            `.claude/factory.yaml: commands.${key}: must be text`,
+            `.claude/kodor.yaml: commands.${key}: must be text`,
           );
       },
     );
@@ -962,7 +962,7 @@ describe("parseSettings", () => {
       ["report", { run: "npm run coverage", report: "" }],
     ])("fails on coverage without %s: %j", (key, coverage) => {
       expect(() => commands({ coverage })).toThrow(
-        `.claude/factory.yaml: commands.coverage.${key}: is required when commands.coverage is written`,
+        `.claude/kodor.yaml: commands.coverage.${key}: is required when commands.coverage is written`,
       );
     });
   });
@@ -1081,7 +1081,7 @@ describe("parseSettings", () => {
       ],
     ])("fails on an agent where a skill goes: %j", (written, key) => {
       expect(() => plugins(written)).toThrow(
-        `.claude/factory.yaml: ${key}: names a skill`,
+        `.claude/kodor.yaml: ${key}: names a skill`,
       );
     });
 
@@ -1093,7 +1093,7 @@ describe("parseSettings", () => {
       [{ test: { reviewers: [{ skill: "a" }] } }, "plugins.test.reviewers[0]"],
     ])("fails on a skill where an agent goes: %j", (written, key) => {
       expect(() => plugins(written)).toThrow(
-        `.claude/factory.yaml: ${key}: names an agent`,
+        `.claude/kodor.yaml: ${key}: names an agent`,
       );
     });
 
@@ -1116,7 +1116,7 @@ describe("parseSettings", () => {
       ],
     ])("fails on %j, which leaves out what its role needs", (written, key) => {
       expect(() => plugins(written)).toThrow(
-        `.claude/factory.yaml: ${key}: is required`,
+        `.claude/kodor.yaml: ${key}: is required`,
       );
     });
 
@@ -1158,7 +1158,7 @@ describe("parseSettings", () => {
         "plugins.conflicts.resolvers[0].labels",
       ],
     ])("fails on %j, naming the key its role does not take", (written, key) => {
-      expect(() => plugins(written)).toThrow(`.claude/factory.yaml: ${key}:`);
+      expect(() => plugins(written)).toThrow(`.claude/kodor.yaml: ${key}:`);
     });
 
     it("fails on a plugin whose file does not exist, naming its role and the file", () => {
@@ -1170,12 +1170,12 @@ describe("parseSettings", () => {
         },
       };
       expect(() => plugins(written, exists)).toThrow(
-        ".claude/factory.yaml: plugins.build.builders[0].skill: .claude/skills/gone/SKILL.md does not exist",
+        ".claude/kodor.yaml: plugins.build.builders[0].skill: .claude/skills/gone/SKILL.md does not exist",
       );
       expect(() =>
         plugins({ test: { reviewers: [{ agent: "gone" }] } }, exists),
       ).toThrow(
-        ".claude/factory.yaml: plugins.test.reviewers[0].agent: .claude/agents/gone.md does not exist",
+        ".claude/kodor.yaml: plugins.test.reviewers[0].agent: .claude/agents/gone.md does not exist",
       );
     });
 
@@ -1193,11 +1193,11 @@ describe("parseSettings", () => {
     });
 
     describe("the end-to-end reviewer", () => {
-      const e2e = { test: { reviewers: [{ agent: "factory-e2e-reviewer" }] } };
+      const e2e = { test: { reviewers: [{ agent: "kodor-e2e-reviewer" }] } };
 
       it("needs commands.end-to-end", () => {
         expect(() => parse({ ...MINIMAL, plugins: e2e })).toThrow(
-          ".claude/factory.yaml: commands.end-to-end: is required to list factory-e2e-reviewer",
+          ".claude/kodor.yaml: commands.end-to-end: is required to list kodor-e2e-reviewer",
         );
       });
 
@@ -1208,23 +1208,23 @@ describe("parseSettings", () => {
             commands: { "end-to-end": "make e2e" },
             plugins: e2e,
           }).plugins.map((p) => p.name),
-        ).toEqual(["factory-e2e-reviewer"]);
+        ).toEqual(["kodor-e2e-reviewer"]);
       });
 
       it("is asked for its command before its file, which no sync writes without the command", () => {
         expect(() => parse({ ...MINIMAL, plugins: e2e }, () => false)).toThrow(
-          "commands.end-to-end: is required to list factory-e2e-reviewer",
+          "commands.end-to-end: is required to list kodor-e2e-reviewer",
         );
       });
     });
   });
 });
 
-describe("the factory's own approval policy", () => {
+describe("kodor's own approval policy", () => {
   const CREDENTIALS = {
     name: "credentials",
     run: "node .claude/approval-policies/credentials/find.mts",
-    agent: "factory-credentials-reader",
+    agent: "kodor-credentials-reader",
     in: null,
     files: ["**"],
   };
@@ -1363,13 +1363,13 @@ describe("approval-policies", () => {
       "approval-policies[0].off: must be true",
     ],
   ])("fails on %j, naming the item and what it lacks", (item, words) => {
-    expect(() => policies([item])).toThrow(`.claude/factory.yaml: ${words}`);
+    expect(() => policies([item])).toThrow(`.claude/kodor.yaml: ${words}`);
   });
 
   it("fails on two policies of one name", () => {
     const one = { name: "licenses", run: "x", files: ["a"] };
     expect(() => policies([one, one])).toThrow(
-      ".claude/factory.yaml: approval-policies[1].name: licenses is named twice, here and at [0]",
+      ".claude/kodor.yaml: approval-policies[1].name: licenses is named twice, here and at [0]",
     );
   });
 
@@ -1380,34 +1380,34 @@ describe("approval-policies", () => {
         () => false,
       ),
     ).toThrow(
-      ".claude/factory.yaml: approval-policies[0].agent: .claude/agents/gone.md does not exist",
+      ".claude/kodor.yaml: approval-policies[0].agent: .claude/agents/gone.md does not exist",
     );
   });
 
   it("fails when it is not a list", () => {
     expect(() => policies({ name: "licenses" })).toThrow(
-      ".claude/factory.yaml: approval-policies: must be a list",
+      ".claude/kodor.yaml: approval-policies: must be a list",
     );
   });
 });
 
 describe("pluginsOf", () => {
-  const SKILL = ".claude/skills/factory-design/SKILL.md";
+  const SKILL = ".claude/skills/kodor-design/SKILL.md";
   const site = { start: "npm start", url: "http://localhost:$PORT" };
   const lines = (raw: object, exists: (p: string) => boolean = () => true) =>
     pluginsOf(parse({ ...MINIMAL, ...raw }), exists).map(
       (p) => `${p.kind} ${p.name} ${p.role}`,
     );
 
-  it("gives the factory's refiner, prover, and test reviewer to a file that names none", () => {
+  it("gives kodor's refiner, prover, and test reviewer to a file that names none", () => {
     expect(lines({})).toEqual([
-      "skill factory-refine refiner",
-      "skill factory-mutate prover",
-      "agent factory-test-reviewer test-reviewer",
+      "skill kodor-refine refiner",
+      "skill kodor-mutate prover",
+      "agent kodor-test-reviewer test-reviewer",
     ]);
   });
 
-  it("lists every plugin in the roles' order, yours in place of the factory's", () => {
+  it("lists every plugin in the roles' order, yours in place of kodor's", () => {
     const plugins = {
       conflicts: { resolvers: [{ skill: "regen", files: ["gen/**"] }] },
       test: {
@@ -1438,11 +1438,11 @@ describe("pluginsOf", () => {
   });
 
   it("adds the design skill as a site's mockups, once it is synced", () => {
-    expect(lines({ site })).toContain("skill factory-design mockups");
+    expect(lines({ site })).toContain("skill kodor-design mockups");
     expect(lines({ site }, (p) => p !== SKILL)).not.toContain(
-      "skill factory-design mockups",
+      "skill kodor-design mockups",
     );
-    expect(lines({})).not.toContain("skill factory-design mockups");
+    expect(lines({})).not.toContain("skill kodor-design mockups");
   });
 });
 
@@ -1479,12 +1479,12 @@ function deps(over: Partial<Deps> = {}) {
   const d: Deps = {
     readFile: () =>
       [
-        "version: 2",
+        "version: 1",
         "repository: owner/name",
         CODE_HOST_YAML,
         "tickets:",
         "  board: 3",
-        FACTORY_COLUMNS_YAML,
+        KODOR_COLUMNS_YAML,
         "plugins:",
         "  refine:",
         "    mockups:",
@@ -1512,14 +1512,14 @@ function deps(over: Partial<Deps> = {}) {
   return { d, out, err, looks };
 }
 
-describe("factory config explain", () => {
+describe("kodor config explain", () => {
   const explain = async (file: string[]) => {
     const r = deps({ readFile: () => file.join("\n") });
     const code = await main(["explain"], r.d);
     return { code, out: r.out, err: r.err };
   };
   const SMALL = [
-    "version: 2",
+    "version: 1",
     "repository: owner/name",
     CODE_HOST_YAML,
     "tickets:",
@@ -1542,7 +1542,7 @@ describe("factory config explain", () => {
 
   it("prints a state's list of columns as a list, and one name as a string", async () => {
     const r = await explain([
-      "version: 2",
+      "version: 1",
       "repository: owner/name",
       CODE_HOST_YAML,
       "tickets:",
@@ -1584,9 +1584,9 @@ describe("factory config explain", () => {
     const r = await explain(SMALL);
     expect(r.code).toBe(0);
     expect(r.out.join("\n")).toMatchInlineSnapshot(`
-      "# The settings in effect. "# default" marks the factory's own value,
+      "# The settings in effect. "# default" marks kodor's own value,
       # a preset's name marks that preset's, and an unmarked line is yours.
-      version: 2
+      version: 1
       repository: owner/name
       tickets:
         type: github                                                               # default
@@ -1609,7 +1609,7 @@ describe("factory config explain", () => {
           repositories: none                                                       # default
         labels:
           spec: spec                                                               # default
-          factory: factory                                                         # default
+          kodor: kodor                                                             # default
       code-host:
         type: github
         branch-name: "{ticket}"
@@ -1639,16 +1639,16 @@ describe("factory config explain", () => {
       plugins:
         refine:
           refiner:                                                                 # default
-            skill: factory-refine                                                  # default
+            skill: kodor-refine                                                    # default
           # mockups: none (default)
         build:
           builders: []                                                             # default
           reviewers: []                                                            # default
         test:
           prover:                                                                  # default
-            skill: factory-mutate                                                  # default
+            skill: kodor-mutate                                                    # default
           reviewers:                                                               # default
-            - agent: factory-test-reviewer                                         # default
+            - agent: kodor-test-reviewer                                           # default
         conflicts:
           resolvers: []                                                            # default
       auto-merge:
@@ -1668,7 +1668,7 @@ describe("factory config explain", () => {
       approval-policies:
         - name: credentials                                                        # default
           run: node .claude/approval-policies/credentials/find.mts                 # default
-          agent: factory-credentials-reader                                        # default
+          agent: kodor-credentials-reader                                          # default
           files:                                                                   # default
             - "**"                                                                 # default"
     `);
@@ -1676,7 +1676,7 @@ describe("factory config explain", () => {
 
   it("marks as yours a value the file sets, even to its default", async () => {
     const r = await explain([
-      "version: 2",
+      "version: 1",
       "repository: owner/name",
       CODE_HOST_YAML,
       "session-minutes:",
@@ -1696,7 +1696,7 @@ describe("factory config explain", () => {
 
   it("marks as yours a part written as one word", async () => {
     const r = await explain([
-      "version: 2",
+      "version: 1",
       "repository: owner/name",
       CODE_HOST_YAML,
       "tickets: github",
@@ -1707,7 +1707,7 @@ describe("factory config explain", () => {
 
   it("prints a part that is off, and a default that is no value, as a comment", async () => {
     const r = await explain([
-      "version: 2",
+      "version: 1",
       "repository: owner/name",
       CODE_HOST_YAML,
     ]);
@@ -1720,7 +1720,7 @@ describe("factory config explain", () => {
 
   it("prints site's defaults that are no value as comments", async () => {
     const r = await explain([
-      "version: 2",
+      "version: 1",
       "repository: owner/name",
       CODE_HOST_YAML,
       "site:",
@@ -1728,12 +1728,12 @@ describe("factory config explain", () => {
       "  url: http://localhost:$PORT",
     ]);
     expect(r.out).toContain("  # design-guide: none (default)");
-    expect(r.out).toContain("  # pages: found by the factory (default)");
+    expect(r.out).toContain("  # pages: found by kodor (default)");
   });
 
   it("prints the ticket-side fields without a board, and no columns or board fields", async () => {
     const r = await explain([
-      "version: 2",
+      "version: 1",
       "repository: owner/name",
       CODE_HOST_YAML,
       "tickets:",
@@ -1749,7 +1749,7 @@ describe("factory config explain", () => {
   });
 
   const RICH = [
-    "version: 2",
+    "version: 1",
     "repository: owner/name",
     CODE_HOST_YAML,
     "specs:",
@@ -1778,7 +1778,7 @@ describe("factory config explain", () => {
     "      skill: our-prover",
     "    reviewers:",
     "      - agent: ours",
-    "      - agent: factory-e2e-reviewer",
+    "      - agent: kodor-e2e-reviewer",
     "        files: [e2e/**]",
     "  conflicts:",
     "    resolvers:",
@@ -1797,12 +1797,12 @@ describe("factory config explain", () => {
     ["a small file", SMALL],
     [
       "the shortest file",
-      ["version: 2", "repository: owner/name", CODE_HOST_YAML],
+      ["version: 1", "repository: owner/name", CODE_HOST_YAML],
     ],
     ["plugins, lists, and a site", RICH],
   ])("prints %s so it reads as the same settings", async (_, file) => {
     const r = await explain(file);
-    // The settings in effect: the output writes out the factory's own
+    // The settings in effect: the output writes out kodor's own
     // plugins, which the file leaves to their defaults.
     const inEffect = (text: string) => {
       const s = parse(load(text));
@@ -1818,7 +1818,7 @@ describe("factory config explain", () => {
   describe("the commands", () => {
     it("prints the block, with a comment for each command that is not set", async () => {
       const r = await explain([
-        "version: 2",
+        "version: 1",
         "repository: owner/name",
         CODE_HOST_YAML,
       ]);
@@ -1868,7 +1868,7 @@ describe("factory config explain", () => {
 
     it("prints a block with the type and the default check for OpenSpec written as one word", async () => {
       const r = await explain([
-        "version: 2",
+        "version: 1",
         "repository: owner/name",
         CODE_HOST_YAML,
         "specs: openspec",
@@ -1891,7 +1891,7 @@ describe("factory config explain", () => {
 
     it("prints one word when there are no specs", async () => {
       const r = await explain([
-        "version: 2",
+        "version: 1",
         "repository: owner/name",
         CODE_HOST_YAML,
       ]);
@@ -1908,9 +1908,9 @@ describe("factory config explain", () => {
         .slice(out.indexOf("plugins:"), out.indexOf("auto-merge:"))
         .map((l) => l.replace(/ +# default$/, " # default"));
 
-    it("prints them by phase, the factory's own marked as defaults and the empty lists written out", async () => {
+    it("prints them by phase, kodor's own marked as defaults and the empty lists written out", async () => {
       const r = await explain([
-        "version: 2",
+        "version: 1",
         "repository: owner/name",
         CODE_HOST_YAML,
       ]);
@@ -1918,16 +1918,16 @@ describe("factory config explain", () => {
         "plugins:",
         "  refine:",
         "    refiner: # default",
-        "      skill: factory-refine # default",
+        "      skill: kodor-refine # default",
         "    # mockups: none (default)",
         "  build:",
         "    builders: [] # default",
         "    reviewers: [] # default",
         "  test:",
         "    prover: # default",
-        "      skill: factory-mutate # default",
+        "      skill: kodor-mutate # default",
         "    reviewers: # default",
-        "      - agent: factory-test-reviewer # default",
+        "      - agent: kodor-test-reviewer # default",
         "  conflicts:",
         "    resolvers: [] # default",
       ]);
@@ -1941,7 +1941,7 @@ describe("factory config explain", () => {
         "    refiner:",
         "      skill: our-refiner",
         "    mockups: # default",
-        "      skill: factory-design # default",
+        "      skill: kodor-design # default",
         "  build:",
         "    builders:",
         "      - skill: build",
@@ -1957,7 +1957,7 @@ describe("factory config explain", () => {
         "      skill: our-prover",
         "    reviewers:",
         "      - agent: ours",
-        "      - agent: factory-e2e-reviewer",
+        "      - agent: kodor-e2e-reviewer",
         "        files:",
         "          - e2e/**",
         "  conflicts:",
@@ -1970,7 +1970,7 @@ describe("factory config explain", () => {
 
     it("prints a site's design skill as its mockups only once it is synced", async () => {
       const file = [
-        "version: 2",
+        "version: 1",
         "repository: owner/name",
         CODE_HOST_YAML,
         "site:",
@@ -1979,18 +1979,18 @@ describe("factory config explain", () => {
       ];
       const r = deps({
         readFile: () => file.join("\n"),
-        exists: (path) => path !== ".claude/skills/factory-design/SKILL.md",
+        exists: (path) => path !== ".claude/skills/kodor-design/SKILL.md",
       });
       await main(["explain"], r.d);
       expect(r.out).toContain("    # mockups: none (default)");
       expect((await explain(file)).out).toContainEqual(
-        expect.stringMatching(/^ {6}skill: factory-design +# default$/),
+        expect.stringMatching(/^ {6}skill: kodor-design +# default$/),
       );
     });
 
     it("prints a list of test reviewers the file writes empty as yours", async () => {
       const r = await explain([
-        "version: 2",
+        "version: 1",
         "repository: owner/name",
         CODE_HOST_YAML,
         "plugins:",
@@ -1999,7 +1999,7 @@ describe("factory config explain", () => {
       ]);
       expect(plugins(r.out)).toContain("    reviewers: []");
       expect(plugins(r.out)).not.toContain(
-        "      - agent: factory-test-reviewer # default",
+        "      - agent: kodor-test-reviewer # default",
       );
     });
   });
@@ -2027,7 +2027,7 @@ describe("factory config explain", () => {
       every.concat([
         "tickets:",
         "  board: 3",
-        FACTORY_COLUMNS_YAML,
+        KODOR_COLUMNS_YAML,
         "pr-review: true",
         "approval-policies:",
         "  - name: licenses",
@@ -2067,7 +2067,7 @@ describe("factory config explain", () => {
 
   it("writes items, commands.ignore, and a list of sites back as a valid settings file", async () => {
     const file = [
-      "version: 2",
+      "version: 1",
       "repository: owner/name",
       CODE_HOST_YAML,
       "commands:",
@@ -2094,7 +2094,7 @@ describe("factory config explain", () => {
 
   it("writes no commands.ignore when none is set", async () => {
     const r = await explain([
-      "version: 2",
+      "version: 1",
       "repository: owner/name",
       CODE_HOST_YAML,
     ]);
@@ -2104,7 +2104,7 @@ describe("factory config explain", () => {
   it("fails as config check does on settings it cannot read", async () => {
     const r = await explain(["version: 3"]);
     expect(r.code).toBe(1);
-    expect(r.err).toEqual([".claude/factory.yaml: version: must be 2"]);
+    expect(r.err).toEqual([".claude/kodor.yaml: version: must be 1"]);
     const missing = deps({
       loadYaml: () => Promise.reject(new Error("Cannot find package")),
     });
@@ -2132,15 +2132,15 @@ describe("main", () => {
   it.each([
     [
       'code-host:\n  type: gitlab\n  branch-name: "{ticket}"',
-      '.claude/factory.yaml: code-host.type "gitlab" is not supported. "github" is the only code host built.',
+      '.claude/kodor.yaml: code-host.type "gitlab" is not supported. "github" is the only code host built.',
     ],
     [
       `${CODE_HOST_YAML}\nbuilds:\n  runner: buildkite`,
-      '.claude/factory.yaml: builds.runner "buildkite" is not supported. "github-actions" is the only runner built.',
+      '.claude/kodor.yaml: builds.runner "buildkite" is not supported. "github-actions" is the only runner built.',
     ],
   ])("fails the check on %s", async (written, message) => {
     const { d, err } = deps({
-      readFile: () => `version: 2\nrepository: a/b\n${written}\n`,
+      readFile: () => `version: 1\nrepository: a/b\n${written}\n`,
     });
     expect(await main(["check"], d)).toBe(1);
     expect(err).toEqual([message]);
@@ -2149,33 +2149,33 @@ describe("main", () => {
   it("says a value with an unquoted colon needs quotes", async () => {
     const { d, err } = deps({
       readFile: () =>
-        `version: 2\nrepository: a/b\n${CODE_HOST_YAML}\n  labels:\n    verdict-override: owner: pass\n`,
+        `version: 1\nrepository: a/b\n${CODE_HOST_YAML}\n  labels:\n    verdict-override: owner: pass\n`,
     });
     expect(await main(["check"], d)).toBe(1);
     expect(err).toEqual([
-      '.claude/factory.yaml: line 7: verdict-override: owner: pass needs quotes around the name, such as verdict-override: "owner: pass"',
+      '.claude/kodor.yaml: line 7: verdict-override: owner: pass needs quotes around the name, such as verdict-override: "owner: pass"',
     ]);
   });
 
   it("reports any other YAML fault as js-yaml words it", async () => {
     const { d, err } = deps({
-      readFile: () => `version: 2\nrepository: [a/b\n`,
+      readFile: () => `version: 1\nrepository: [a/b\n`,
     });
     expect(await main(["check"], d)).toBe(1);
     expect(err[0]).toMatch(
-      /^\.claude\/factory\.yaml: deficient indentation \(3:1\)/,
+      /^\.claude\/kodor\.yaml: deficient indentation \(3:1\)/,
     );
   });
 
   describe("config get, for the commands and the spec check", () => {
-    const BARE = `version: 2\nrepository: a/b\n${CODE_HOST_YAML}\n`;
+    const BARE = `version: 1\nrepository: a/b\n${CODE_HOST_YAML}\n`;
     const get = async (file: string, key: string) => {
       const r = deps({ readFile: () => file });
       const code = await main([key], r.d);
       return { code, out: r.out, err: r.err };
     };
     const FULL = [
-      "version: 2",
+      "version: 1",
       "repository: a/b",
       CODE_HOST_YAML,
       "specs:",
@@ -2261,7 +2261,7 @@ describe("main", () => {
       expect(await get(file, key)).toEqual({
         code: 1,
         out: [],
-        err: [`.claude/factory.yaml: ${key}: not a setting that prints`],
+        err: [`.claude/kodor.yaml: ${key}: not a setting that prints`],
       });
     });
 
@@ -2296,30 +2296,30 @@ describe("main", () => {
   it("fails the check, naming the key, when a command list is not a list of text", async () => {
     const { d, err } = deps({
       readFile: () =>
-        `version: 2\nrepository: a/b\n${CODE_HOST_YAML}\ncommands:\n  build-setup: make tools\n`,
+        `version: 1\nrepository: a/b\n${CODE_HOST_YAML}\ncommands:\n  build-setup: make tools\n`,
     });
     expect(await main(["check"], d)).toBe(1);
     expect(err).toEqual([
-      ".claude/factory.yaml: commands.build-setup: must be a list",
+      ".claude/kodor.yaml: commands.build-setup: must be a list",
     ]);
   });
 
-  describe("factory plugins", () => {
-    const BARE = `version: 2\nrepository: owner/name\n${CODE_HOST_YAML}\n`;
+  describe("kodor plugins", () => {
+    const BARE = `version: 1\nrepository: owner/name\n${CODE_HOST_YAML}\n`;
     const run = async (argv: string[], file?: string) => {
       const r = deps(file === undefined ? {} : { readFile: () => file });
       const code = await main(["plugins", ...argv], r.d);
       return { code, out: r.out, err: r.err };
     };
 
-    it("prints each plugin the factory will use: its kind, name, and role, then its files or labels", async () => {
+    it("prints each plugin kodor will use: its kind, name, and role, then its files or labels", async () => {
       expect((await run([])).out).toEqual([
-        "skill factory-refine refiner",
+        "skill kodor-refine refiner",
         "skill mock mockups",
         "skill build builder new-thing",
         "agent rev reviewer src/** public/**",
-        "skill factory-mutate prover",
-        "agent factory-test-reviewer test-reviewer",
+        "skill kodor-mutate prover",
+        "agent kodor-test-reviewer test-reviewer",
       ]);
     });
 
@@ -2345,9 +2345,9 @@ describe("main", () => {
       },
     );
 
-    it("prints the factory's refiner when the settings name none", async () => {
+    it("prints kodor's refiner when the settings name none", async () => {
       expect((await run(["refiner"], BARE)).out).toEqual([
-        "skill factory-refine refiner",
+        "skill kodor-refine refiner",
       ]);
     });
 
@@ -2358,9 +2358,9 @@ describe("main", () => {
       ]);
     });
 
-    it("prints the factory's prover when the settings name none", async () => {
+    it("prints kodor's prover when the settings name none", async () => {
       expect((await run(["prover"], BARE)).out).toEqual([
-        "skill factory-mutate prover",
+        "skill kodor-mutate prover",
       ]);
     });
 
@@ -2369,9 +2369,9 @@ describe("main", () => {
       expect((await run(["prover"], file)).out).toEqual(["skill ours prover"]);
     });
 
-    it("prints the factory's test reviewer when the list is not written", async () => {
+    it("prints kodor's test reviewer when the list is not written", async () => {
       expect((await run(["test-reviewer"], BARE)).out).toEqual([
-        "agent factory-test-reviewer test-reviewer",
+        "agent kodor-test-reviewer test-reviewer",
       ]);
     });
 
@@ -2383,10 +2383,10 @@ describe("main", () => {
       ]);
     });
 
-    it("prints the factory's test reviewer when a written list names it", async () => {
-      const file = `${BARE}plugins:\n  test:\n    reviewers:\n      - agent: factory-test-reviewer\n      - agent: ours\n`;
+    it("prints kodor's test reviewer when a written list names it", async () => {
+      const file = `${BARE}plugins:\n  test:\n    reviewers:\n      - agent: kodor-test-reviewer\n      - agent: ours\n`;
       expect((await run(["test-reviewer"], file)).out).toEqual([
-        "agent factory-test-reviewer test-reviewer",
+        "agent kodor-test-reviewer test-reviewer",
         "agent ours test-reviewer",
       ]);
     });
@@ -2402,11 +2402,11 @@ describe("main", () => {
   });
 
   describe("the design skill as a website's mockups plugin", () => {
-    const SKILL = ".claude/skills/factory-design/SKILL.md";
-    const WARNING = `? ${SKILL} is missing: run factory sync to give the site its design skill`;
+    const SKILL = ".claude/skills/kodor-design/SKILL.md";
+    const WARNING = `? ${SKILL} is missing: run kodor sync to give the site its design skill`;
     const settings = (plugins: string[]) =>
       [
-        "version: 2",
+        "version: 1",
         "repository: owner/name",
         CODE_HOST_YAML,
         "site:",
@@ -2425,7 +2425,7 @@ describe("main", () => {
       });
 
       await main(["plugins", "mockups"], d);
-      expect(out).toEqual(["skill factory-design mockups"]);
+      expect(out).toEqual(["skill kodor-design mockups"]);
     });
 
     it("is listed among every plugin, after the refiner", async () => {
@@ -2436,8 +2436,8 @@ describe("main", () => {
 
       await main(["plugins"], d);
       expect(out.slice(0, 2)).toEqual([
-        "skill factory-refine refiner",
-        "skill factory-design mockups",
+        "skill kodor-refine refiner",
+        "skill kodor-design mockups",
       ]);
     });
 
@@ -2454,7 +2454,7 @@ describe("main", () => {
     it("is no plugin where there is no site", async () => {
       const { d, out } = deps({
         readFile: () =>
-          `version: 2\nrepository: owner/name\n${CODE_HOST_YAML}\n`,
+          `version: 1\nrepository: owner/name\n${CODE_HOST_YAML}\n`,
         exists: synced,
       });
 
@@ -2504,7 +2504,7 @@ describe("main", () => {
     const { d, out, err } = deps({ listFiles: () => ["src/a.ts"] });
     expect(await main(["check"], d)).toBe(0);
     expect(err).toEqual([
-      "? .claude/factory.yaml: plugins.build.reviewers[0].files: public/** matches no file",
+      "? .claude/kodor.yaml: plugins.build.reviewers[0].files: public/** matches no file",
     ]);
     expect(out).toEqual(["✓ The settings are valid."]);
   });
@@ -2517,17 +2517,17 @@ describe("main", () => {
 
   it("accepts version 2", async () => {
     const { d, err } = deps({
-      readFile: () => `version: 2\nrepository: a/b\n${CODE_HOST_YAML}`,
+      readFile: () => `version: 1\nrepository: a/b\n${CODE_HOST_YAML}`,
     });
     expect(await main(["check"], d)).toBe(0);
     expect(err).toEqual([]);
   });
 
-  it("fails the check on a version 1 file, with the page that says how to move it", async () => {
-    const { d, err } = deps({ readFile: () => "version: 1\nrepository: a/b" });
+  it("fails the check on a version 2 file, with the page that says how to move it", async () => {
+    const { d, err } = deps({ readFile: () => "version: 2\nrepository: a/b" });
     expect(await main(["check"], d)).toBe(1);
     expect(err).toEqual([
-      ".claude/factory.yaml: version: must be 2: this file is version 1, see https://github.com/davidbyoung/software-factory/blob/main/docs/maintain/upgrade-notes.md#moving-to-settings-version-2",
+      ".claude/kodor.yaml: version: must be 1: this file is version 2, see https://github.com/kodor-ai/kodor/blob/main/docs/maintain/upgrade-notes.md#moving-to-kodor",
     ]);
   });
 
@@ -2538,7 +2538,7 @@ describe("main", () => {
     expect(await main(["repository"], d)).toBe(1);
     expect(out).toEqual([]);
     expect(err).toEqual([
-      "The factory's settings cannot be read until dependencies are installed: run npm ci.",
+      "kodor's settings cannot be read until dependencies are installed: run npm ci.",
     ]);
   });
 });
@@ -2576,7 +2576,7 @@ describe("site settings", () => {
 
   const site = { start: "npm start", url: "http://localhost:$PORT" };
   const withSite = (extra: object = {}) =>
-    `version: 2\nrepository: a/b\n${CODE_HOST_YAML}\nsite: ${JSON.stringify({ ...site, ...extra })}\n`;
+    `version: 1\nrepository: a/b\n${CODE_HOST_YAML}\nsite: ${JSON.stringify({ ...site, ...extra })}\n`;
 
   it("fills the defaults", () => {
     expect(parse({ ...MINIMAL, site }).sites).toEqual([
@@ -2615,11 +2615,11 @@ describe("site settings", () => {
       {
         plugins: {
           build: {
-            reviewers: [{ agent: "factory-ui-reviewer", files: ["src/**"] }],
+            reviewers: [{ agent: "kodor-ui-reviewer", files: ["src/**"] }],
           },
         },
       },
-      "site: is required to list factory-ui-reviewer",
+      "site: is required to list kodor-ui-reviewer",
     ],
   ])("rejects an unsound site", (raw, message) => {
     expect(() => parse({ ...MINIMAL, ...raw })).toThrow(message);
@@ -2715,13 +2715,13 @@ describe("reachOf", () => {
   });
 });
 
-describe("factory config explain, in color", () => {
+describe("kodor config explain, in color", () => {
   const dim = (t: string) => `{skip:${t}}`;
   const at = (text: string, mark: string) => `${text.padEnd(26)}# ${mark}`;
 
   it("dims a default's whole line and a comment line, and only a preset's mark", () => {
     const lines = [
-      "version: 2",
+      "version: 1",
       "tickets:",
       "  columns:",
       at("    backlog: Todo", "default"),
@@ -2731,7 +2731,7 @@ describe("factory config explain, in color", () => {
       at("  review-rounds: 3", "@acme/factory-preset/node"),
     ];
     expect(explainedLines(lines).map(look)).toEqual([
-      "version: 2",
+      "version: 1",
       "tickets:",
       "  columns:",
       dim(at("    backlog: Todo", "default")),
@@ -2774,20 +2774,18 @@ describe("factory config explain, in color", () => {
 
   it("prints its lines with their looks", async () => {
     const r = deps({
-      readFile: () => `version: 2\nrepository: owner/name\n${CODE_HOST_YAML}\n`,
+      readFile: () => `version: 1\nrepository: owner/name\n${CODE_HOST_YAML}\n`,
     });
     expect(await main(["explain"], r.d)).toBe(0);
     expect(r.looks).toContainEqual(
       expect.stringMatching(/^\{skip: {2}type: github +# default\}$/),
     );
     expect(r.looks.slice(0, 3)).toEqual([
-      dim(
-        '# The settings in effect. "# default" marks the factory\'s own value,',
-      ),
+      dim('# The settings in effect. "# default" marks kodor\'s own value,'),
       dim(
         "# a preset's name marks that preset's, and an unmarked line is yours.",
       ),
-      "version: 2",
+      "version: 1",
     ]);
   });
 });
@@ -2798,7 +2796,7 @@ describe("commands by path", () => {
     exists: (p: string) => boolean = () => true,
   ) => parse({ ...MINIMAL, commands: written }, exists).commands;
   const fails = (written: unknown, message: string) =>
-    expect(() => commands(written)).toThrow(`.claude/factory.yaml: ${message}`);
+    expect(() => commands(written)).toThrow(`.claude/kodor.yaml: ${message}`);
 
   it("takes an item with run, in, and files, and in as one folder or a list", () => {
     expect(
@@ -2915,7 +2913,7 @@ describe("commands by path", () => {
     expect(() =>
       commands({ gate: [{ run: "x", in: "services/biling" }] }, () => false),
     ).toThrow(
-      ".claude/factory.yaml: commands.gate[0].in: services/biling is not a folder",
+      ".claude/kodor.yaml: commands.gate[0].in: services/biling is not a folder",
     );
   });
 
@@ -2962,14 +2960,14 @@ describe("a list of sites", () => {
     expect(() =>
       parse({ ...MINIMAL, site: [{ ...site, in: "a" }, site] }),
     ).toThrow(
-      ".claude/factory.yaml: site[1].in: is required when site lists more than one site",
+      ".claude/kodor.yaml: site[1].in: is required when site lists more than one site",
     );
   });
 });
 
 describe("config check for commands by path", () => {
   const settings = (lines: string[]) =>
-    ["version: 2", "repository: owner/name", CODE_HOST_YAML, ...lines].join(
+    ["version: 1", "repository: owner/name", CODE_HOST_YAML, ...lines].join(
       "\n",
     );
   const FILES = [
@@ -3025,13 +3023,13 @@ describe("config check for commands by path", () => {
       "  ignore: [notes/**]",
     ]);
     expect(r.err).toContain(
-      "? .claude/factory.yaml: commands.gate[0].in: apps/* matches no folder",
+      "? .claude/kodor.yaml: commands.gate[0].in: apps/* matches no folder",
     );
     expect(r.err).toContain(
-      "? .claude/factory.yaml: commands.gate[1].files: lib/** matches no file",
+      "? .claude/kodor.yaml: commands.gate[1].files: lib/** matches no file",
     );
     expect(r.err).toContain(
-      "? .claude/factory.yaml: commands.ignore: notes/** matches no file",
+      "? .claude/kodor.yaml: commands.ignore: notes/** matches no file",
     );
   });
 
@@ -3044,7 +3042,7 @@ describe("config check for commands by path", () => {
       "      files: [packages/*/src/**, packages/api/**]",
     ]);
     expect(r.err).toContain(
-      "? .claude/factory.yaml: commands.gate[0].files: packages/*/src/** is in every folder of packages/*, so a change in one runs all of them; write ./src/** for each folder's own",
+      "? .claude/kodor.yaml: commands.gate[0].files: packages/*/src/** is in every folder of packages/*, so a change in one runs all of them; write ./src/** for each folder's own",
     );
     expect(r.err.join("\n")).not.toContain(
       "packages/api/** is in every folder",
@@ -3060,7 +3058,7 @@ describe("config check for commands by path", () => {
       "      report: coverage/lcov.info",
     ]);
     expect(r.err).toContain(
-      "? .claude/factory.yaml: commands.coverage[0].report: coverage/lcov.info is the same file in every folder of packages/*; write ./coverage/lcov.info",
+      "? .claude/kodor.yaml: commands.coverage[0].report: coverage/lcov.info is the same file in every folder of packages/*; write ./coverage/lcov.info",
     );
   });
 });
@@ -3070,7 +3068,7 @@ describe("config get for commands by path", () => {
     const files = ["packages/api/a.ts", "packages/web/b.ts"];
     const r = deps({
       readFile: () =>
-        ["version: 2", "repository: owner/name", CODE_HOST_YAML, ...lines].join(
+        ["version: 1", "repository: owner/name", CODE_HOST_YAML, ...lines].join(
           "\n",
         ),
       listFiles: () => files,
@@ -3099,11 +3097,11 @@ describe("config get for commands by path", () => {
     ]);
   });
 
-  it("fails on coverage.run for a list, naming factory coverage", async () => {
+  it("fails on coverage.run for a list, naming kodor coverage", async () => {
     const r = await get(ITEMS, "commands.coverage.run");
     expect(r.code).toBe(1);
     expect(r.err).toEqual([
-      ".claude/factory.yaml: commands.coverage.run: commands.coverage is a list: run factory coverage, which runs each",
+      ".claude/kodor.yaml: commands.coverage.run: commands.coverage is a list: run kodor coverage, which runs each",
     ]);
   });
 

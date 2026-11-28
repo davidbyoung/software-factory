@@ -1,4 +1,4 @@
-// The coding agent the factory's sessions run in. Claude Code is the only
+// The coding agent kodor's sessions run in. Claude Code is the only
 // one, so the settings name none: the agent that adds a second adds the
 // setting.
 export { claudeCodeAgent, claudeCodeSetup } from "./claude-code.mts";

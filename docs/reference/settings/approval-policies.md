@@ -5,8 +5,8 @@ write to the repository accepts them with the
 [`policy-override`](code-host.md#code-hostlabels) label.
 [Approval policies](../../features/approval-policies.md) says when to use one, what
 each key means, what a check reads and prints, and what a pull request
-shows while one waits. The factory adds one policy of its own,
-`credentials` ([The factory's own policy](../../features/credentials-policy.md#the-factorys-own-policy)),
+shows while one waits. kodor adds one policy of its own,
+`credentials` ([kodor's own policy](../../features/credentials-policy.md#kodors-own-policy)),
 which `off: true` turns off.
 
 ```yaml
@@ -23,5 +23,5 @@ approval-policies:
 [The settings](../../features/approval-policies.md#the-settings) there has a table of
 the keys: `name`, `run`, `agent`, `in`, `files`, and `off`. Turning
 off every policy, `credentials` included, or turning the first one back
-on, changes `.github/workflows/factory.yml`, which `factory sync`
+on, changes `.github/workflows/kodor.yml`, which `kodor sync`
 rewrites, so commit it from your computer.

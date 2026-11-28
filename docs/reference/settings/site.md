@@ -1,12 +1,12 @@
 # `site`
 
-How the factory looks at your website, if your repository is one. With
-`site` set and `factory-ui-reviewer` listed under
+How kodor looks at your website, if your repository is one. With
+`site` set and `kodor-ui-reviewer` listed under
 [`plugins.build.reviewers`](plugins.md#pluginsbuild), every change that alters how
 the site looks is screenshotted before and after, and the difference is
 reviewed. The screenshots are taken with Playwright, so install it in
 your repository first, with `npm install -D playwright`. Until you do,
-`factory config check` fails on a file with `site`.
+`kodor config check` fails on a file with `site`.
 
 Most sites need only two lines:
 
@@ -16,9 +16,9 @@ site:
   url: http://localhost:$PORT
 ```
 
-**It worked when** `factory site compare` builds your branch and the
+**It worked when** `kodor site compare` builds your branch and the
 default branch, takes the screenshots, and prints where it saved them.
-[`factory site`](../../features/website-review.md#factory-site) has the details.
+[`kodor site`](../../features/website-review.md#kodor-site) has the details.
 
 Every setting `site` takes:
 
@@ -26,7 +26,7 @@ Every setting `site` takes:
 | --------------- | ----------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
 | `start`         | A command that builds and serves the site, with `$PORT` set for it. Required                                      | none                                                                 |
 | `url`           | The address `start` serves the site at. Required                                                                  | none                                                                 |
-| `design-guide`  | A file of your own design rules, checked on top of the factory's                                                  | none                                                                 |
+| `design-guide`  | A file of your own design rules, checked on top of kodor's                                                        | none                                                                 |
 | `pages`         | A list of paths to look at                                                                                        | The pages in `/sitemap.xml`, or else the ones the home page links to |
 | `widths`        | A list of screen widths, in pixels                                                                                | `[390, 1280]`                                                        |
 | `hide`          | A list of CSS selectors hidden before each screenshot, for something that floats over the page                    | none                                                                 |
@@ -39,7 +39,7 @@ Every setting `site` takes:
 **`site` can be a list,** with one site for each web app in the
 repository. Give each `in`, its folder, and `files` as for
 [commands for some folders](commands.md#commands-for-some-folders). `start` runs in
-the site's folder, and `factory site compare` takes screenshots of each
+the site's folder, and `kodor site compare` takes screenshots of each
 site a change touches, one after another:
 
 ```yaml

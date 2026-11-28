@@ -1,8 +1,8 @@
 # `commands`
 
 The commands that are your project's own: how a session checks a change,
-runs one test, and so on. The factory's skills never name a test runner or
-a linter. They run `factory gate`, `factory test-one`, and the like, which
+runs one test, and so on. kodor's skills never name a test runner or
+a linter. They run `kodor gate`, `kodor test-one`, and the like, which
 run what you write here.
 
 ```yaml
@@ -22,15 +22,15 @@ commands:
   relock: npm install
 ```
 
-| Setting         | When it runs                                                     | Started by            | Default                    |
-| --------------- | ---------------------------------------------------------------- | --------------------- | -------------------------- |
-| `build-setup`   | Before a session in the cloud starts work                        | `factory build-setup` | none                       |
-| `before-commit` | Before every commit a session on your machine makes              | The commit hook       | none                       |
-| `gate`          | Before a session calls a task done                               | `factory gate`        | none, and a build needs it |
-| `test-one`      | When a session runs one test alone                               | `factory test-one`    | none                       |
-| `end-to-end`    | When a session runs one end-to-end test file alone               | `factory end-to-end`  | none                       |
-| `coverage`      | When a session checks that a pull request's new lines are tested | `factory coverage`    | none                       |
-| `relock`        | After a conflict in your lock file                               | `factory relock`      | `npm install`              |
+| Setting         | When it runs                                                     | Started by          | Default                    |
+| --------------- | ---------------------------------------------------------------- | ------------------- | -------------------------- |
+| `build-setup`   | Before a session in the cloud starts work                        | `kodor build-setup` | none                       |
+| `before-commit` | Before every commit a session on your machine makes              | The commit hook     | none                       |
+| `gate`          | Before a session calls a task done                               | `kodor gate`        | none, and a build needs it |
+| `test-one`      | When a session runs one test alone                               | `kodor test-one`    | none                       |
+| `end-to-end`    | When a session runs one end-to-end test file alone               | `kodor end-to-end`  | none                       |
+| `coverage`      | When a session checks that a pull request's new lines are tested | `kodor coverage`    | none                       |
+| `relock`        | After a conflict in your lock file                               | `kodor relock`      | `npm install`              |
 
 - **`$FILE` and `$NAME`** are set for you when a command runs one test.
   [`commands.test-one`](#commandstest-one) says how.
@@ -71,7 +71,7 @@ commands:
   folders. A `*` stands for one folder name: `packages/*` is each folder
   directly under `packages/`, including a new one not committed yet, and
   the item becomes one command for each, run in name order.
-  `factory config check` fails on a `**` here, and on a `*` anywhere but
+  `kodor config check` fails on a `**` here, and on a `*` anywhere but
   a whole last folder name.
 - **`files`** lists the changed files that set it off, as patterns such
   as `src/**/*.ts`. Without `files`, a change to any file in its folder
@@ -87,8 +87,8 @@ commands:
 - **`$BASE`** is set for every command: the commit your branch started
   from on your default branch, or the last commit for `before-commit`,
   for a tool that finds what changed itself, such as Nx.
-- **When the factory can't find that commit,** such as in a shallow
-  clone, `$BASE` is empty and every command runs. `factory gate` says so
+- **When kodor can't find that commit,** such as in a shallow
+  clone, `$BASE` is empty and every command runs. `kodor gate` says so
   first, with the command that fetches it, such as
   `Fetch it with: git fetch origin main`. A tool given an empty `$BASE`
   may check nothing, so run that command, then the gate again.
@@ -100,11 +100,11 @@ commands:
   or its folder does when it has no `files`, or
   [`commands.ignore`](#commandsignore) lists it.
 - **When the gate has an item, a changed file nothing covers runs every
-  command,** since nothing says what it could break. `factory gate`
+  command,** since nothing says what it could break. `kodor gate`
   names the file on its first line.
 - **A change to the settings runs every command,** gate or not:
-  `.claude/factory.yaml`, `.claude/factory.lock`, or
-  `.claude/factory.choices.yaml`. So a command you add is tried in the
+  `.claude/kodor.yaml`, `.claude/kodor.lock`, or
+  `.claude/kodor.choices.yaml`. So a command you add is tried in the
   pull request that adds it.
 - **Both rules hold for `gate`, `before-commit`, `relock`, and the sites
   under [`site`](site.md#site).** Not for `coverage`, since a file nothing
@@ -114,7 +114,7 @@ commands:
 - **A failure in one folder** doesn't stop the item's other folders: each
   runs, and every failure is listed. The commands after it in the list
   don't run.
-- **`factory config check`** fails on a folder that doesn't exist, a key
+- **`kodor config check`** fails on a folder that doesn't exist, a key
   it doesn't know, an empty `files`, and a path that leaves the
   repository. It warns on a `*` that matches no folder, a pattern that
   matches no file, and every file in the repository nothing covers.
@@ -140,7 +140,7 @@ commands:
   gate command, a change to it runs every command.
 - **It wins over `files`.** A file listed here runs no item, even one
   whose `./**` matches it.
-- **`factory config check`** lists the files nothing covers, so you can
+- **`kodor config check`** lists the files nothing covers, so you can
   settle them once.
 
 ## `commands.build-setup`
@@ -177,8 +177,8 @@ installed into the branch's copy, with `cp -R vendor ../work/`.
   it is built with the old commands until it merges.
 - **An item with `in`** runs in each of its folders, such as
   `composer install` in each PHP service. Every command runs, since
-  setup happens before there is a change, so `factory config check` fails
-  on `files` here. `factory build-setup` runs them, as the cloud build
+  setup happens before there is a change, so `kodor config check` fails
+  on `files` here. `kodor build-setup` runs them, as the cloud build
   does.
 
   ```yaml
@@ -214,7 +214,7 @@ commands:
 
 The checks a change has to pass before a session calls it done or opens a
 pull request. Think of it as what your CI runs on a pull request, minus
-anything too slow for a session to sit and wait for. `factory gate` runs
+anything too slow for a session to sit and wait for. `kodor gate` runs
 them in order and stops at the first failure, so put the fastest first.
 
 If you already have one command that runs every check, such as
@@ -279,24 +279,24 @@ Leave out:
   CI still runs it on the pull request.
 - **Anything that needs production secrets, or deploys.**
 
-There is no default. Without a gate, `factory gate` fails with
+There is no default. Without a gate, `kodor gate` fails with
 `commands.gate is not set`, and a build stops there, because an empty gate
-would pass every change. `factory init` asks for one gate command, and
+would pass every change. `kodor init` asks for one gate command, and
 lists the gate under "Left to do" when you leave that question empty.
 
-When a command fails, `factory gate` prints `✗ The gate failed on:` and
+When a command fails, `kodor gate` prints `✗ The gate failed on:` and
 the command, and runs none after it. The session fixes the cause and runs the
 gate again.
 
 With [commands for some folders](#commands-for-some-folders),
-`factory gate` first prints which commands run and why, and counts the
-ones it leaves out. `factory gate --dry-run` lists every command and why
+`kodor gate` first prints which commands run and why, and counts the
+ones it leaves out. `kodor gate --dry-run` lists every command and why
 it would run or not, and runs nothing.
 
 **Check your gate yourself** before a session relies on it: run
-`factory gate --all` on a clean checkout. It runs every command,
+`kodor gate --all` on a clean checkout. It runs every command,
 whatever changed, each in its folder, and should end with
-`✓ Every gate command passed.` and exit 0. `factory config check` checks
+`✓ Every gate command passed.` and exit 0. `kodor config check` checks
 the file, and lists the files no gate command covers, but doesn't run
 your commands.
 
@@ -304,7 +304,7 @@ your commands.
 
 Runs one test file alone, or one test in it. A session uses it to watch a
 new test fail before the change, and to narrow down a bug.
-`factory test-one FILE NAME` runs your command with `$FILE` and `$NAME`
+`kodor test-one FILE NAME` runs your command with `$FILE` and `$NAME`
 set. When only a file is given, `$NAME` is empty, so the command should
 run the whole file then:
 
@@ -318,10 +318,10 @@ commands:
   test-one: vendor/bin/phpunit $FILE ${NAME:+--filter "$NAME"} # --filter only with a name
 ```
 
-- **Default:** none. `factory test-one` then fails with
+- **Default:** none. `kodor test-one` then fails with
   `commands.test-one is not set`, and a session finds its own way to run
   one test.
-- **In a monorepo,** write a list of items. `factory test-one FILE` runs
+- **In a monorepo,** write a list of items. `kodor test-one FILE` runs
   the first item whose folder holds FILE, in that folder, with `$FILE`
   starting there. Plain text in the list runs for any file, so put it
   last. When no item holds FILE and there is no plain text, it fails
@@ -340,7 +340,7 @@ commands:
 ## `commands.end-to-end`
 
 Runs one end-to-end test file alone, with `$FILE` set.
-`factory end-to-end FILE --times 10` runs it ten times and stops at the
+`kodor end-to-end FILE --times 10` runs it ten times and stops at the
 first failure, as `failed on run 3 of 10`. A build does that with each new
 end-to-end test, since one that fails one run in ten will fail someone's
 pull request.
@@ -351,17 +351,17 @@ commands:
 ```
 
 - **Default:** none. Leave it out if you have no end-to-end tests.
-- **Setting it makes `factory-e2e-reviewer` available,** the factory's
-  reviewer for browser tests. To use it, run `factory sync`, then list it
+- **Setting it makes `kodor-e2e-reviewer` available,** kodor's
+  reviewer for browser tests. To use it, run `kodor sync`, then list it
   under [`plugins.test.reviewers`](plugins.md#pluginstest). That list replaces the
-  default, so list `factory-test-reviewer` there too.
+  default, so list `kodor-test-reviewer` there too.
 - **In a monorepo,** a list of items, chosen as for
   [`commands.test-one`](#commandstest-one).
 
 ## `commands.coverage`
 
 The command that measures test coverage, and where it writes its lcov
-report. `factory coverage` runs it and prints the lines your branch
+report. `kodor coverage` runs it and prints the lines your branch
 changed that no test covers.
 
 ```yaml
@@ -374,7 +374,7 @@ commands:
 - **Default:** none, and a session doesn't check coverage.
 - **Write both `run` and `report`,** or neither.
 - **In a monorepo,** a list of them, each with `in` and a `report` in its
-  own folder. `factory coverage` runs the ones a change sets off, as the
+  own folder. `kodor coverage` runs the ones a change sets off, as the
   gate does:
 
   ```yaml
@@ -389,7 +389,7 @@ commands:
 
 The command that rebuilds your package manager's lock file. When the lock
 file conflicts with the default branch, a session takes the default
-branch's copy and runs `factory relock`, which runs this, instead of
+branch's copy and runs `kodor relock`, which runs this, instead of
 merging the file by hand.
 
 ```yaml

@@ -2,10 +2,10 @@
 // whether there is something to do, claims the ticket of a build, and hands
 // over what the session works from, which has no sign-in of its own.
 //
-//   factory session prepare build TICKET
-//   factory session prepare review|answer|conflict|dependency PULL
+//   kodor session prepare build TICKET
+//   kodor session prepare review|answer|conflict|dependency PULL
 //
-// It writes FACTORY_PREPARE/in, which `handoff/index.mts` describes, with
+// It writes KODOR_PREPARE/in, which `handoff/index.mts` describes, with
 // two bundles: `home.bundle`, the default branch the session starts in, and
 // `work.bundle`, the same and the branch it works on. Nothing on that branch
 // is checked out or run.
@@ -55,14 +55,14 @@ export type PrepareDeps = Adapters & {
   ownLinks: boolean;
   /** The account the review's summaries are posted from. */
   poster: string;
-  /** Runs a `factory ticket` or `factory pr` command through the adapters
+  /** Runs a `kodor ticket` or `kodor pr` command through the adapters
    * given, and gives what it printed. */
   ticket(
     argv: string[],
     on: Adapters,
   ): Promise<{ code: number; lines: string[] }>;
   pr(argv: string[], on: Adapters): Promise<{ code: number; lines: string[] }>;
-  /** Runs `factory deps` through the adapters given. */
+  /** Runs `kodor deps` through the adapters given. */
   deps(on: Adapters): Promise<unknown>;
   /** What is wrong with the presets a commit's lock names, beside the
    * default branch's: a lock that was written by hand, or by a session. */

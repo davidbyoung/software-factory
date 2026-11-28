@@ -43,7 +43,7 @@ export type GithubOptions = {
    * unless given. */
   reach?: (repository: string) => Promise<Transport>;
   /** The board's own names for the fields the sync reads, null for one it
-   * never writes. The factory's own names where not given. */
+   * never writes. kodor's own names where not given. */
   fieldNames?: {
     session: string | null;
     runsIn: string | null;
@@ -1099,7 +1099,7 @@ export function githubTickets(o: GithubOptions): Tickets {
       post: (file: string) => Promise<T>,
     ) => {
       const dir = files[0] ? dirname(files[0]) : tmpdir();
-      const file = join(dir, `.factory-body-${process.pid}-${Date.now()}.md`);
+      const file = join(dir, `.kodor-body-${process.pid}-${Date.now()}.md`);
       writeFileSync(file, body);
       try {
         return await post(file);

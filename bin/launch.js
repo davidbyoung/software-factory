@@ -1,4 +1,4 @@
-// Which copy of the factory the `factory` command runs. Plain JavaScript,
+// Which copy of kodor the `kodor` command runs. Plain JavaScript,
 // since Node will not run TypeScript from inside node_modules, and free of
 // the file system, which `deps` stands in for, so it can be tested alone.
 // In order:
@@ -8,7 +8,7 @@
 //      its `package.json` carrying this package's name. So a git worktree
 //      runs its own copy.
 //   2. The version that repository names, in `version:` of its
-//      `.claude/factory.lock`, or FACTORY_VERSION when that is set: this
+//      `.claude/kodor.lock`, or KODOR_VERSION when that is set: this
 //      copy when it is that version, and otherwise the copy of it in the
 //      cache, which the caller downloads the first time.
 //   3. Itself, where no version is named: a repository not set up yet,
@@ -53,12 +53,12 @@ export function chooseEntry(deps) {
   const self = { run: exists(beside) ? beside : join(here, "dist", "cli.mjs") };
 
   const wanted =
-    deps.env.FACTORY_VERSION ||
+    deps.env.KODOR_VERSION ||
     (deps.command === "update" || !root ? null : lockVersion(root, deps.read));
   if (!wanted || wanted === deps.version) return self;
   if (!RELEASE.test(wanted))
     return {
-      fault: `✗ .claude/factory.lock names the factory ${wanted}, which is not a release. Run: factory update`,
+      fault: `✗ .claude/kodor.lock names kodor ${wanted}, which is not a release. Run: kodor update`,
     };
 
   const dir = join(deps.cache, "versions", wanted);
@@ -78,14 +78,14 @@ export function chooseEntry(deps) {
  * the lock names none. Read with a pattern, since the launcher loads no
  * package to parse YAML with. */
 function lockVersion(root, read) {
-  const text = read(join(root, ".claude", "factory.lock"));
+  const text = read(join(root, ".claude", "kodor.lock"));
   return text?.match(/^version: *(\S+) *$/m)?.[1] ?? null;
 }
 
-/** Where the factory keeps what it downloads: each version of itself, and
+/** Where kodor keeps what it downloads: each version of itself, and
  * each commit of a preset. `src/lib/cache.mts` gives the same folder. */
 export function cacheRoot(env, home) {
-  return join(env.XDG_CACHE_HOME || join(home, ".cache"), "software-factory");
+  return join(env.XDG_CACHE_HOME || join(home, ".cache"), "kodor");
 }
 
 /** The line of npm's output that says why it failed: its last `npm error`

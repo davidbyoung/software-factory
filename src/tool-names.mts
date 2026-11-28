@@ -1,4 +1,4 @@
-// The tools the factory has built, by the name a setting gives each, and the
+// The tools kodor has built, by the name a setting gives each, and the
 // keys a ticket system adds under `tickets`. `config.mts` checks the
 // settings against these, and `tools.mts` registers what each name runs; a
 // test fails when the two differ. It imports nothing that imports the

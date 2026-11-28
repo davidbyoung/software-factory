@@ -1,4 +1,4 @@
-// Glob patterns as the factory's settings use them: `*` matches within one
+// Glob patterns as kodor's settings use them: `*` matches within one
 // folder, `**` across folders including none, both match names that start
 // with a dot, and a pattern with no wildcard matches that one path from the
 // root. Node's own `path.matchesGlob` skips dot names, so this is small and

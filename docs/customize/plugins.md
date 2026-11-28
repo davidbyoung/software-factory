@@ -1,13 +1,12 @@
 # Your own skills and agents
 
-For someone who wants the factory to use a skill or an agent of their own:
+For someone who wants kodor to use a skill or an agent of their own:
 a reviewer for one part of the code, a builder for one kind of ticket, or
-their own way of refining a ticket. At the end, the factory calls it at a
-set moment of every build, and `factory plugins` lists it.
+their own way of refining a ticket. At the end, kodor calls it at a
+set moment of every build, and `kodor plugins` lists it.
 
-The factory knows how to refine, build, and review a ticket. It does not
-know your project. A plugin is one of your own skills or agents that the
-factory calls at a set moment, so what only your project knows is part of
+kodor knows how to refine, build, and review a ticket. It does not
+know your project. A plugin is one of your own skills or agents that kodor calls at a set moment, so what only your project knows is part of
 every build.
 
 ## The idea
@@ -15,7 +14,7 @@ every build.
 You write a skill or an agent the way your coding agent expects one, in
 the folder it reads them from
 ([on Claude Code](../integrations/claude-code.md#skills-in-claude-code)). Then you add
-a few lines to `.claude/factory.yaml` saying where the factory calls it:
+a few lines to `.claude/kodor.yaml` saying where kodor calls it:
 
 ```yaml
 plugins:
@@ -26,7 +25,7 @@ plugins:
           - db/migrations/**
 ```
 
-That is the whole of it. The factory never copies over your files, and an
+That is the whole of it. kodor never copies over your files, and an
 update never touches them.
 
 ## The roles
@@ -38,21 +37,21 @@ each belongs to. Every role is optional, and leaving one out never turns a
 step off: the last column says what does the work when you have none.
 
 A role has two names. The settings key, in the second column, is what you
-write in `.claude/factory.yaml`. The role's own name, in the first column,
-is what `factory plugins` prints, and the headings below use it: `builder`
+write in `.claude/kodor.yaml`. The role's own name, in the first column,
+is what `kodor plugins` prints, and the headings below use it: `builder`
 is the role you write as
 [`plugins.build.builders`](../reference/settings/plugins.md#pluginsbuild), and no key is
 called `builder`.
 
-| Role            | Settings key                                                                       | What it does                                   | Without one                               |
-| --------------- | ---------------------------------------------------------------------------------- | ---------------------------------------------- | ----------------------------------------- |
-| `refiner`       | [`plugins.refine.refiner`](../reference/settings/plugins.md#pluginsrefine)         | Refines a ticket, in place of `factory-refine` | `factory-refine`                          |
-| `mockups`       | [`plugins.refine.mockups`](../reference/settings/plugins.md#pluginsrefine)         | Makes pictures for a decision about the look   | `factory-design` on a website, else words |
-| `builder`       | [`plugins.build.builders`](../reference/settings/plugins.md#pluginsbuild)          | Builds a ticket that carries one of its labels | The built-in build                        |
-| `reviewer`      | [`plugins.build.reviewers`](../reference/settings/plugins.md#pluginsbuild)         | Reads a finished change that touches its files | No reviewers of your own                  |
-| `prover`        | [`plugins.test.prover`](../reference/settings/plugins.md#pluginstest)              | Proves a new test can fail                     | `factory-mutate`                          |
-| `test-reviewer` | [`plugins.test.reviewers`](../reference/settings/plugins.md#pluginstest)           | Reads new and changed tests                    | `factory-test-reviewer`                   |
-| `resolver`      | [`plugins.conflicts.resolvers`](../reference/settings/plugins.md#pluginsconflicts) | Rebuilds its files after a merge conflict      | A merge by hand                           |
+| Role            | Settings key                                                                       | What it does                                   | Without one                             |
+| --------------- | ---------------------------------------------------------------------------------- | ---------------------------------------------- | --------------------------------------- |
+| `refiner`       | [`plugins.refine.refiner`](../reference/settings/plugins.md#pluginsrefine)         | Refines a ticket, in place of `kodor-refine`   | `kodor-refine`                          |
+| `mockups`       | [`plugins.refine.mockups`](../reference/settings/plugins.md#pluginsrefine)         | Makes pictures for a decision about the look   | `kodor-design` on a website, else words |
+| `builder`       | [`plugins.build.builders`](../reference/settings/plugins.md#pluginsbuild)          | Builds a ticket that carries one of its labels | The built-in build                      |
+| `reviewer`      | [`plugins.build.reviewers`](../reference/settings/plugins.md#pluginsbuild)         | Reads a finished change that touches its files | No reviewers of your own                |
+| `prover`        | [`plugins.test.prover`](../reference/settings/plugins.md#pluginstest)              | Proves a new test can fail                     | `kodor-mutate`                          |
+| `test-reviewer` | [`plugins.test.reviewers`](../reference/settings/plugins.md#pluginstest)           | Reads new and changed tests                    | `kodor-test-reviewer`                   |
+| `resolver`      | [`plugins.conflicts.resolvers`](../reference/settings/plugins.md#pluginsconflicts) | Rebuilds its files after a merge conflict      | A merge by hand                         |
 
 [`plugins`](../reference/settings/plugins.md#plugins) has the shape of each key:
 whether it takes a skill or an agent, one or a list, and `files` or
@@ -65,7 +64,7 @@ nothing. Every other role is a skill, which the session follows itself.
 
 ### `refiner`
 
-Refines a ticket your own way, in place of `factory-refine`.
+Refines a ticket your own way, in place of `kodor-refine`.
 
 ```yaml
 plugins:
@@ -74,29 +73,29 @@ plugins:
       skill: acme-refine
 ```
 
-| Step        | What happens                                                                                                                                                                                                                                                                                                                                                                                                              |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Called**  | When you run `/factory-refine N` in a session: `factory-refine` hands over to it before doing anything. By `factory-build`, on a ticket that has no criteria yet, or one you approved while its questions waited                                                                                                                                                                                                          |
-| **Handed**  | The ticket's key. From `factory-build`, for a round of questions you approved while it waited on your answers, also the words "approved while waiting: fold the approvers' replies into the body, post no marker". They tell the refiner to write the replies of anyone who can write to the repository into the ticket's body and to post no [marker](../reference/glossary.md), the hidden comment line the board reads |
-| **Returns** | A ticket a build can start from: everything in the list below                                                                                                                                                                                                                                                                                                                                                             |
-| **Then**    | The ticket waits for your approval, and the build reads what the refiner left                                                                                                                                                                                                                                                                                                                                             |
+| Step        | What happens                                                                                                                                                                                                                                                                                                                                                                                                            |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Called**  | When you run `/kodor-refine N` in a session: `kodor-refine` hands over to it before doing anything. By `kodor-build`, on a ticket that has no criteria yet, or one you approved while its questions waited                                                                                                                                                                                                              |
+| **Handed**  | The ticket's key. From `kodor-build`, for a round of questions you approved while it waited on your answers, also the words "approved while waiting: fold the approvers' replies into the body, post no marker". They tell the refiner to write the replies of anyone who can write to the repository into the ticket's body and to post no [marker](../reference/glossary.md), the hidden comment line the board reads |
+| **Returns** | A ticket a build can start from: everything in the list below                                                                                                                                                                                                                                                                                                                                                           |
+| **Then**    | The ticket waits for your approval, and the build reads what the refiner left                                                                                                                                                                                                                                                                                                                                           |
 
 **What a refiner must deliver.** The board and the build read these, so a
 refiner that leaves one out leaves a ticket that cannot be built.
 
 - **The three markers,** each posted with a command, so the board shows
-  where the ticket stands: `factory ticket refining N` when it starts,
-  `factory ticket waiting N` when it has posted questions for you, and
-  `factory ticket refined N` when the ticket is ready for your approval.
+  where the ticket stands: `kodor ticket refining N` when it starts,
+  `kodor ticket waiting N` when it has posted questions for you, and
+  `kodor ticket refined N` when the ticket is ready for your approval.
 - **The `spec` label, decided.** With
   [`specs: openspec`](../reference/settings/specs.md#specs), a change your users will
   see that is not small gets the label, with
-  `factory ticket label N --add spec`. A refiner never removes it, and
+  `kodor ticket label N --add spec`. A refiner never removes it, and
   never adds it back once you took it off.
 - **Each ticket this one waits on,** recorded with
-  `factory ticket block N --by M`. A build order written only in prose is
+  `kodor ticket block N --by M`. A build order written only in prose is
   one nothing reads.
-- **The body,** written with `factory ticket edit`, with your text kept
+- **The body,** written with `kodor ticket edit`, with your text kept
   first and these sections after it:
 
   | The ticket     | Its body has                                                                                                                                                                                     |
@@ -111,32 +110,31 @@ refiner that leaves one out leaves a ticket that cannot be built.
   that" sentence, which becomes one requirement, and Tasks are numbered
   groups of checkboxes, as the change's `tasks.md` has them.
 
-**The check is a script's.** `factory ticket refined N` refuses to post
-its marker on a body missing one of those sections, for the factory's own
+**The check is a script's.** `kodor ticket refined N` refuses to post
+its marker on a body missing one of those sections, for kodor's own
 refiner as for yours. It prints one line for each, such as
 `missing: ### Tasks under ## For the builder`, and exits 1.
-`factory ticket refined N --check` makes the same check and posts nothing:
+`kodor ticket refined N --check` makes the same check and posts nothing:
 it prints `sound` when the body passes. The check is that each section is
 there, not that what it says is right. For that,
-`factory-ticket-readiness`, the built-in agent that reads a refined ticket
+`kodor-ticket-readiness`, the built-in agent that reads a refined ticket
 cold, reads any refiner's result against this same list: have your refiner
-launch it, as `factory-refine` does.
+launch it, as `kodor-refine` does.
 
-`factory-refine` stays in your repository beside your refiner, so ask a
+`kodor-refine` stays in your repository beside your refiner, so ask a
 session for yours by its own name. The surest way to write one is to start
-from a copy of `factory-refine` under your own name.
+from a copy of `kodor-refine` under your own name.
 
 **To add questions, not replace the refiner,** write them in your own
 instructions for the agent, under a heading "Refining: this repository" in
-`CLAUDE.md`. The refining session reads `CLAUDE.md`, and it wins over the
-factory's rules, so no plugin is needed for that.
+`CLAUDE.md`. The refining session reads `CLAUDE.md`, and it wins over kodor's rules, so no plugin is needed for that.
 
 ### `mockups`
 
 Makes pictures to choose from when a decision changes how something looks.
 
 A repository with [`site`](../reference/settings/site.md#site) in its settings has one
-already: the factory's own `factory-design` skill, which `factory sync`
+already: kodor's own `kodor-design` skill, which `kodor sync`
 writes, is its `mockups` plugin unless you name one of your own.
 
 ```yaml
@@ -169,13 +167,13 @@ plugins:
           - new-endpoint
 ```
 
-| Step          | What happens                                                                                        |
-| ------------- | --------------------------------------------------------------------------------------------------- |
-| **Called**    | By `factory-build`, in place of its own build step                                                  |
-| **Used when** | The ticket carries one of its `labels`. When two builders share a label, the first listed is used   |
-| **Handed**    | The ticket, already claimed, on its branch                                                          |
-| **Returns**   | The change, and a report for the pull request body                                                  |
-| **Then**      | `factory-build` carries on as usual: the test reviewers, your reviewers, the gate, the pull request |
+| Step          | What happens                                                                                      |
+| ------------- | ------------------------------------------------------------------------------------------------- |
+| **Called**    | By `kodor-build`, in place of its own build step                                                  |
+| **Used when** | The ticket carries one of its `labels`. When two builders share a label, the first listed is used |
+| **Handed**    | The ticket, already claimed, on its branch                                                        |
+| **Returns**   | The change, and a report for the pull request body                                                |
+| **Then**      | `kodor-build` carries on as usual: the test reviewers, your reviewers, the gate, the pull request |
 
 **Reviewers still run after a builder.** The test reviewers and your own
 read what it built, and so does everything after them. A reviewer the
@@ -201,7 +199,7 @@ plugins:
 
 | Step                | What happens                                                                                 |
 | ------------------- | -------------------------------------------------------------------------------------------- |
-| **Called**          | By `factory-build`, after the change is built and before the pull request opens              |
+| **Called**          | By `kodor-build`, after the change is built and before the pull request opens                |
 | **Considered when** | The change touches a file matching one of its `files` patterns                               |
 | **Handed**          | The branch, and which files changed                                                          |
 | **Returns**         | Findings, each with where it is and why it matters. It changes nothing                       |
@@ -215,7 +213,7 @@ of your components, copy that has to follow a style guide.
 
 ### `prover`
 
-Proves a new test can fail, in place of `factory-mutate`. A test that
+Proves a new test can fail, in place of `kodor-mutate`. A test that
 passes whether or not the code works locks nothing in.
 
 ```yaml
@@ -225,12 +223,12 @@ plugins:
       skill: acme-mutation
 ```
 
-| Step        | What happens                                                                                                 |
-| ----------- | ------------------------------------------------------------------------------------------------------------ |
-| **Called**  | By `factory-build` and `factory-address-review`, for a new or changed test nobody saw fail before the change |
-| **Handed**  | The new or changed tests                                                                                     |
-| **Returns** | For each test, what made it fail, and the code put back as it was                                            |
-| **Then**    | The pull request records each proof. A test that stays green is the one that needs work                      |
+| Step        | What happens                                                                                             |
+| ----------- | -------------------------------------------------------------------------------------------------------- |
+| **Called**  | By `kodor-build` and `kodor-address-review`, for a new or changed test nobody saw fail before the change |
+| **Handed**  | The new or changed tests                                                                                 |
+| **Returns** | For each test, what made it fail, and the code put back as it was                                        |
+| **Then**    | The pull request records each proof. A test that stays green is the one that needs work                  |
 
 **What a prover must report.** For each new or changed test, one of two
 things, as a line the pull request body takes:
@@ -245,37 +243,37 @@ report. The pull request records it, where you read it.
 
 ### `test-reviewer`
 
-Reads new and changed tests, the way `factory-test-reviewer` does.
+Reads new and changed tests, the way `kodor-test-reviewer` does.
 
 ```yaml
 plugins:
   test:
     reviewers:
-      - agent: factory-test-reviewer
-      - agent: factory-e2e-reviewer
+      - agent: kodor-test-reviewer
+      - agent: kodor-e2e-reviewer
         files:
           - e2e/**
 ```
 
 | Step                | What happens                                                                                            |
 | ------------------- | ------------------------------------------------------------------------------------------------------- |
-| **Called**          | By `factory-build`, once the tests are written and proved, and before your own reviewers                |
+| **Called**          | By `kodor-build`, once the tests are written and proved, and before your own reviewers                  |
 | **Considered when** | The change adds or changes tests. One listed with `files`, only when the change touches a matching file |
 | **Handed**          | The new and changed tests                                                                               |
 | **Returns**         | Findings, each with where it is and why it matters. It changes nothing                                  |
 | **Then**            | The building session fixes what holds up, and the pull request says what each one found                 |
 
 - **[`plugins.test.reviewers`](../reference/settings/plugins.md#pluginstest), once
-  written, is the whole list.** Left out, `factory-test-reviewer` reads
+  written, is the whole list.** Left out, `kodor-test-reviewer` reads
   the tests. Written, only the agents you list do, so list
-  `factory-test-reviewer` to keep it, and leave it off to remove it.
+  `kodor-test-reviewer` to keep it, and leave it off to remove it.
 - **A small change gets no test reviewer,** whichever are listed
   ([Build a ticket](../workflow/build.md#sizing-the-work-to-the-change)), with two
   exceptions that run every one listed, one with `files` only when the
   change touches a matching file: a change to tests alone, and code that
   builds what is sent to an outside service.
-- **`factory-e2e-reviewer`** ships with the factory and reads browser
-  end-to-end tests. `factory sync` writes it once
+- **`kodor-e2e-reviewer`** ships with kodor and reads browser
+  end-to-end tests. `kodor sync` writes it once
   [`commands.end-to-end`](../reference/settings/commands.md#commandsend-to-end) is set, and
   it runs only where it is listed, as above.
 
@@ -298,7 +296,7 @@ plugins:
 
 | Step          | What happens                                                                                                   |
 | ------------- | -------------------------------------------------------------------------------------------------------------- |
-| **Called**    | By `factory-resolve-conflicts` and `factory-deps`, during a merge of your default branch into a pull request   |
+| **Called**    | By `kodor-resolve-conflicts` and `kodor-deps`, during a merge of your default branch into a pull request       |
 | **Used when** | A conflicted file matches one of its `files`. When two resolvers match one file, the first listed is used      |
 | **Handed**    | The conflicted files that match, with the merge still in progress                                              |
 | **Returns**   | Each file resolved and staged, or word that it cannot                                                          |
@@ -347,7 +345,7 @@ skipped.
 
 **Write the description as a condition.** "Reviews database migrations"
 says what the agent is. "Use when a change adds or alters a migration's
-SQL" says when to call it, which is what the factory needs.
+SQL" says when to call it, which is what kodor needs.
 
 ## A worked example
 
@@ -374,7 +372,7 @@ plugins:
 ```
 
 **3. A session builds a ticket** that removes an unused column.
-`factory-build` sees the change touched `db/migrations/`, reads the
+`kodor-build` sees the change touched `db/migrations/`, reads the
 reviewer's description, finds it applies, and launches it. The agent
 reports that the live code still selects that column, so the migration
 would break requests during the deploy. The session splits the work: this
@@ -388,7 +386,7 @@ again, the description does not, and the pull request says:
 "`migration-reviewer`: skipped, only a comment changed."
 
 The team's rules for what makes a migration safe stay in their own
-instructions for the agent and in the agent itself. The factory holds none of them.
+instructions for the agent and in the agent itself. kodor holds none of them.
 
 ## Adding one
 
@@ -396,18 +394,18 @@ instructions for the agent and in the agent itself. The factory holds none of th
 2. Give it a description that states when it applies.
 3. Add it under [`plugins`](../reference/settings/plugins.md#plugins), in its role, with
    `files` or `labels` where the role takes them.
-4. Run `factory config check`. It fails, naming the role, if the file is
+4. Run `kodor config check`. It fails, naming the role, if the file is
    missing, or the role takes a skill and you named an agent.
-5. Run `factory sync`. Every command reads your settings from
-   `.claude/factory.lock`, which the sync writes.
-6. Run `factory plugins` to see the list the factory will use, the
+5. Run `kodor sync`. Every command reads your settings from
+   `.claude/kodor.lock`, which the sync writes.
+6. Run `kodor plugins` to see the list kodor will use, the
    built-in ones included:
 
    ```text
-   skill factory-refine refiner
+   skill kodor-refine refiner
    agent migration-reviewer reviewer db/migrations/**
-   skill factory-mutate prover
-   agent factory-test-reviewer test-reviewer
+   skill kodor-mutate prover
+   agent kodor-test-reviewer test-reviewer
    ```
 
 **It worked when** your plugin is in that list, in its role.
@@ -415,13 +413,13 @@ instructions for the agent and in the agent itself. The factory holds none of th
 ## Plugins from a preset
 
 A [preset](presets.md) your repository follows can add plugins too, and
-ship their agents and skills, which `factory sync` copies into
+ship their agents and skills, which `kodor sync` copies into
 `.claude/agents/` and `.claude/skills/`. They are in the list
-`factory plugins` prints, beside your own. To leave one out, name it in
+`kodor plugins` prints, beside your own. To leave one out, name it in
 your own settings with `off: true`, as
-[`plugins`](../reference/settings/plugins.md#plugins) shows, then run `factory sync`.
+[`plugins`](../reference/settings/plugins.md#plugins) shows, then run `kodor sync`.
 
-**It worked when** `factory plugins` no longer lists it.
+**It worked when** `kodor plugins` no longer lists it.
 
 ## What is not a plugin
 

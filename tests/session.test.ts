@@ -26,7 +26,7 @@ import {
 } from "./memory-code-host.ts";
 
 const NOTICE =
-  "so no session ran. Builds in the cloud are off: factory init turns them on.";
+  "so no session ran. Builds in the cloud are off: kodor init turns them on.";
 
 const ask = (over: Partial<Ready> = {}) =>
   ready({
@@ -68,7 +68,7 @@ describe("ready", () => {
       run: false,
       code: 1,
       lines: [
-        "::error::No build token: set the secret FACTORY_BUILD_TOKEN, or FACTORY_BOARD_TOKEN.",
+        "::error::No build token: set the secret KODOR_BUILD_TOKEN, or KODOR_BOARD_TOKEN.",
       ],
     });
     expect((await ask({ byHand: true, claude: false })).lines).toEqual([
@@ -162,7 +162,7 @@ describe("the work a run on a pull request is for", () => {
 
   it("is refused without the pull request's number", async () => {
     await expect(work("review", []).found).rejects.toThrow(
-      "Usage: factory session ready",
+      "Usage: kodor session ready",
     );
   });
 });
@@ -175,26 +175,26 @@ describe("the repositories a run's token is for", () => {
   it("adds each preset's repository of the same owner, once, by name", () => {
     expect(
       repositoriesOf("acme/web", [
-        "acme/factory-config",
-        "acme/factory-config",
+        "acme/kodor-config",
+        "acme/kodor-config",
         "acme/web",
         "Acme/styles",
       ]),
-    ).toBe("web,factory-config,styles");
+    ).toBe("web,kodor-config,styles");
   });
 
   it("leaves out a preset in another owner's repository, which the organization's app is not installed on", () => {
     expect(
-      repositoriesOf("acme/web", ["contoso/presets", "acme/factory-config"]),
-    ).toBe("web,factory-config");
+      repositoriesOf("acme/web", ["contoso/presets", "acme/kodor-config"]),
+    ).toBe("web,kodor-config");
   });
 });
 
-const CLI = join(import.meta.dirname, "..", "bin", "factory.js");
+const CLI = join(import.meta.dirname, "..", "bin", "kodor.js");
 
 // The lock names this checkout's own version, so the launcher runs this
 // checkout and downloads nothing.
-describe("factory session repositories, as the workflow's step runs it", () => {
+describe("kodor session repositories, as the workflow's step runs it", () => {
   const { version } = JSON.parse(
     readFileSync(join(import.meta.dirname, "..", "package.json"), "utf8"),
   ) as { version: string };
@@ -205,11 +205,11 @@ describe("factory session repositories, as the workflow's step runs it", () => {
     "    files: {}",
   ];
   function printed(lock: string | null) {
-    const dir = mkdtempSync(join(tmpdir(), "factory-session-"));
+    const dir = mkdtempSync(join(tmpdir(), "kodor-session-"));
     mkdirSync(join(dir, ".git"));
     if (lock !== null) {
       mkdirSync(join(dir, ".claude"));
-      writeFileSync(join(dir, ".claude/factory.lock"), lock);
+      writeFileSync(join(dir, ".claude/kodor.lock"), lock);
     }
     const r = spawnSync("node", [CLI, "session", "repositories"], {
       cwd: dir,
@@ -226,14 +226,14 @@ describe("factory session repositories, as the workflow's step runs it", () => {
         [
           `version: ${version}`,
           "presets:",
-          "  - name: acme/factory-config//node",
+          "  - name: acme/kodor-config//node",
           ...PIN,
           "  - name: contoso/presets",
           ...PIN,
           "",
         ].join("\n"),
       ),
-    ).toEqual({ code: 0, out: "web,factory-config\n", err: "" });
+    ).toEqual({ code: 0, out: "web,kodor-config\n", err: "" });
   });
 
   it("prints the repository alone in a checkout with no lock", () => {
@@ -243,18 +243,18 @@ describe("factory session repositories, as the workflow's step runs it", () => {
 
 // The command itself, in this repository's checkout: a build's check asks
 // the code host nothing, so it runs with no network.
-describe("factory session ready, as the workflow's step runs it", () => {
+describe("kodor session ready, as the workflow's step runs it", () => {
   function step(args: string[], env: Record<string, string>) {
-    const dir = mkdtempSync(join(tmpdir(), "factory-session-"));
+    const dir = mkdtempSync(join(tmpdir(), "kodor-session-"));
     const output = join(dir, "output");
     const r = spawnSync("node", [CLI, "session", ...args], {
       encoding: "utf8",
       env: {
         ...process.env,
         GITHUB_EVENT_NAME: "workflow_dispatch",
-        FACTORY_BUILD_TOKEN_SET: "",
-        FACTORY_APP_KEY_SET: "",
-        FACTORY_CLAUDE_SET: "",
+        KODOR_BUILD_TOKEN_SET: "",
+        KODOR_APP_KEY_SET: "",
+        KODOR_CLAUDE_SET: "",
         GITHUB_OUTPUT: output,
         ...env,
       },
@@ -272,8 +272,8 @@ describe("factory session ready, as the workflow's step runs it", () => {
   it("tells the next steps to run when both tokens are set", () => {
     expect(
       step(["ready", "build"], {
-        FACTORY_BUILD_TOKEN_SET: "true",
-        FACTORY_CLAUDE_SET: "true",
+        KODOR_BUILD_TOKEN_SET: "true",
+        KODOR_CLAUDE_SET: "true",
       }),
     ).toMatchObject({ code: 0, wrote: "ran=true\n" });
   });
@@ -281,16 +281,16 @@ describe("factory session ready, as the workflow's step runs it", () => {
   it("counts the organization's app's key as the build token", () => {
     expect(
       step(["ready", "build"], {
-        FACTORY_APP_KEY_SET: "true",
-        FACTORY_CLAUDE_SET: "true",
+        KODOR_APP_KEY_SET: "true",
+        KODOR_CLAUDE_SET: "true",
       }),
     ).toMatchObject({ code: 0, out: "", wrote: "ran=true\n" });
   });
 
   it("fails a build with no build token, and tells the next steps not to run", () => {
-    expect(step(["ready", "build"], { FACTORY_CLAUDE_SET: "true" })).toEqual({
+    expect(step(["ready", "build"], { KODOR_CLAUDE_SET: "true" })).toEqual({
       code: 1,
-      out: "::error::No build token: set the secret FACTORY_BUILD_TOKEN, or FACTORY_BOARD_TOKEN.\n",
+      out: "::error::No build token: set the secret KODOR_BUILD_TOKEN, or KODOR_BOARD_TOKEN.\n",
       err: "",
       wrote: "ran=false\n",
     });
@@ -299,7 +299,7 @@ describe("factory session ready, as the workflow's step runs it", () => {
   it("exits 2 with its usage for a kind it does not know", () => {
     expect(step(["ready", "nothing"], {})).toMatchObject({
       code: 2,
-      err: "Usage: factory session ready build|review|answer|conflict|dependency ID [REVIEW]\n",
+      err: "Usage: kodor session ready build|review|answer|conflict|dependency ID [REVIEW]\n",
       wrote: "",
     });
   });

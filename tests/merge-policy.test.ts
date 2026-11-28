@@ -77,7 +77,7 @@ describe("classify", () => {
     });
   });
 
-  it("holds a factory file though allow matches it", () => {
+  it("holds a kodor file though allow matches it", () => {
     expect(
       classify(
         [
@@ -88,9 +88,9 @@ describe("classify", () => {
         { allow: ["**"], deny: [] },
       ).reasons,
     ).toEqual([
-      ".claude/skills/x/SKILL.md: the factory's own files",
-      "docs/CLAUDE.md: the factory's own files",
-      "openspec/config.yaml: the factory's own files",
+      ".claude/skills/x/SKILL.md: kodor's own files",
+      "docs/CLAUDE.md: kodor's own files",
+      "openspec/config.yaml: kodor's own files",
     ]);
   });
 });
@@ -221,7 +221,7 @@ describe("workflowOutput", () => {
 });
 
 // The merge policy and the verdict run the default branch's copy of
-// themselves and of the factory's command, never a pull request's: jobs of
+// themselves and of kodor's command, never a pull request's: jobs of
 // run.yml's Pull request group that start on pull_request_target, with the
 // default checkout,
 // which is the base branch.
@@ -397,7 +397,7 @@ describe("judge", () => {
     const credentials = {
       name: "credentials",
       run: "node find.mts",
-      agent: "factory-credentials-reader",
+      agent: "kodor-credentials-reader",
       in: null,
       files: ["**"],
     };

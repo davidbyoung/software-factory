@@ -84,7 +84,7 @@ function world(
         tickets: memory.tickets,
         own: true,
         repository: REPOSITORY,
-        label: "factory",
+        label: "kodor",
         out: print,
         ...over,
       }),
@@ -92,7 +92,7 @@ function world(
   };
 }
 
-describe("factory follow-up", () => {
+describe("kodor follow-up", () => {
   it("adds the list with its first item, at the end of the description", async () => {
     const w = world("Closes #88\n");
     expect(
@@ -138,7 +138,7 @@ describe("factory follow-up", () => {
     expect(await w.list("A.", "B.", "")).toBe(1);
     expect(w.log).toEqual([]);
     expect(w.out).toEqual([
-      "✗ Branch HEAD has no open pull request to list it in. Open one first: factory pr open",
+      "✗ Branch HEAD has no open pull request to list it in. Open one first: kodor pr open",
     ]);
   });
 
@@ -146,7 +146,7 @@ describe("factory follow-up", () => {
     const w = world("x");
     expect(await w.list("A.", "B.", "other")).toBe(1);
     expect(w.out).toEqual([
-      "✗ Branch other has no open pull request to list it in. Open one first: factory pr open",
+      "✗ Branch other has no open pull request to list it in. Open one first: kodor pr open",
     ]);
     expect(await w.body()).toBe("x");
   });
@@ -209,7 +209,7 @@ describe("factory follow-up", () => {
   });
 });
 
-describe("factory pr follow-ups", () => {
+describe("kodor pr follow-ups", () => {
   it("opens a ticket for a ticked item, and says so in the list", async () => {
     const w = world(LIST(tick(ONE), TWO) + "\nAfter.");
     expect(await w.open()).toBe(0);
@@ -218,7 +218,7 @@ describe("factory pr follow-ups", () => {
     expect(made).toMatchObject({
       title: "x leaves a file",
       body: "It stays. See `src/x.mts`.\n\nNoticed while building #88, in pull request #90.\n",
-      labels: ["factory"],
+      labels: ["kodor"],
     });
     expect(made!.record).toEqual([]);
     expect(await w.body()).toBe(

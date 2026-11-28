@@ -1,9 +1,9 @@
 # `plugins`
 
-Your own skills and agents, doing a job the factory would otherwise do
+Your own skills and agents, doing a job kodor would otherwise do
 itself, or adding to it. Each job is a **role**. For example, an agent you
 list in the `reviewers` role reads every change that touches its files,
-alongside the factory's own reviewers. Roles are grouped by the part of
+alongside kodor's own reviewers. Roles are grouped by the part of
 the work they belong to: `refine`, `build`, `test`, and `conflicts`.
 
 ```yaml
@@ -15,29 +15,28 @@ plugins:
           - db/migrations/**
 ```
 
-Every role is optional. Leaving one out never turns a step off: the
-factory does that step its own way. A reviewer is an agent, since it only
+Every role is optional. Leaving one out never turns a step off: kodor does that step its own way. A reviewer is an agent, since it only
 reads and reports. Every other role takes a skill, which the session
 follows itself. [Your own skills and agents](../../customize/plugins.md) says what each role is handed and
 what it has to give back.
 
-| Role                  | What you list | How many | When it is used                                                                               | If you list none                                                                                                           |
-| --------------------- | ------------- | -------- | --------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `refine.refiner`      | A skill       | One      | Whenever a ticket is refined                                                                  | `factory-refine` refines tickets                                                                                           |
-| `refine.mockups`      | A skill       | One      | Whenever a decision changes how something looks                                               | `factory-design` draws mockups if you set [`site`](site.md#site), and otherwise the session describes the choices in words |
-| `build.builders`      | Skills        | A list   | For a ticket with one of the builder's `labels`. Each builder needs at least one              | The factory's own build builds every ticket                                                                                |
-| `build.reviewers`     | Agents        | A list   | When a change touches one of the reviewer's `files`. Each reviewer needs at least one pattern | Only the factory's own reviewers read a change                                                                             |
-| `test.prover`         | A skill       | One      | Whenever a new test needs proof that it can fail                                              | `factory-mutate` proves each new test can fail                                                                             |
-| `test.reviewers`      | Agents        | A list   | When a change touches tests. A reviewer given `files` reads only changes to those             | `factory-test-reviewer` reads new tests                                                                                    |
-| `conflicts.resolvers` | Skills        | A list   | When a conflict is in one of the resolver's `files`. Each resolver needs at least one pattern | The session merges conflicts by hand, and [`commands.relock`](commands.md#commandsrelock) rebuilds the lock file           |
+| Role                  | What you list | How many | When it is used                                                                               | If you list none                                                                                                         |
+| --------------------- | ------------- | -------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `refine.refiner`      | A skill       | One      | Whenever a ticket is refined                                                                  | `kodor-refine` refines tickets                                                                                           |
+| `refine.mockups`      | A skill       | One      | Whenever a decision changes how something looks                                               | `kodor-design` draws mockups if you set [`site`](site.md#site), and otherwise the session describes the choices in words |
+| `build.builders`      | Skills        | A list   | For a ticket with one of the builder's `labels`. Each builder needs at least one              | kodor's own build builds every ticket                                                                                    |
+| `build.reviewers`     | Agents        | A list   | When a change touches one of the reviewer's `files`. Each reviewer needs at least one pattern | Only kodor's own reviewers read a change                                                                                 |
+| `test.prover`         | A skill       | One      | Whenever a new test needs proof that it can fail                                              | `kodor-mutate` proves each new test can fail                                                                             |
+| `test.reviewers`      | Agents        | A list   | When a change touches tests. A reviewer given `files` reads only changes to those             | `kodor-test-reviewer` reads new tests                                                                                    |
+| `conflicts.resolvers` | Skills        | A list   | When a conflict is in one of the resolver's `files`. Each resolver needs at least one pattern | The session merges conflicts by hand, and [`commands.relock`](commands.md#commandsrelock) rebuilds the lock file         |
 
 In [Claude Code](../../integrations/claude-code.md#skills-in-claude-code),
 a skill lives at `.claude/skills/NAME/SKILL.md` and an agent at
 `.claude/agents/NAME.md`.
 
-- **`factory plugins`** prints every plugin the factory will use, its own
+- **`kodor plugins`** prints every plugin kodor will use, its own
   included, one per line: skill or agent, its name, its role, and its
-  files or labels. `factory plugins reviewer` prints one role's.
+  files or labels. `kodor plugins reviewer` prints one role's.
 - **A plugin can come from a [preset](presets.md#presets),** which ships its agent
   or skill too. To leave out one that a preset adds to a list, name it
   here with `off: true`:
@@ -50,7 +49,7 @@ a skill lives at `.claude/skills/NAME/SKILL.md` and an agent at
           off: true
   ```
 
-- **`factory config check`** stops on an agent in a role that takes a
+- **`kodor config check`** stops on an agent in a role that takes a
   skill, or the other way round; on `files` or `labels` in a role that
   doesn't take them; on a builder with no `labels`; on a build reviewer or
   resolver with no `files`; on a skill or agent whose file doesn't
@@ -61,7 +60,7 @@ a skill lives at `.claude/skills/NAME/SKILL.md` and an agent at
 ## `plugins.refine`
 
 - **`refiner`:** your own skill for refining a ticket, used instead of
-  `factory-refine`.
+  `kodor-refine`.
 - **`mockups`:** your own skill for drawing the choices when a decision
   changes how something looks.
 
@@ -79,7 +78,7 @@ plugins:
 ## `plugins.build`
 
 - **`builders`:** your own skill for building certain tickets, used
-  instead of the factory's build for any ticket with one of its `labels`.
+  instead of kodor's build for any ticket with one of its `labels`.
   If two builders share a label, the first one listed builds the ticket.
 - **`reviewers`:** your own agents, each asked to read a change that
   touches a file matching its `files`. The pattern only decides who is
@@ -103,12 +102,12 @@ plugins:
 ## `plugins.test`
 
 - **`prover`:** your own skill for proving a new test can fail, used
-  instead of `factory-mutate`.
+  instead of `kodor-mutate`.
 - **`reviewers`:** the agents that read new and changed tests. **This list
-  replaces the default,** so `factory-test-reviewer` runs only if you list
+  replaces the default,** so `kodor-test-reviewer` runs only if you list
   it, and `reviewers: []` means no test reviewer runs. Without `files`, a
   reviewer reads every change to tests; with `files`, only changes to
-  matching files. `factory-e2e-reviewer` needs
+  matching files. `kodor-e2e-reviewer` needs
   [`commands.end-to-end`](commands.md#commandsend-to-end).
 
 ```yaml
@@ -117,8 +116,8 @@ plugins:
     prover:
       skill: acme-mutation
     reviewers:
-      - agent: factory-test-reviewer
-      - agent: factory-e2e-reviewer
+      - agent: kodor-test-reviewer
+      - agent: kodor-e2e-reviewer
         files:
           - e2e/**
 ```

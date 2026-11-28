@@ -1,16 +1,15 @@
-// `factory guard credentials`: refuses a session's tool call that reads the
+// `kodor guard credentials`: refuses a session's tool call that reads the
 // credentials file (`lib/credentials.mts`): a shell command with its path
 // as an argument, or a file tool pointed at it. A message or a search that
 // only mentions the path goes through. It stops a careless session or a
 // plain prompt injection, not one that builds the path in pieces.
 
 export const CREDENTIALS_REFUSAL =
-  "The factory's credentials file is not for sessions to read. Its commands read it themselves: run the factory command you need, such as factory ticket view.";
+  "kodor's credentials file is not for sessions to read. Its commands read it themselves: run the kodor command you need, such as kodor ticket view.";
 
 /** The path written as a path: after a folder, as `~/.config/...` or
  * `$XDG_CONFIG_HOME/...` writes it, or as the file itself. */
-const PATH =
-  /\/software-factory\/credentials|software-factory\/credentials\.yaml/;
+const PATH = /\/kodor\/credentials|kodor\/credentials\.yaml/;
 
 /** A shell command with its prose taken out: heredoc bodies, and quoted
  * strings with a space in them, such as a commit message. A quoted string

@@ -1,5 +1,5 @@
-// `factory doctor`: whether the repository's setup works, one line per
-// check, each failure with what to do about it. `factory init` ends with the
+// `kodor doctor`: whether the repository's setup works, one line per
+// check, each failure with what to do about it. `kodor init` ends with the
 // same checks.
 //
 // A stored secret cannot be read back, so a secret is checked only for
@@ -44,7 +44,7 @@ import {
 import { CONTEXT as REVIEW_VERDICT } from "./review-verdict.mts";
 import { CONTEXT as APPROVAL_POLICIES } from "./approval-policies.mts";
 import { differences, launcherPath, LOCK, PACKAGE, plan } from "./sync.mts";
-import { FACTORY_FILE, POLLER_FILE } from "./workflow-files.mts";
+import { KODOR_FILE, POLLER_FILE } from "./workflow-files.mts";
 import { PROPERTY } from "./init-org.mts";
 import { inUse, secretSteps, TOOLS, type Registry } from "./tools.mts";
 import { fieldChecks } from "./ticket-fields.mts";
@@ -76,9 +76,9 @@ export type DoctorDeps = {
   /** The paths a sync would change. It rejects with NoDefaultBranch when
    * the default branch, which the sync writes, cannot be told. */
   outOfStep: (s: Settings) => Promise<string[]> | string[];
-  /** The version the lock names, or null for none; the factory's newest
+  /** The version the lock names, or null for none; kodor's newest
    * release, asked for only when it is needed; and whether the repository
-   * is the factory's own, which runs its source. */
+   * is kodor's own, which runs its source. */
   factory: () => Promise<{
     named: string | null;
     own: boolean;
@@ -97,8 +97,8 @@ export type DoctorDeps = {
   now?: () => Date;
 };
 
-const SYNC = "Run factory sync";
-const INIT = "Run factory init";
+const SYNC = "Run kodor sync";
+const INIT = "Run kodor init";
 const SETTINGS = "Settings and files";
 const OFF = "Parts that are off";
 
@@ -142,10 +142,10 @@ export async function checks(d: DoctorDeps): Promise<Check[]> {
   }
   out.push(
     differ.length === 0
-      ? { state: "pass", text: "The factory's files match the settings" }
+      ? { state: "pass", text: "kodor's files match the settings" }
       : {
           state: "fail",
-          text: "The factory's files match the settings",
+          text: "kodor's files match the settings",
           fix:
             typeof differ === "string"
               ? differ
@@ -155,11 +155,11 @@ export async function checks(d: DoctorDeps): Promise<Check[]> {
 
   const factory = await d.factory();
   if (factory.own)
-    out.push({ state: "pass", text: "The factory runs from its source here" });
+    out.push({ state: "pass", text: "kodor runs from its source here" });
   else if (factory.named === null)
     out.push({
       state: "fail",
-      text: "The repository names a version of the factory",
+      text: "The repository names a version of kodor",
       fix: SYNC,
     });
   else {
@@ -170,14 +170,14 @@ export async function checks(d: DoctorDeps): Promise<Check[]> {
         compareVersions(named, newest) < 0
           ? {
               state: "unknown",
-              text: `The factory ${named}. ${newest} is released: merge its pull request, or run factory update`,
+              text: `kodor ${named}. ${newest} is released: merge its pull request, or run kodor update`,
             }
-          : { state: "pass", text: `The factory ${named}, the newest release` },
+          : { state: "pass", text: `kodor ${named}, the newest release` },
       );
     } catch (e) {
       out.push({
         state: "unknown",
-        text: `The factory ${named}. The newest release could not be read: ${message(e)}`,
+        text: `kodor ${named}. The newest release could not be read: ${message(e)}`,
       });
     }
   }
@@ -596,7 +596,7 @@ async function jobsCheck(codeHost: CodeHost): Promise<Check> {
 
 /** Whether the rules the code host applies to the default branch, the
  * organization's among them, require the review's verdict. Until the
- * factory's workflow is on that branch nothing posts the verdict and
+ * kodor's workflow is on that branch nothing posts the verdict and
  * nothing has made the rule, which is no fault. After that, what fixes a
  * missing rule depends on whose it is: the owner's, which applies once
  * the repository's property is on, or the repository's own. */
@@ -613,7 +613,7 @@ async function verdictCheck(
         text: `"${REVIEW_VERDICT}" is required before a merge to ${branch}`,
       };
     const workflow = await runner
-      .workflowState(FACTORY_FILE.split("/").at(-1)!)
+      .workflowState(KODOR_FILE.split("/").at(-1)!)
       .catch(() => null);
     if (workflow === "missing")
       return {
@@ -647,7 +647,7 @@ async function verdictCheck(
 }
 
 /** Whether the default branch's rules require "Approval policies". Only
- * the repository's own rule does, which `factory init` makes. */
+ * the repository's own rule does, which `kodor init` makes. */
 async function policiesCheck(
   codeHost: CodeHost,
   repository: string,
@@ -661,7 +661,7 @@ async function policiesCheck(
         }
       : {
           state: "unknown",
-          text: `"${APPROVAL_POLICIES}" is not required before a merge to ${branch}. An admin of ${repository} runs: factory init`,
+          text: `"${APPROVAL_POLICIES}" is not required before a merge to ${branch}. An admin of ${repository} runs: kodor init`,
         };
   } catch (e) {
     if (e instanceof NoRulesError)
@@ -700,7 +700,7 @@ async function pollerCheck(runner: Runner, repository: string): Promise<Check> {
     : {
         state: "fail",
         text: `${file} is not on the default branch of ${repository}`,
-        fix: `An owner of ${ownerOf(repository)} runs factory init --org again`,
+        fix: `An owner of ${ownerOf(repository)} runs kodor init --org again`,
       };
 }
 
@@ -737,7 +737,7 @@ function machineCheck(m: MachineState, names: string[], site: string): Check {
       return {
         state: "fail",
         text: `The credential on this machine could not be checked (${m.reason}). Check that ${site} can be reached`,
-        fix: "Run factory doctor",
+        fix: "Run kodor doctor",
       };
     case "unreadable":
       return m.unreadable === "loose"
@@ -961,7 +961,7 @@ export function doctorDeps(root = repoRoot()): DoctorDeps {
       const home = manifest.name.replace(/^@/, "");
       return {
         named,
-        own: launcherPath(PACKAGE, root) === "bin/factory.js",
+        own: launcherPath(PACKAGE, root) === "bin/kodor.js",
         newest: async () => {
           const s = await loadSettings();
           const tag = await TOOLS.codeHost[s.codeHost.type]!.open(

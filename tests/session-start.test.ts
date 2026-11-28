@@ -86,7 +86,7 @@ afterAll(() => rmSync(root, { recursive: true, force: true }));
 
 const listed = (lines: string[]) => lines.filter((l) => l.startsWith("- "));
 
-describe("factory session-start", () => {
+describe("kodor session-start", () => {
   it("lists only the branches with work not on origin/main", () => {
     const lines = repositoryState(gitIn(clone), {
       remote: "origin",
@@ -187,7 +187,7 @@ describe("the session-start hook", () => {
 
   it("prints why the lock is stale, and the session starts", async () => {
     const message =
-      ".claude/factory.yaml changed since the last sync. Run: factory sync";
+      ".claude/kodor.yaml changed since the last sync. Run: kodor sync";
     const { status, text } = await hook(onDevelop, message);
     expect(status).toBe(0);
     expect(text).toContain(message);
@@ -240,7 +240,7 @@ describe("the session-start hook", () => {
 
     expect(status).toBe(0);
     expect(text).toContain(
-      "✗ repository: .claude/factory.yaml says acme/site, and no remote here is acme/site. origin is acme/web. Add the remote, or change the line and run factory sync.",
+      "✗ repository: .claude/kodor.yaml says acme/site, and no remote here is acme/site. origin is acme/web. Add the remote, or change the line and run kodor sync.",
     );
     expect(text).not.toContain("Local branches with work");
   });

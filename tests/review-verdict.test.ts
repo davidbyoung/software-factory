@@ -979,7 +979,7 @@ describe("apply", () => {
   });
 });
 
-describe("factory review verdict", () => {
+describe("kodor review verdict", () => {
   afterEach(() => {
     vi.restoreAllMocks();
   });
@@ -990,7 +990,7 @@ describe("factory review verdict", () => {
 
     expect(await run()).toBe(1);
     expect(error).toHaveBeenCalledWith(
-      "factory review verdict reads pull_request_target, not workflow_run: a review's run posts its own verdict.",
+      "kodor review verdict reads pull_request_target, not workflow_run: a review's run posts its own verdict.",
     );
   });
 });

@@ -1,14 +1,13 @@
 # GitHub Actions
 
 The cloud runner: the workflows that run the automated review, the board
-sync, builds in the cloud, and the factory's other jobs.
+sync, builds in the cloud, and kodor's other jobs.
 
-## What the factory uses it for
+## What kodor uses it for
 
 Every run that does not need your machine: the automated review and its
 verdict, who merges, the board sync, the poller, builds in the cloud, the
-answers to a review, the conflict sweep, dependency updates, and the
-factory's own updates ([The jobs](#the-jobs)).
+answers to a review, the conflict sweep, dependency updates, and kodor's own updates ([The jobs](#the-jobs)).
 
 ## You need
 
@@ -17,9 +16,9 @@ The jobs run on GitHub's own runners, so there is nothing to install.
 
 ## Set it up
 
-`factory sync` writes the two workflow files, and `factory init` stores
+`kodor sync` writes the two workflow files, and `kodor init` stores
 the secrets each part needs
-([Run `factory init`](../setup/repository.md#run-factory-init)).
+([Run `kodor init`](../setup/repository.md#run-kodor-init)).
 [By hand](#by-hand) has the steps for the review and for builds in the
 cloud.
 
@@ -27,19 +26,18 @@ cloud.
 
 ### Workflows
 
-`factory sync` writes two workflow files under `.github/workflows/`,
+`kodor sync` writes two workflow files under `.github/workflows/`,
 always, whichever parts are on:
 
-| File                 | What the jobs it calls do                                                                                                                                                                    |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `factory.yml`        | Everything else: the runs that use Claude Code, and everything that is judged from your default branch's copy, so a pull request cannot change how it is judged                              |
-| `factory-review.yml` | The check that the factory's files are in step, which has to read a pull request's own code. GitHub runs this file from the pull request's copy, so it is given no secret, and may only read |
+| File               | What the jobs it calls do                                                                                                                                                              |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `kodor.yml`        | Everything else: the runs that use Claude Code, and everything that is judged from your default branch's copy, so a pull request cannot change how it is judged                        |
+| `kodor-review.yml` | The check that kodor's files are in step, which has to read a pull request's own code. GitHub runs this file from the pull request's copy, so it is given no secret, and may only read |
 
 Neither file holds those jobs. Each has one calling job, which calls a
-workflow in the factory's own repository, `davidbyoung/software-factory`,
-at the version your `.claude/factory.lock` names, so an update changes
-one line of each. The jobs in the table below are the ones in the
-factory's workflow that it calls. What `factory sync` writes into the
+workflow in kodor's own repository, `kodor-ai/kodor`,
+at the version your `.claude/kodor.lock` names, so an update changes
+one line of each. The jobs in the table below are the ones in kodor's workflow that it calls. What `kodor sync` writes into the
 two files comes from your
 settings: your default branch, which parts are on, the poller's
 schedule, each session's minutes, and the names of your own secrets.
@@ -49,39 +47,39 @@ schedule, each session's minutes, and the names of your own secrets.
 A job whose part is off is skipped, and starts no machine. Every time is
 UTC.
 
-| Job                                | File that starts it                                | Starts on                                                                                                                                                                                                      | Runs when                                                                                                                                                                                |
-| ---------------------------------- | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Factory files in step              | `factory-review.yml`, and `factory.yml` for a push | Every pull request, and a push to the default branch                                                                                                                                                           | Always                                                                                                                                                                                   |
-| Review                             | `factory.yml`                                      | A pull request marked ready, each push after, and a change of its base branch                                                                                                                                  | [`pr-review`](../reference/settings/pr-review.md#pr-review) is on, and the pull request is from this repository. One of Dependabot's is reviewed only once someone else has pushed to it |
-| Dependabot's auto-merge            | `factory.yml`                                      | Dependabot's pull requests                                                                                                                                                                                     | `.github/dependabot.yml` exists                                                                                                                                                          |
-| The review's verdict               | `factory.yml`                                      | A pull request opened, pushed to, marked ready, or given another base branch, the `verdict-override` label, and a run in another repository that it [waits for](../workflow/across-repositories.md#merge-them) | Always                                                                                                                                                                                   |
-| Telling the other repositories     | `factory.yml`                                      | A pull request opened, reopened, or closed                                                                                                                                                                     | Its text says it is part of a ticket, and it is from this repository                                                                                                                     |
-| Requiring the verdict              | `factory.yml`                                      | A push to the default branch                                                                                                                                                                                   | `pr-review` is on                                                                                                                                                                        |
-| Who merges                         | `factory.yml`                                      | Pull request events                                                                                                                                                                                            | [`auto-merge.allow`](../reference/settings/auto-merge.md#auto-merge) is set                                                                                                              |
-| The board sync                     | `factory.yml`                                      | The factory's commands, pull request events, and 07:00                                                                                                                                                         | [`tickets.board`](../reference/settings/tickets.md#tickets) is set                                                                                                                       |
-| Open the ticked tickets            | `factory.yml`                                      | A pull request from the repository merged, with a list of [follow-ups](../workflow/follow-ups.md)                                                                                                              | Always. It opens a ticket only for each follow-up that is ticked                                                                                                                         |
-| The poller                         | `factory.yml`                                      | Every [`builds.poll-minutes`](../reference/settings/builds.md#builds) minutes, or by hand                                                                                                                      | `builds.trigger` is `github-action`, unless a [preset](../customize/presets.md) you follow is in a repository that runs the poller, as an organization's `factory-config` does           |
-| Build                              | `factory.yml`                                      | The poller, `factory build N`, or by hand                                                                                                                                                                      | Always                                                                                                                                                                                   |
-| Answer                             | `factory.yml`                                      | A review you submit on a pull request, the run before it, or by hand                                                                                                                                           | The review is by someone who can write to the repository; or CI failed, or the automated review asked for changes, on a pull request a build in the cloud opened                         |
-| Finding the conflicts              | `factory.yml`                                      | A push to the default branch, 09:00, or by hand                                                                                                                                                                | Always. It starts one Conflict run for each pull request that conflicts with the default branch                                                                                          |
-| Conflict                           | `factory.yml`                                      | The job above, or by hand                                                                                                                                                                                      | A pull request conflicts                                                                                                                                                                 |
-| Finding Dependabot's pull requests | `factory.yml`                                      | 01:00, 13:00, and 19:00, or by hand                                                                                                                                                                            | `.github/dependabot.yml` exists. It starts one Dependency run for each of Dependabot's open pull requests                                                                                |
-| Dependency                         | `factory.yml`                                      | The job above, or by hand                                                                                                                                                                                      | One of Dependabot's pull requests is open                                                                                                                                                |
-| Updates                            | `factory.yml`                                      | 01:00, 13:00, and 19:00, or by hand                                                                                                                                                                            | Always                                                                                                                                                                                   |
+| Job                                | File that starts it                            | Starts on                                                                                                                                                                                                      | Runs when                                                                                                                                                                                |
+| ---------------------------------- | ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| kodor files in step                | `kodor-review.yml`, and `kodor.yml` for a push | Every pull request, and a push to the default branch                                                                                                                                                           | Always                                                                                                                                                                                   |
+| Review                             | `kodor.yml`                                    | A pull request marked ready, each push after, and a change of its base branch                                                                                                                                  | [`pr-review`](../reference/settings/pr-review.md#pr-review) is on, and the pull request is from this repository. One of Dependabot's is reviewed only once someone else has pushed to it |
+| Dependabot's auto-merge            | `kodor.yml`                                    | Dependabot's pull requests                                                                                                                                                                                     | `.github/dependabot.yml` exists                                                                                                                                                          |
+| The review's verdict               | `kodor.yml`                                    | A pull request opened, pushed to, marked ready, or given another base branch, the `verdict-override` label, and a run in another repository that it [waits for](../workflow/across-repositories.md#merge-them) | Always                                                                                                                                                                                   |
+| Telling the other repositories     | `kodor.yml`                                    | A pull request opened, reopened, or closed                                                                                                                                                                     | Its text says it is part of a ticket, and it is from this repository                                                                                                                     |
+| Requiring the verdict              | `kodor.yml`                                    | A push to the default branch                                                                                                                                                                                   | `pr-review` is on                                                                                                                                                                        |
+| Who merges                         | `kodor.yml`                                    | Pull request events                                                                                                                                                                                            | [`auto-merge.allow`](../reference/settings/auto-merge.md#auto-merge) is set                                                                                                              |
+| The board sync                     | `kodor.yml`                                    | kodor's commands, pull request events, and 07:00                                                                                                                                                               | [`tickets.board`](../reference/settings/tickets.md#tickets) is set                                                                                                                       |
+| Open the ticked tickets            | `kodor.yml`                                    | A pull request from the repository merged, with a list of [follow-ups](../workflow/follow-ups.md)                                                                                                              | Always. It opens a ticket only for each follow-up that is ticked                                                                                                                         |
+| The poller                         | `kodor.yml`                                    | Every [`builds.poll-minutes`](../reference/settings/builds.md#builds) minutes, or by hand                                                                                                                      | `builds.trigger` is `github-action`, unless a [preset](../customize/presets.md) you follow is in a repository that runs the poller, as an organization's `kodor-config` does             |
+| Build                              | `kodor.yml`                                    | The poller, `kodor build N`, or by hand                                                                                                                                                                        | Always                                                                                                                                                                                   |
+| Answer                             | `kodor.yml`                                    | A review you submit on a pull request, the run before it, or by hand                                                                                                                                           | The review is by someone who can write to the repository; or CI failed, or the automated review asked for changes, on a pull request a build in the cloud opened                         |
+| Finding the conflicts              | `kodor.yml`                                    | A push to the default branch, 09:00, or by hand                                                                                                                                                                | Always. It starts one Conflict run for each pull request that conflicts with the default branch                                                                                          |
+| Conflict                           | `kodor.yml`                                    | The job above, or by hand                                                                                                                                                                                      | A pull request conflicts                                                                                                                                                                 |
+| Finding Dependabot's pull requests | `kodor.yml`                                    | 01:00, 13:00, and 19:00, or by hand                                                                                                                                                                            | `.github/dependabot.yml` exists. It starts one Dependency run for each of Dependabot's open pull requests                                                                                |
+| Dependency                         | `kodor.yml`                                    | The job above, or by hand                                                                                                                                                                                      | One of Dependabot's pull requests is open                                                                                                                                                |
+| Updates                            | `kodor.yml`                                    | 01:00, 13:00, and 19:00, or by hand                                                                                                                                                                            | Always                                                                                                                                                                                   |
 
 What the less obvious ones do:
 
 - **Build, Review, Answer, Conflict, and Dependency** are the runs that use
   Claude Code. Each is three jobs, Prepare, Session, and Publish
   ([What a cloud run is](../security/cloud-runs.md#what-a-cloud-run-is)).
-- **Factory files in step** fails when the factory's files differ from
+- **kodor files in step** fails when kodor's files differ from
   what your settings and the version your repository names would write,
-  or when `factory config check` fails. On a pull request it also fails
-  while `factory.yml` is disabled, since nothing then posts "Review
+  or when `kodor config check` fails. On a pull request it also fails
+  while `kodor.yml` is disabled, since nothing then posts "Review
   verdict":
 
   ```text
-  GitHub switched factory.yml off after 60 days with no activity, so nothing posts "Review verdict" here. Enable it on the Actions tab, or run: gh workflow enable factory.yml. Then push a commit to this pull request.
+  GitHub switched kodor.yml off after 60 days with no activity, so nothing posts "Review verdict" here. Enable it on the Actions tab, or run: gh workflow enable kodor.yml. Then push a commit to this pull request.
   ```
 
   It has no sign-in of yours, so it can't
@@ -90,24 +88,24 @@ What the less obvious ones do:
   any session starts when it is wrong:
 
   ```text
-  - acme/factory-config can't be read here without a sign-in: the review's run checks it.
+  - acme/kodor-config can't be read here without a sign-in: the review's run checks it.
   ```
 
 - **Dependabot's auto-merge** lets one of Dependabot's pull requests
   merge itself once its checks pass, unless it is a major version or
-  names the factory ([Dependency bots](../features/dependency-updates.md#dependency-bots)).
+  names kodor ([Dependency bots](../features/dependency-updates.md#dependency-bots)).
 - **The review's verdict** posts the "Review verdict" status, as the
   review's own Publish does when a review ends. It goes by the "Automated
   review" status that Publish set on the commit, and by no comment.
 - **Open the ticked tickets** opens a ticket for each follow-up ticked in
   the pull request's description when it merged, and says which beside it.
   The board sync for that merge waits for it.
-- **Requiring the verdict** runs `factory enroll`, which makes "Review
+- **Requiring the verdict** runs `kodor enroll`, which makes "Review
   verdict" required before a merge to your default branch, from the
   first push after the setup's pull request merges. A rule made before
   then would hold the setup's own pull request forever, since nothing
   judges it yet. In an organization it sets the repository's
-  `software-factory` property to `on`, unless its value is already `on`,
+  `kodor` property to `on`, unless its value is already `on`,
   so the organization's rule covers it. On your own account it makes the
   repository's ruleset, with your build token. It prints the line for
   what it did, and nothing once the verdict is required, or where the
@@ -116,38 +114,38 @@ What the less obvious ones do:
   starts with `?` says who does the rest by hand:
 
   ```text
-  ✓ Set software-factory to "on" for acme/web, so acme's rule requires "Review verdict" here.
-  ✓ Required "Review verdict" before a merge to main, as the rule "Software factory".
-  ? "Review verdict" is not required before a merge to main, and this run's token cannot require it. An admin of sam/api runs: factory init
-  ? Could not set software-factory to "on" for acme/web: 403 Resource not accessible by integration. An owner of acme sets it under the organization's Settings, Custom properties.
+  ✓ Set kodor to "on" for acme/web, so acme's rule requires "Review verdict" here.
+  ✓ Required "Review verdict" before a merge to main, as the rule "kodor".
+  ? "Review verdict" is not required before a merge to main, and this run's token cannot require it. An admin of sam/api runs: kodor init
+  ? Could not set kodor to "on" for acme/web: 403 Resource not accessible by integration. An owner of acme sets it under the organization's Settings, Custom properties.
   ```
 
 - **Who merges** labels a pull request `merge-automatic` or
   `merge-manual`, and turns auto-merge on for the first.
 - **Dependency** runs a session that moves one of Dependabot's pull
-  requests along, with the [`factory-deps`](../features/dependency-updates.md#factory-deps)
+  requests along, with the [`kodor-deps`](../features/dependency-updates.md#kodor-deps)
   skill.
-- **Updates** opens a pull request for a newer release of the factory,
+- **Updates** opens a pull request for a newer release of kodor,
   and for a preset that changed ([Updating](../maintain/updating.md#what-happens)).
   It is a script, and runs no session.
 
 In a pull request's list of checks, a job's name follows the name of the
-file's calling job: `review / Factory files in step` from
-`factory-review.yml`, and `factory / Review / Session` from `factory.yml`.
-Most of `factory.yml`'s other jobs are in a group, and the group's name
-comes next, as in `factory / Pull request / Record the verdict`. Each job
+file's calling job: `review / kodor files in step` from
+`kodor-review.yml`, and `kodor / Review / Session` from `kodor.yml`.
+Most of `kodor.yml`'s other jobs are in a group, and the group's name
+comes next, as in `kodor / Pull request / Record the verdict`. Each job
 is listed here by the name its row shows:
 
-| Group            | Its jobs                                                                                                                                                                                                                                                                                                                    |
-| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| None             | Review and Answer, each three jobs, and Approve what an approval policy found                                                                                                                                                                                                                                               |
-| `Pull request`   | Record the verdict, the [approval policies](../features/approval-policies.md)' Read the change for the approval policies, Run the approval policies' commands, Run an approval policy's agent, and Post the approval policies' status, Classify risk (Who merges), and Enable auto-merge (Dependabot's auto-merge)          |
-| `Tickets`        | Tell the other repositories, Sync the board, and Open the ticked tickets                                                                                                                                                                                                                                                    |
-| `Default branch` | Factory files in step, Require the verdict, Build, Find the conflicts, Conflict, Find the dependency pull requests, Dependency, Open the updates' pull requests, Start the Ready tickets, and Unknown job, which fails a run started by hand with a job it doesn't know ([Starting a job by hand](#starting-a-job-by-hand)) |
+| Group            | Its jobs                                                                                                                                                                                                                                                                                                                  |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| None             | Review and Answer, each three jobs, and Approve what an approval policy found                                                                                                                                                                                                                                             |
+| `Pull request`   | Record the verdict, the [approval policies](../features/approval-policies.md)' Read the change for the approval policies, Run the approval policies' commands, Run an approval policy's agent, and Post the approval policies' status, Classify risk (Who merges), and Enable auto-merge (Dependabot's auto-merge)        |
+| `Tickets`        | Tell the other repositories, Sync the board, and Open the ticked tickets                                                                                                                                                                                                                                                  |
+| `Default branch` | kodor files in step, Require the verdict, Build, Find the conflicts, Conflict, Find the dependency pull requests, Dependency, Open the updates' pull requests, Start the Ready tickets, and Unknown job, which fails a run started by hand with a job it doesn't know ([Starting a job by hand](#starting-a-job-by-hand)) |
 
-A build's rows read `factory / Default branch / Build / Session`. A group
+A build's rows read `kodor / Default branch / Build / Session`. A group
 with nothing to do on an event shows as one skipped row with the group's
-name, such as `factory / Tickets`, not a row for each of its jobs.
+name, such as `kodor / Tickets`, not a row for each of its jobs.
 
 Four names in the same list are not jobs. "Review verdict", "Automated
 review", "Approval policies", and "Who merges" are statuses: a job posts
@@ -162,7 +160,7 @@ off shows as a skipped job, or as one that passes having done nothing.
 - **The automated review is off** while `pr-review` is off. Each
   pull request then gets a passing "Review verdict" status that reads
   "The automated review is off", so a rule that requires the verdict
-  never waits, and `factory pr state` and `factory pr watch` wait for no
+  never waits, and `kodor pr state` and `kodor pr watch` wait for no
   review ([Pull requests](../reference/cli-internal.md#pull-requests)).
 - **Builds in the cloud are off** while the run has neither a build token
   nor the key of an organization's App. Prepare looks for work first, with
@@ -172,7 +170,7 @@ off shows as a skipped job, or as one that passes having done nothing.
   that a pull request or a review started says so and passes:
 
   ```text
-  #31 waits for an answer, and no build token is set, so no session ran. Builds in the cloud are off: factory init turns them on.
+  #31 waits for an answer, and no build token is set, so no session ran. Builds in the cloud are off: kodor init turns them on.
   ```
 
   So do the jobs that find the conflicts and Dependabot's pull requests:
@@ -185,18 +183,18 @@ off shows as a skipped job, or as one that passes having done nothing.
   asked for it:
 
   ```text
-  No build token: set the secret FACTORY_BUILD_TOKEN, or FACTORY_BOARD_TOKEN.
+  No build token: set the secret KODOR_BUILD_TOKEN, or KODOR_BOARD_TOKEN.
   ```
 
 - **The update job with no build token** opens nothing, and passes:
 
   ```text
-  No build token is set, so no update's pull request is opened. factory doctor shows when you are behind.
+  No build token is set, so no update's pull request is opened. kodor doctor shows when you are behind.
   ```
 
 #### What a job installs
 
-Each job installs the version of the factory your repository names. The
+Each job installs the version of kodor your repository names. The
 Session job also installs your default branch's own dependencies, with
 `npm ci`, only when its root has a `package-lock.json`, then runs your
 [`commands.build-setup`](../reference/settings/commands.md#commandsbuild-setup), and
@@ -207,18 +205,17 @@ and Claude Code. It takes Node's version from `package.json` when it sets
 ### An organization's poller
 
 An organization's poller is in a workflow file of its own, in one
-repository. `factory init --org` writes
-`.github/workflows/factory-poller.yml` into the organization's
-`factory-config` repository, beside its preset. Like the two files
-above, it calls a workflow in the factory's own repository, `poller.yml`,
+repository. `kodor init --org` writes
+`.github/workflows/kodor-poller.yml` into the organization's
+`kodor-config` repository, beside its preset. Like the two files
+above, it calls a workflow in kodor's own repository, `poller.yml`,
 at the version it names. It has two jobs: the poller, on the schedule
 [`builds.poll-minutes`](../reference/settings/builds.md#builds) gives in the preset,
 which reads the organization's board once and starts the builds of every
 repository with a ticket in Ready
 ([The poller](../features/builds-from-the-board.md#the-poller)), and, at 01:00 and by hand, an
-update job that opens a pull request there when a newer release of the
-factory is out. A repository that follows that preset gets no poller
-schedule in its own `factory.yml`.
+update job that opens a pull request there when a newer release of kodor is out. A repository that follows that preset gets no poller
+schedule in its own `kodor.yml`.
 
 ## Tokens and secrets
 
@@ -226,26 +223,26 @@ schedule in its own `factory.yml`.
 
 A secret of your own, such as one your `.npmrc` reads
 ([Private npm packages](private-npm.md#private-npm-packages)), reaches the
-jobs through one line `factory sync` writes under `secrets` in
-`factory.yml`, which passes each by name. The table says which jobs get
+jobs through one line `kodor sync` writes under `secrets` in
+`kodor.yml`, which passes each by name. The table says which jobs get
 it.
 
-| Job                                                                 | Secrets it gets                                                                                                                  | What its workflow token may do                                                                                |
-| ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| Prepare                                                             | The App's key, or the build token                                                                                                | Read the code, Actions, issues, pull requests, and statuses                                                   |
-| Session                                                             | `CLAUDE_CODE_OAUTH_TOKEN` or `ANTHROPIC_API_KEY`, and your own secrets                                                           | Read packages                                                                                                 |
-| Publish                                                             | The App's key, or the build token                                                                                                | Read the code, Actions, and checks; write issues, pull requests, and statuses, which is how it posts a review |
-| Factory files in step, on a pull request                            | None                                                                                                                             | Read the code and Actions                                                                                     |
-| The review's verdict                                                | The App's key, or the build token, to read with, when the pull request is part of a ticket                                       | Read the code and Actions; write issues, pull requests, and statuses                                          |
-| Telling the other repositories                                      | The App's key, or the build token                                                                                                | Read the code and pull requests, and write issues                                                             |
-| Updates                                                             | The App's key, or the build token and `FACTORY_SIGNING_KEY`                                                                      | Read the code                                                                                                 |
-| The board sync                                                      | The App's key, or `FACTORY_BOARD_TOKEN` and the build token, and your own secrets                                                | Read the code and pull requests, and write issues                                                             |
-| Who merges, and Dependabot's auto-merge                             | The App's key, or `FACTORY_AUTOMERGE_TOKEN`                                                                                      | Label and read pull requests, and post a status; Dependabot's, read only                                      |
-| The poller, and finding the conflicts or Dependabot's pull requests | The App's key, or `FACTORY_BOARD_TOKEN` for the poller and the build token for the others. The poller also gets your own secrets | Read the code                                                                                                 |
-| Open the ticked tickets                                             | Your own secrets                                                                                                                 | Read the code, and write issues and pull requests                                                             |
-| Requiring the verdict                                               | The App's key, or the build token                                                                                                | Read the code                                                                                                 |
+| Job                                                                 | Secrets it gets                                                                                                                | What its workflow token may do                                                                                |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
+| Prepare                                                             | The App's key, or the build token                                                                                              | Read the code, Actions, issues, pull requests, and statuses                                                   |
+| Session                                                             | `CLAUDE_CODE_OAUTH_TOKEN` or `ANTHROPIC_API_KEY`, and your own secrets                                                         | Read packages                                                                                                 |
+| Publish                                                             | The App's key, or the build token                                                                                              | Read the code, Actions, and checks; write issues, pull requests, and statuses, which is how it posts a review |
+| kodor files in step, on a pull request                              | None                                                                                                                           | Read the code and Actions                                                                                     |
+| The review's verdict                                                | The App's key, or the build token, to read with, when the pull request is part of a ticket                                     | Read the code and Actions; write issues, pull requests, and statuses                                          |
+| Telling the other repositories                                      | The App's key, or the build token                                                                                              | Read the code and pull requests, and write issues                                                             |
+| Updates                                                             | The App's key, or the build token and `KODOR_SIGNING_KEY`                                                                      | Read the code                                                                                                 |
+| The board sync                                                      | The App's key, or `KODOR_BOARD_TOKEN` and the build token, and your own secrets                                                | Read the code and pull requests, and write issues                                                             |
+| Who merges, and Dependabot's auto-merge                             | The App's key, or `KODOR_AUTOMERGE_TOKEN`                                                                                      | Label and read pull requests, and post a status; Dependabot's, read only                                      |
+| The poller, and finding the conflicts or Dependabot's pull requests | The App's key, or `KODOR_BOARD_TOKEN` for the poller and the build token for the others. The poller also gets your own secrets | Read the code                                                                                                 |
+| Open the ticked tickets                                             | Your own secrets                                                                                                               | Read the code, and write issues and pull requests                                                             |
+| Requiring the verdict                                               | The App's key, or the build token                                                                                              | Read the code                                                                                                 |
 
-`FACTORY_SIGNING_KEY` reaches the updates' job alone. The updates' job is
+`KODOR_SIGNING_KEY` reaches the updates' job alone. The updates' job is
 also what the App's Workflows permission is for: a new version rewrites the
 two workflow files. The tokens Prepare and Publish make from the App's key
 do not carry it, and Publish refuses a session's change to one.
@@ -259,32 +256,32 @@ stores what.
 
 **When the App's key reaches the run, it acts as the organization's App.**
 That is every repository of an organization an owner has set up with
-`factory init --org`, where the secret `FACTORY_APP_PRIVATE_KEY` and the
-variable `FACTORY_APP_CLIENT_ID` both reach the run. Each job that needs
+`kodor init --org`, where the secret `KODOR_APP_PRIVATE_KEY` and the
+variable `KODOR_APP_CLIENT_ID` both reach the run. Each job that needs
 more than the workflow's own token makes a token from the App, for the run's
 repository and the organization's [preset](../customize/presets.md) repositories it
 follows, and uses it wherever a run on your own account uses the build,
 board, or auto-merge token. Each job's token carries only the permissions
 that job uses, and only the job that requires the verdict may set a
-repository's `software-factory` property. The session itself has no token:
+repository's `kodor` property. The session itself has no token:
 Prepare makes one before it, and Publish after it. A token lasts an hour,
 and Publish may wait that long for CI, so it signs in again. A build's pull
 request and comments are the App's. Its commits name Claude as their author
-and the App's bot, such as `software-factory-for-acme[bot]`, as their
+and the App's bot, such as `kodor-acme[bot]`, as their
 committer, and are not signed. The automated review's threads and the
 "Review verdict" status are posted with the workflow's own token, so a build
 cannot pass its own review. When the App is not installed on the repository,
 Prepare fails with:
 
 ```text
-The software factory's app for acme is not installed on acme/web. An owner of acme adds it: https://github.com/organizations/acme/settings/installations
+kodor's app for acme is not installed on acme/web. An owner of acme adds it: https://github.com/organizations/acme/settings/installations
 ```
 
 **When no App's key reaches the run, it acts as the account that owns
 its access token.** That is a repository on your own account, and an
 organization's repository that the organization's secrets do not reach,
 where someone stored a token by hand. The access token is
-`FACTORY_BUILD_TOKEN`, or `FACTORY_BOARD_TOKEN` when that is not set.
+`KODOR_BUILD_TOKEN`, or `KODOR_BOARD_TOKEN` when that is not set.
 The workflow's own token is never used for a build,
 since GitHub starts no CI on a pull request that token opened. The updates
 also need it to be allowed to push a change under `.github/workflows/` (the
@@ -296,19 +293,19 @@ Claude, `Claude <noreply@anthropic.com>`, which GitHub links to its `claude`
 user. Their committer is the token's owner, by the account's no-reply
 address. They are not signed. A team that wants its builds to act as an
 account of their own creates a GitHub account, gives it write access, and
-stores that account's token as `FACTORY_BUILD_TOKEN`. The build's pull
+stores that account's token as `KODOR_BUILD_TOKEN`. The build's pull
 requests, comments, and commits' committer are then that account's.
 
 **Either way,** the agent's token is `CLAUDE_CODE_OAUTH_TOKEN`, or
 `ANTHROPIC_API_KEY`; with both set, the first is used.
-`FACTORY_BUILD_MODEL`, a repository variable, chooses the model. When a
+`KODOR_BUILD_MODEL`, a repository variable, chooses the model. When a
 pull request is squash merged, the commit on your default branch names
 the person who opened it as its author, and GitHub adds a
 `Co-authored-by: Claude` line for the build's commits.
 
-## What the factory can and cannot do there
+## What kodor can and cannot do there
 
-GitHub runs `factory.yml` as the pull request leaves it when you submit a
+GitHub runs `kodor.yml` as the pull request leaves it when you submit a
 review, and as your default branch has it on every other event. A session
 can't change that file ([A change to a workflow
 file](../features/cloud-builds.md#a-change-to-a-workflow-file)).
@@ -320,15 +317,15 @@ file](../features/cloud-builds.md#a-change-to-a-workflow-file)).
   what the session left is still handed on; a value above 350 does nothing
   there. Prepare has 15 minutes, and Publish 75. A self-hosted runner allows
   longer. `sync` writes each `session-minutes` value you changed into
-  `factory.yml`, as the session's limit.
+  `kodor.yml`, as the session's limit.
 - **GitHub's shortest schedule is every five minutes,** and scheduled
   runs can start late.
-- **A pull request from a fork gets no secrets.** The "Factory files in
+- **A pull request from a fork gets no secrets.** The "kodor files in
   step" check needs none, so it runs on one. No run that uses Claude Code
   starts on a fork's pull request, so its verdict waits for a person.
 - **From December 2, 2026, GitHub blocks `pull_request_target` in a
   public repository** unless one of its Actions policies allows it, and
-  `factory.yml` starts on that event. `factory init` adds the policy
+  `kodor.yml` starts on that event. `kodor init` adds the policy
   ([A public repository](github.md#a-public-repository)). A private
   repository needs nothing.
 - **Public repositories are not billed for Actions minutes.**
@@ -342,31 +339,30 @@ file](../features/cloud-builds.md#a-change-to-a-workflow-file)).
 - **In a private repository, each run of the poller bills at least one
   Actions minute,** whether it is a repository's own schedule, with
   [`builds.trigger: github-action`](../reference/settings/builds.md#builds),
-  or an organization's in its `factory-config`. That is why
-  `factory init --org` asks how often the poller reads the board when
-  `factory-config` is private.
+  or an organization's in its `kodor-config`. That is why
+  `kodor init --org` asks how often the poller reads the board when
+  `kodor-config` is private.
 - **GitHub switches off a workflow with a schedule in a public
-  repository with no activity for 60 days.** `factory.yml` has
+  repository with no activity for 60 days.** `kodor.yml` has
   schedules, so every job it starts stops with it, the review's verdict
-  among them. "Factory files in step" still runs on a pull request, and
-  fails, saying how to enable the file. `factory doctor` fails too. GitHub
+  among them. "kodor files in step" still runs on a pull request, and
+  fails, saying how to enable the file. `kodor doctor` fails too. GitHub
   does not run what it missed, so after you enable the file, push a commit
   to each pull request that has no verdict.
 - **GitHub limits how many jobs an account runs at the same time.**
 - **A workflow's trigger cannot ask for the default branch's name,** so
-  `factory sync` writes the name into the push trigger of `factory.yml`.
-  After you rename the default branch, `factory sync --check` fails until
-  you run `factory sync` again, and until then the conflict sweep runs
+  `kodor sync` writes the name into the push trigger of `kodor.yml`.
+  After you rename the default branch, `kodor sync --check` fails until
+  you run `kodor sync` again, and until then the conflict sweep runs
   nightly and by hand, not on a push.
 - **A workflow in another owner's repository takes a secret only by a
-  name it declares,** which is why your own secrets reach the factory's
-  jobs through one line of `factory.yml`, not a line for each job.
+  name it declares,** which is why your own secrets reach kodor's
+  jobs through one line of `kodor.yml`, not a line for each job.
 - **GitHub's default for a workflow's own token is read for a new
   repository, and can be write for an older one.** The review's verdict
   is trusted from that token's account, and the code in a pull request
-  runs beside it, so `factory doctor` checks it.
-- **Every review event costs a minute of Actions,** including the
-  factory's own replies, which start a Prepare that finds nothing to do.
+  runs beside it, so `kodor doctor` checks it.
+- **Every review event costs a minute of Actions,** including kodor's own replies, which start a Prepare that finds nothing to do.
 - **A run's artifacts are kept on GitHub:** one day for what Prepare handed
   over, and seven for what the session left. Anyone signed in to GitHub can
   download them from a public repository
@@ -380,7 +376,7 @@ When a build cannot start, the poller's comment on the ticket reads "Could
 not start a build in GitHub Actions ... answered 403": give the token the
 scopes [Secrets](../security/credentials.md#secrets) names. An organization's poller
 posts no such comment for a repository its App is not installed on: its
-run in `factory-config` shows a warning that names the repository, and
+run in `kodor-config` shows a warning that names the repository, and
 goes on to the next. A failed board sync arrives as an email from
 GitHub.
 
@@ -391,11 +387,11 @@ hand, with the pull request's and the review's numbers.
 
 ## By hand
 
-The steps `factory init` takes for the review and for builds in the cloud, done without it, and how to start one of the factory's jobs yourself.
+The steps `kodor init` takes for the review and for builds in the cloud, done without it, and how to start one of kodor's jobs yourself.
 
 ### Starting a job by hand
 
-On the Actions tab, open the "Factory" workflow and choose "Run
+On the Actions tab, open the "kodor" workflow and choose "Run
 workflow". The form has four fields. The first, the job, names what to
 run, and the others say what to run it on:
 
@@ -424,22 +420,22 @@ Claude reads every pull request once it is marked ready, and gives its
 findings and a verdict, which a job with no AI posts. A session answers
 each comment, fixing it or rejecting it with evidence.
 
-It is on while `.claude/factory.yaml` has
+It is on while `.claude/kodor.yaml` has
 [`pr-review`](../reference/settings/pr-review.md#pr-review). Two files have a part in it,
 and `sync` writes both:
 
-| File                            | What it is                                                                                                         |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `.github/workflows/factory.yml` | The workflow file whose review run reads each pull request and records the verdict, as the "Review verdict" status |
-| `.github/factory-review.md`     | The review's instructions                                                                                          |
+| File                          | What it is                                                                                                         |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `.github/workflows/kodor.yml` | The workflow file whose review run reads each pull request and records the verdict, as the "Review verdict" status |
+| `.github/kodor-review.md`     | The review's instructions                                                                                          |
 
 The review posts its comments as `github-actions`, with the workflow's
 own token.
 
 1. **Store your Claude token** as `CLAUDE_CODE_OAUTH_TOKEN`
    ([Secrets](../security/credentials.md#secrets)).
-2. **Write `pr-review: true` in `.claude/factory.yaml`,** and run
-   `factory sync`, which turns the review's run on:
+2. **Write `pr-review: true` in `.claude/kodor.yaml`,** and run
+   `kodor sync`, which turns the review's run on:
 
    ```yaml
    pr-review: true
@@ -449,7 +445,7 @@ own token.
    confined to [the session's sandbox](../security/cloud-runs.md#what-a-cloud-run-is).
    The review's job installs your default branch's dependencies with
    `npm ci` when its root has a `package-lock.json`, and chooses the model
-   from the variable `FACTORY_BUILD_MODEL`
+   from the variable `KODOR_BUILD_MODEL`
    ([Who a cloud session acts as](#who-a-cloud-session-acts-as)) when
    it is set.
 
@@ -466,10 +462,10 @@ and a "Review verdict" status in its checks.
 
 ### Builds in the cloud
 
-`factory build 12` builds ticket 12 in GitHub Actions and
+`kodor build 12` builds ticket 12 in GitHub Actions and
 prints the run's link, with no session open on your machine.
 
-`sync` already wrote `factory.yml`, whose runs these are. Each does
+`sync` already wrote `kodor.yml`, whose runs these are. Each does
 nothing until it has work and its secrets
 ([With a part off](#with-a-part-off)). Each is
 [three jobs](../security/cloud-runs.md#what-a-cloud-run-is), and the one that runs
@@ -483,15 +479,15 @@ Claude Code is given no GitHub token:
 | Dependency | Moves one of Dependabot's pull requests along. It is on once `.github/dependabot.yml` exists |
 
 One more job needs the same GitHub token and runs no session: the update
-job, which opens a pull request for each new release of the factory
+job, which opens a pull request for each new release of kodor
 ([Updating](../maintain/updating.md#what-happens)).
 
 1. **Store your Claude token** as `CLAUDE_CODE_OAUTH_TOKEN`.
-2. **Store a GitHub token that can push**, as `FACTORY_BUILD_TOKEN`. With
-   a board, `FACTORY_BOARD_TOKEN` stands in for it when it has the
+2. **Store a GitHub token that can push**, as `KODOR_BUILD_TOKEN`. With
+   a board, `KODOR_BOARD_TOKEN` stands in for it when it has the
    `workflow` scope, so one token does both ([Secrets](../security/credentials.md#secrets)).
 
-**It worked when** `factory build 12`, with the number of a refined
+**It worked when** `kodor build 12`, with the number of a refined
 ticket, prints a run's link, and the run opens a pull request.
 
 A build may run for 230 minutes, which
@@ -509,4 +505,4 @@ host it yourself.
 [Builds in the cloud](../features/cloud-builds.md) explains each and what it costs. In
 an organization that is set up, there is nothing to set here: the
 organization's [preset](../customize/presets.md) sets `builds.trigger`, and the
-one schedule is in the organization's `factory-config` repository.
+one schedule is in the organization's `kodor-config` repository.

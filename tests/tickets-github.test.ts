@@ -391,11 +391,11 @@ describe("GitHub adapter: writes", () => {
 
   it("opens a ticket with its labels and returns its number", async () => {
     const { t, calls } = tickets([[/-X POST/, { number: 300 }]]);
-    expect(
-      await t.open({ title: "Title", body: "B", labels: ["factory"] }),
-    ).toBe("300");
+    expect(await t.open({ title: "Title", body: "B", labels: ["kodor"] })).toBe(
+      "300",
+    );
     expect(calls).toEqual([
-      "api -X POST repos/acme/widgets/issues -f title=Title -f body=B -f labels[]=factory",
+      "api -X POST repos/acme/widgets/issues -f title=Title -f body=B -f labels[]=kodor",
     ]);
   });
 
@@ -898,7 +898,7 @@ describe("GitHub adapter: attachments", () => {
     let calls0 = () => "";
     calls0 = () => readdirSync(dir).join(",");
     await t.attachments!.comment("7", "![a](./a.png)", [join(dir, "a.png")]);
-    expect(seen).toMatch(/^\.factory-body-\S+\.md$/);
+    expect(seen).toMatch(/^\.kodor-body-\S+\.md$/);
     expect(readdirSync(dir)).toEqual([]);
     rmSync(dir, { recursive: true });
   });
@@ -1253,12 +1253,12 @@ describe("GitHub adapter: what ticket 61 added", () => {
   it("reads only tickets with the label it is asked for", async () => {
     const labeled = {
       ...rawIssue(2),
-      labels: { nodes: [{ name: "Factory" }] },
+      labels: { nodes: [{ name: "Kodor" }] },
     };
     const { t } = tickets([
       [/Tickets\(/, issuesPage([rawIssue(1), labeled], [], null)],
     ]);
-    expect((await t.readAll({ label: "factory" })).map((x) => x.key)).toEqual([
+    expect((await t.readAll({ label: "kodor" })).map((x) => x.key)).toEqual([
       "2",
     ]);
   });

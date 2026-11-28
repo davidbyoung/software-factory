@@ -1,7 +1,7 @@
 # Builds in the cloud
 
 A build is one session taking one approved ticket to a pull request. You
-can always build a ticket by running `/factory-build N` in a session on
+can always build a ticket by running `/kodor-build N` in a session on
 your machine. A build in
 the cloud does the same with nobody at the keyboard: it runs on your code
 host's cloud runner, and you read its log or its pull request afterward.
@@ -23,33 +23,33 @@ nobody had to watch.
 Two credentials, stored as secrets on the code host:
 your coding agent's credential, which pays for the session, and an access token for the
 code host, which the build acts as. On your own account,
-[`factory init`](../setup/repository.md#run-factory-init) asks for each and
+[`kodor init`](../setup/repository.md#run-kodor-init) asks for each and
 stores it. In an organization, an owner stores the agent's credential once,
 with the key of the organization's own app on the code host, and the
-jobs that need an access token make one from that key, so `factory init`
+jobs that need an access token make one from that key, so `kodor init`
 asks a developer for no token. The session itself is given no access
 token ([Tokens and secrets](../security/credentials.md#who-handles-a-token)).
 
 ## Turn it on
 
-Run `factory init` and check "Builds in the cloud". It asks for the two
+Run `kodor init` and check "Builds in the cloud". It asks for the two
 credentials [What it needs](#what-it-needs) names and stores them as
 secrets, and in an organization it uses the ones the owner stored. So
 "builds in the cloud set up", in the table below, means both secrets are
 stored where the cloud runner reads them. Nothing in
-`.claude/factory.yaml` turns it on.
+`.claude/kodor.yaml` turns it on.
 
-**It worked when** `factory doctor` shows ✓ on each secret's line that
+**It worked when** `kodor doctor` shows ✓ on each secret's line that
 ends "for builds in the cloud", and doesn't list "Builds in the cloud" as
-off. Then `factory build 12` prints the address of the run it started.
+off. Then `kodor build 12` prints the address of the run it started.
 
 ### Three ways a build starts
 
-| What you do                          | Where the build runs                    | What you need                                                                             |
-| ------------------------------------ | --------------------------------------- | ----------------------------------------------------------------------------------------- |
-| Run `/factory-build 12` in a session | In that session, wherever you opened it | Nothing                                                                                   |
-| Run `factory build 12`               | In the cloud                            | Builds in the cloud set up                                                                |
-| Move the ticket to Ready on a board  | In the cloud, at the poller's next pass | Builds in the cloud set up, and [the poller](builds-from-the-board.md#the-poller) running |
+| What you do                         | Where the build runs                    | What you need                                                                             |
+| ----------------------------------- | --------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Run `/kodor-build 12` in a session  | In that session, wherever you opened it | Nothing                                                                                   |
+| Run `kodor build 12`                | In the cloud                            | Builds in the cloud set up                                                                |
+| Move the ticket to Ready on a board | In the cloud, at the poller's next pass | Builds in the cloud set up, and [the poller](builds-from-the-board.md#the-poller) running |
 
 Which of the last two you use is
 [`builds.trigger`](../reference/settings/builds.md#builds) in your
@@ -61,15 +61,15 @@ Which of the last two you use is
 | `own-server`    | Starts a build within a minute, through the poller you host                                                       |
 | `github-action` | Starts one at the next pass of a schedule on the cloud runner, every `poll-minutes` minutes, with nothing to host |
 
-`manual` is a fine place to stay. Running `/factory-build N` in a session
-and running `factory build N` work whatever the trigger.
+`manual` is a fine place to stay. Running `/kodor-build N` in a session
+and running `kodor build N` work whatever the trigger.
 
 ## How it works
 
 ### What a build in the cloud does
 
 ```console
-$ factory build 12
+$ kodor build 12
 Started a build of ticket 12 in the cloud:
 https://your-code-host/your-name/your-repo/runs/123456789
 ```
@@ -96,8 +96,7 @@ and that account as their committer, and its pull request and comments
 are that account's. When the token is yours, that is you. A team that
 wants an agent account makes one on the code host, gives it write
 access, and stores its token instead. A session takes instructions from
-anyone who can write to the repository, but never from a comment the
-factory posted, so an agent account cannot instruct a later session. In an organization that is set
+anyone who can write to the repository, but never from a comment kodor posted, so an agent account cannot instruct a later session. In an organization that is set
 up, the build acts as the organization's app: the pull request and
 comments are the app's, and the commits name it as their committer.
 
@@ -185,7 +184,7 @@ the next: [Build it in the cloud](../workflow/across-repositories.md#build-it-in
   ([With a part off](../integrations/github-actions.md#with-a-part-off)).
 
 One more job runs no session: three times a day, the update job opens a
-pull request for a newer release of the factory, and for a
+pull request for a newer release of kodor, and for a
 [preset](../customize/presets.md) that changed. [Updating](../maintain/updating.md#what-happens)
 describes it.
 
@@ -212,7 +211,7 @@ Not pushed: commit 3c9f730 changes .github/workflows/ci.yml, which a build in th
 Build this ticket on your computer: tell a session to work it. The commits are in the run: https://your-code-host/your-name/your-repo/runs/123456789
 ```
 
-On your computer that is `/factory-build 12` in a session. The run's page
+On your computer that is `/kodor-build 12` in a session. The run's page
 keeps the commits for seven days, as the artifact whose
 name starts with `out-`. Publish also refuses commits that add a symbolic
 link or a submodule, merge anything but your default branch, are in another

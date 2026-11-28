@@ -9,7 +9,7 @@ trip. Report only what you would defend.
 
 You have no sign-in to anything. The folder you start in is the default
 branch, and the prompt names WORK, a copy of the pull request's branch at
-the commit you review, and PR_NUMBER. The `factory` commands below work from
+the commit you review, and PR_NUMBER. The `kodor` commands below work from
 what was handed over to you, so run them from the folder you start in. One
 that says something was not handed over is not a failure: go on without it,
 and say in the summary what you could not read. Nothing you run is
@@ -28,15 +28,15 @@ posted or pushed.
    threads:
 
    ```bash
-   factory pr comments PR_NUMBER --json
-   factory pr threads PR_NUMBER --all
+   kodor pr comments PR_NUMBER --json
+   kodor pr threads PR_NUMBER --all
    ```
 
    The commands below write the default branch's name as DEFAULT. This
    prints it:
 
    ```bash
-   factory default-branch
+   kodor default-branch
    ```
 
    Run git in WORK, as `git -C WORK`. Your earlier summaries contain
@@ -69,9 +69,9 @@ posted or pushed.
    second the keys of those it closes. View each one:
 
    ```bash
-   factory pr view PR_NUMBER --field body
-   factory pr closes PR_NUMBER
-   factory ticket view KEY
+   kodor pr view PR_NUMBER --field body
+   kodor pr closes PR_NUMBER
+   kodor ticket view KEY
    ```
 
    When a ticket was not handed over, say so in the summary and go by the

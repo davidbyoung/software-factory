@@ -82,7 +82,7 @@ export function openspec(run: Run): SpecTool {
           ]
         : []),
     ],
-    then: "factory specs check",
+    then: "kodor specs check",
     finished: (root, id) =>
       folders(join(root, CHANGES, "archive")).some((name) =>
         name.endsWith(`-${changeOf(id)}`),

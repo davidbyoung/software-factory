@@ -1,6 +1,6 @@
 # Glossary
 
-The words these docs use, in plain terms. The factory works through a few
+The words these docs use, in plain terms. kodor works through a few
 kinds of tool, each behind one interface, and these pages name the kind,
 not the tool. Where a word stands for a tool, its entry says which one it
 is today.
@@ -15,17 +15,16 @@ reviews, the checks on each commit, and the secrets your CI reads. Today:
 [GitHub Issues](../integrations/github-issues.md).
 [`tickets.type`](settings/tickets.md#tickets) names it.
 
-**Board.** A view of every ticket's state, one column per state, which the
-factory keeps up to date. Optional. Today:
+**Board.** A view of every ticket's state, one column per state, which kodor keeps up to date. Optional. Today:
 [GitHub Projects](../integrations/github-projects.md).
 
 **Cloud runner.** Where work runs with no one at a keyboard: cloud builds,
-the automated review, the board sync, and the factory's other CI jobs.
+the automated review, the board sync, and kodor's other CI jobs.
 Today: [GitHub Actions](../integrations/github-actions.md).
 [`builds.runner`](settings/builds.md#builds) names it.
 
 **Coding agent.** The AI tool that runs sessions: it reads your code,
-follows the factory's skills, and writes the change. Today:
+follows kodor's skills, and writes the change. Today:
 [Claude Code](../integrations/claude-code.md).
 
 **Spec tool.** Keeps each ticket's Spec in your repository, as well as in
@@ -38,7 +37,7 @@ the ticket. Optional. Today: [OpenSpec](../integrations/openspec.md).
 written so each item can be checked. Refining a ticket produces it.
 
 **Agent (reviewer).** A separate reviewer that a session launches to read
-something and report back. It changes nothing. The factory brings four,
+something and report back. It changes nothing. kodor brings four,
 and you can add your own.
 
 **Approver.** A person whose words a session treats as instructions:
@@ -70,13 +69,13 @@ the cloud runner: Build, Review, Answer, Conflict, and Dependency. Each is
 three jobs, Prepare, Session, and Publish
 ([What a cloud run is](../security/cloud-runs.md#what-a-cloud-run-is)).
 
-**Copied files.** The factory's skills, agents, and rules, written into
-your repository by `factory sync`. You do not edit them. The same
-command writes two short CI workflow files, which call the factory's own
+**Copied files.** kodor's skills, agents, and rules, written into
+your repository by `kodor sync`. You do not edit them. The same
+command writes two short CI workflow files, which call kodor's own
 jobs at the version your repository names.
 
 **Default branch.** The branch your pull requests merge into, often
-called `main`. The factory reads its name from your checkout or your code
+called `main`. kodor reads its name from your checkout or your code
 host, and assumes none.
 
 **Dependency bot.** A tool that opens a pull request for each update of a
@@ -88,21 +87,21 @@ its pull request for you to [decide about](../workflow/follow-ups.md).
 **Gate.** The commands that must pass before a session calls a task done,
 such as your tests and linter. Yours, listed under
 [`commands.gate`](settings/commands.md#commandsgate) in your settings and run
-by `factory gate`. A build cannot finish without one.
+by `kodor gate`. A build cannot finish without one.
 
 **Hook.** A command the coding agent runs at a set moment in a session on
-a machine, such as before a shell command. The factory uses hooks to block
+a machine, such as before a shell command. kodor uses hooks to block
 risky commits. None runs in the cloud.
 
 **Local session.** A session on your own machine.
 
-**Lock.** The file `.claude/factory.lock`, which `factory sync` writes:
-the factory's version, each preset and the commit it is pinned to, every
+**Lock.** The file `.claude/kodor.lock`, which `kodor sync` writes:
+kodor's version, each preset and the commit it is pinned to, every
 setting in effect, and the files it copied. Every command reads its
-settings from it, and the `factory` command runs the version it names.
+settings from it, and the `kodor` command runs the version it names.
 You commit it and never edit it.
 
-**Marker.** A hidden line in a comment the factory posts on a ticket,
+**Marker.** A hidden line in a comment kodor posts on a ticket,
 recording what happened. The board is worked out from these.
 
 **Plugin.** One of your own skills or agents, given a role in the work.
@@ -117,7 +116,7 @@ host and no AI, and hands the session what it works from, as files.
 **Preset.** A folder of settings in a repository on your code host, with
 any agents and skills they name, that several repositories share. A
 repository lists it under [`presets`](settings/presets.md#presets), and
-`factory sync` combines it with the repository's own settings.
+`kodor sync` combines it with the repository's own settings.
 [Use a preset](../customize/presets.md) says how.
 
 **Publish.** The last job of a cloud run. It has the sign-in to the code
@@ -131,16 +130,16 @@ automated review of the newest commit found it ready.
 
 **Role.** A job in the work that a plugin of yours can take on, such as
 `reviewer`, an agent that reads a finished change, or `refiner`, a skill
-that refines a ticket in place of the factory's own. There are seven.
+that refines a ticket in place of kodor's own. There are seven.
 [Your own skills and agents](../customize/plugins.md#the-roles) lists them.
 
 **Session.** One conversation with the coding agent in your repository, on
 your machine or in the cloud. In the cloud it is also the middle job of a
 cloud run, and it has no sign-in to the code host.
 
-**Skill.** A set of instructions a session follows, named `factory-...`
-for the factory's own. You call one by typing its name as a slash command,
-such as `/factory-refine 12`.
+**Skill.** A set of instructions a session follows, named `kodor-...`
+for kodor's own. You call one by typing its name as a slash command,
+such as `/kodor-refine 12`.
 
 **Spec.** A written statement of what a change must do. A change your
 users will see gets a Spec section of "When this, then that" lines in

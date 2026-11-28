@@ -1,17 +1,17 @@
 import { parseSettings } from "../src/config.mts";
 import type { Gh } from "../src/lib/gh.mts";
-import { FACTORY_COLUMNS } from "./factory-columns";
+import { KODOR_COLUMNS } from "./kodor-columns";
 import { CODE_HOST } from "./settings-fixture";
 
-/** The factory's settings as the scripts' tests read them: this repository
+/** kodor's settings as the scripts' tests read them: this repository
  * and its board, with builds started from the board. */
 export const fakeSettings = async () =>
   parseSettings(
     {
-      version: 2,
+      version: 1,
       repository: "acme/widgets",
       "code-host": CODE_HOST,
-      tickets: { board: 1, columns: FACTORY_COLUMNS },
+      tickets: { board: 1, columns: KODOR_COLUMNS },
       builds: { trigger: "own-server" },
     },
     () => true,

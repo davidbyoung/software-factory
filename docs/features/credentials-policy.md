@@ -5,38 +5,38 @@ wants to know what it checks, and how to turn it off.
 
 ## What you get
 
-### The factory's own policy
+### kodor's own policy
 
 Every repository has the policy `credentials`, with nothing to write. A
 change that adds a credential, or lets a workflow do more, is read for
 security by an agent that didn't build it, before the change merges.
-`factory sync` writes its two files, as it writes the factory's skills:
+`kodor sync` writes its two files, as it writes kodor's skills:
 the script `.claude/approval-policies/credentials/find.mts`, and the
-agent's instructions, `.claude/agents/factory-credentials-reader.md`.
-`factory config explain` shows it among your settings:
+agent's instructions, `.claude/agents/kodor-credentials-reader.md`.
+`kodor config explain` shows it among your settings:
 
 ```yaml
 approval-policies:
   - name: credentials
     run: node .claude/approval-policies/credentials/find.mts
-    agent: factory-credentials-reader
+    agent: kodor-credentials-reader
     files: ["**"]
 ```
 
 ## What it needs
 
-Nothing to add: `find.mts` runs on Node 22.18 or later, which the factory
+Nothing to add: `find.mts` runs on Node 22.18 or later, which kodor
 needs anyway, and the agent runs on your coding agent's token.
 
 ## Turn it on
 
 Nothing to turn on: every repository has the credentials policy from the
-moment it uses the factory. To turn it off, set `off: true` on it in your
+moment it uses kodor. To turn it off, set `off: true` on it in your
 settings, as below.
 
 ### Turning it off
 
-In `.claude/factory.yaml`:
+In `.claude/kodor.yaml`:
 
 ```yaml
 approval-policies:
@@ -44,18 +44,18 @@ approval-policies:
     off: true
 ```
 
-Then run `factory sync`. It deletes the policy's two files, and, where
+Then run `kodor sync`. It deletes the policy's two files, and, where
 `credentials` was your only policy, takes the job that runs policies out
-of `.github/workflows/factory.yml`. Commit what it changed with the
+of `.github/workflows/kodor.yml`. Commit what it changed with the
 settings, from your computer, open a pull request, and merge it.
 
 Where no policy is left on, also take **Approval policies** out of the
-ruleset "Software factory", under your repository's Settings, Rules,
+ruleset "kodor", under your repository's Settings, Rules,
 Rulesets: nothing posts the status any more, so a pull request would
 wait on it forever.
 
 Nothing then reads a change for security before it merges. **It worked
-when** `factory config explain` no longer lists `credentials`, and the
+when** `kodor config explain` no longer lists `credentials`, and the
 next pull request merges without an **Approval policies** status.
 
 ## How it works
@@ -77,12 +77,12 @@ a pull request, for the agent to read, when it adds any of these:
 
 Most pull requests add none of these. Their **Approval policies** status
 reads `Nothing to approve`, and the agent never runs. In two
-repositories that use the factory, it picked 31 of 259 merged changes,
+repositories that use kodor, it picked 31 of 259 merged changes,
 about 1 in 8. Each of the 31 changed at least 99 lines.
 
 ### What the agent does
 
-`factory-credentials-reader` is handed only the lines `find.mts` picked.
+`kodor-credentials-reader` is handed only the lines `find.mts` picked.
 It can read the rest of your code, as it stands on your default branch,
 to follow them through. It traces each
 credential and permission to everything that can reach it, counting
@@ -152,10 +152,10 @@ reads
 
 **It worked when** the status reads `Approved by` with your name, or,
 after a fix,
-`Nothing to approve` or `cleared by factory-credentials-reader, not a person`.
+`Nothing to approve` or `cleared by kodor-credentials-reader, not a person`.
 
 **When the status says the agent can't run,** as
-`credentials: factory-credentials-reader can't run here, so everything it applies to waits for approval`,
+`credentials: kodor-credentials-reader can't run here, so everything it applies to waits for approval`,
 no agent read the lines. That happens on a pull request from a fork, on
 one from a dependency bot whose runs get no secrets, or where your
 repository has no coding agent's token
@@ -164,7 +164,7 @@ repository has no coding agent's token
 which bot's runs get none. Read the lines **Details** lists yourself, then
 add `policy-override`. A fork's or such a bot's pull request is always
 read by you this way. Where the
-token is missing, run `factory init`, which sets it, and `factory doctor`
+token is missing, run `kodor init`, which sets it, and `kodor doctor`
 says whether it is set.
 
 ## On your tools

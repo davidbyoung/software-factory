@@ -1,4 +1,4 @@
-// `factory init --org ADDRESS`: what it refuses, what it finds and asks,
+// `kodor init --org ADDRESS`: what it refuses, what it finds and asks,
 // the plan it shows, and what it does once told to go ahead, run against an
 // in-memory organization and ticket system with scripted answers. No test
 // reaches GitHub, opens a browser, or listens on a port.
@@ -84,7 +84,7 @@ vi.mock("../src/config.mts", async (original) => {
 
 const LAUNCHER = join(
   dirname(dirname(fileURLToPath(import.meta.url))),
-  "bin/factory.js",
+  "bin/kodor.js",
 );
 const ADDRESS = "https://github.com/acme";
 const KEY =
@@ -106,16 +106,16 @@ const FREE: OrganizationPlan = {
 };
 const INSTALLED: Installation = {
   id: 52811,
-  app: "Software Factory for acme",
+  app: "kodor-acme",
   all: true,
   page: "https://github.com/organizations/acme/settings/installations/52811",
 };
 const INSTALL_PAGE =
-  "https://github.com/apps/software-factory-for-acme/installations/new/permissions?suggested_target_id=4242";
+  "https://github.com/apps/kodor-acme/installations/new/permissions?suggested_target_id=4242";
 /** Step 1 of registering the app, down to where it waits for the code. */
 const STEP_1 = [
   "",
-  'Registering the GitHub App "Software Factory for acme". Two steps, both in your browser.',
+  'Registering the GitHub App "kodor-acme". Two steps, both in your browser.',
   "",
   "1. Create the app. Your browser should open this address. If it does not, open it yourself:",
   "     http://127.0.0.1:4100/",
@@ -126,7 +126,7 @@ const CREATED = "✓ Created the app, and stored its key for acme.";
 /** Step 2's lines after its first, down to where it waits. */
 const INSTALLING = [
   `     ${INSTALL_PAGE}`,
-  '   Choose all repositories, or a selection that includes factory-config, and press "Install".',
+  '   Choose all repositories, or a selection that includes kodor-config, and press "Install".',
   "   Waiting up to 10 minutes for the installation to show.",
   "(waits for the installation)",
 ];
@@ -138,24 +138,24 @@ const STEP_2 = [
 /** Where the preset is edited, and where the docs give the steps. */
 const ADDRESSES = [
   "The settings every repository shares are yours to edit:",
-  "     https://github.com/acme/factory-config/blob/HEAD/factory-preset.yaml",
+  "     https://github.com/acme/kodor-config/blob/HEAD/kodor-preset.yaml",
   "The steps in full:",
-  "     https://github.com/davidbyoung/software-factory/blob/v0.4.0/docs/setup/organization.md#what-each-developer-does-next",
+  "     https://github.com/kodor-ai/kodor/blob/v0.4.0/docs/setup/organization.md#what-each-developer-does-next",
 ];
 /** How a run that did something ends. `because` is why a third step is
  * left to each repository's admin, where no organization's rule was made. */
 const ending = (because?: string) => [
   "✓ acme is set up.",
   "",
-  "Next, in each repository you want the factory in:",
-  "  1. A developer installs the factory once on their machine:",
-  "       npm install -g @davidbyoung/software-factory",
+  "Next, in each repository you want kodor in:",
+  "  1. A developer installs kodor once on their machine:",
+  "       npm install -g @kodor-ai/kodor",
   "  2. In the repository's checkout, they run:",
-  "       factory init",
+  "       kodor init",
   "     It asks them for no token, and opens the pull request that sets the repository up.",
   ...(because
     ? [
-        "  3. Once that pull request merges, an admin of the repository runs factory init there",
+        "  3. Once that pull request merges, an admin of the repository runs kodor init there",
         `     again, to require "Review verdict". ${because}`,
       ]
     : []),
@@ -163,11 +163,11 @@ const ending = (because?: string) => [
   ...ADDRESSES,
 ];
 const RERUN =
-  "Run factory init --org https://github.com/acme again: it carries on from here.";
+  "Run kodor init --org https://github.com/acme again: it carries on from here.";
 
 const PRESET = `# The preset for every acme repository.
-# factory-preset.yaml, written by factory init --org. It is yours to edit.
-version: 2
+# kodor-preset.yaml, written by kodor init --org. It is yours to edit.
+version: 1
 tickets:
   type: github
   board: 12
@@ -186,13 +186,13 @@ builds:
   trigger: github-action
   poll-minutes: 30
 `;
-const POLLER = ".github/workflows/factory-poller.yml";
-/** `acme/factory-config` as a finished setup leaves it. */
+const POLLER = ".github/workflows/kodor-poller.yml";
+/** `acme/kodor-config` as a finished setup leaves it. */
 const CONFIG = {
   isPrivate: true,
   files: {
-    "README.md": "# factory-config\n",
-    "factory-preset.yaml": PRESET,
+    "README.md": "# kodor-config\n",
+    "kodor-preset.yaml": PRESET,
     [POLLER]: pollerWorkflow({
       owner: "acme",
       version: "0.4.0",
@@ -335,7 +335,7 @@ function memoryOrganization(
       seed.rules.push(rule);
     },
     appName: () => {
-      const wanted = `Software Factory for ${name}`;
+      const wanted = `kodor-${name}`;
       return { name: wanted.slice(0, 34), shortened: wanted.length > 34 };
     },
     async appNamed(app) {
@@ -355,7 +355,7 @@ function memoryOrganization(
       }
       const app: NewApp = {
         id: 9,
-        slug: "software-factory-for-acme",
+        slug: "kodor-acme",
         clientId: "Iv23client",
         key: KEY,
       };
@@ -426,7 +426,7 @@ type Setup = {
   /** What reading a board's columns fails with. */
   columnsFail?: Error;
   agentInstalled?: boolean;
-  /** The installed factory's version; a release unless given. */
+  /** The installed kodor's version; a release unless given. */
   version?: string;
   /** How each try of a pasted credential ends; taken unless given. */
   tries?: Try[];
@@ -582,7 +582,7 @@ function setup(o: Setup = {}) {
       if (!queue.typed.length) throw new Error("nothing typed");
       return queue.typed.shift()!;
     },
-    packageName: "@davidbyoung/software-factory",
+    packageName: "@kodor-ai/kodor",
     packageVersion: o.version ?? "0.4.0",
     now: () => new Date("2026-11-27T12:00:00Z"),
   };
@@ -636,16 +636,16 @@ const FIRST: Answers = {
 };
 /** An organization whose every part is set up. */
 const DONE: Partial<Seed> = {
-  repositories: { "factory-config": CONFIG },
-  secrets: ["FACTORY_APP_PRIVATE_KEY", "CLAUDE_CODE_OAUTH_TOKEN"],
+  repositories: { "kodor-config": CONFIG },
+  secrets: ["KODOR_APP_PRIVATE_KEY", "CLAUDE_CODE_OAUTH_TOKEN"],
   variables: {
-    FACTORY_APP_CLIENT_ID: "Iv23client",
+    KODOR_APP_CLIENT_ID: "Iv23client",
   },
-  rules: ["Software factory"],
+  rules: ["kodor"],
   installation: INSTALLED,
 };
 
-describe("factory init --org, what it refuses before it asks", () => {
+describe("kodor init --org, what it refuses before it asks", () => {
   const refusal = async (o: Setup) => {
     const s = setup(o);
     expect(await s.run()).toBe(1);
@@ -654,11 +654,11 @@ describe("factory init --org, what it refuses before it asks", () => {
     return s.out;
   };
 
-  it("refuses a host that is not a code host the factory supports", async () => {
+  it("refuses a host that is not a code host kodor supports", async () => {
     expect(
       await refusal({ address: "https://code.acme.example/acme" }),
     ).toEqual([
-      "✗ code.acme.example is not a code host the factory supports: GitHub.",
+      "✗ code.acme.example is not a code host kodor supports: GitHub.",
       "Nothing changed.",
     ]);
   });
@@ -672,7 +672,7 @@ describe("factory init --org, what it refuses before it asks", () => {
 
   it("refuses to run with no address at all", async () => {
     expect(await refusal({ argv: ["--org"] })).toEqual([
-      "✗ factory init --org takes an organization's address, such as https://github.com/acme.",
+      "✗ kodor init --org takes an organization's address, such as https://github.com/acme.",
       "Nothing changed.",
     ]);
   });
@@ -699,7 +699,7 @@ describe("factory init --org, what it refuses before it asks", () => {
       }),
     ).toEqual([
       "✗ sam is a personal account, which has nothing to set up once: no shared secrets, and a board that refuses an app's token.",
-      "Run factory init in each repository. Nothing changed.",
+      "Run kodor init in each repository. Nothing changed.",
     ]);
   });
 
@@ -717,13 +717,13 @@ describe("factory init --org, what it refuses before it asks", () => {
 
   it("stops when the coding agent is not installed, and names its own command to run again", async () => {
     expect(await refusal({ agentInstalled: false })).toEqual([
-      "The factory runs in a coding agent, and Claude Code is not installed.",
-      "Install it and run factory init --org https://github.com/acme again.",
+      "kodor runs in a coding agent, and Claude Code is not installed.",
+      "Install it and run kodor init --org https://github.com/acme again.",
       "Nothing changed.",
     ]);
   });
 
-  it("stops, as factory init does, when the code host cannot be reached", async () => {
+  it("stops, as kodor init does, when the code host cannot be reached", async () => {
     expect(
       await refusal({
         org: {
@@ -736,7 +736,7 @@ describe("factory init --org, what it refuses before it asks", () => {
   });
 });
 
-describe("factory init --org, outside any repository", () => {
+describe("kodor init --org, outside any repository", () => {
   const home = process.cwd();
   const folders: string[] = [];
   /** A new folder that is no git repository, as the working directory. */
@@ -769,7 +769,7 @@ describe("factory init --org, outside any repository", () => {
     expect(s.out).toContain("✓ acme is set up.");
   });
 
-  it("starts from factory init with no repository to find, in a terminal", async () => {
+  it("starts from kodor init with no repository to find, in a terminal", async () => {
     elsewhere();
     const printed: string[] = [];
     vi.spyOn(console, "log").mockImplementation((line) => {
@@ -792,7 +792,7 @@ describe("factory init --org, outside any repository", () => {
     expect(forbidden.tried).toEqual([]);
   });
 
-  it("says it needs a terminal when there is none, as factory init does, before it reads the address", () => {
+  it("says it needs a terminal when there is none, as kodor init does, before it reads the address", () => {
     const cwd = elsewhere();
     const r = spawnSync("node", [LAUNCHER, "init", "--org", "acme"], {
       cwd,
@@ -801,12 +801,12 @@ describe("factory init --org, outside any repository", () => {
     });
     expect(r.status).toBe(1);
     expect(r.stdout).toBe(
-      "factory init asks its questions in a terminal: run it in one.\n",
+      "kodor init asks its questions in a terminal: run it in one.\n",
     );
   });
 });
 
-describe("factory init --org, the sign-in's permissions", () => {
+describe("kodor init --org, the sign-in's permissions", () => {
   it("changes nothing when she will not grant what the GitHub CLI lacks", async () => {
     const s = setup({
       org: { lacks: ["admin:org"] },
@@ -836,7 +836,7 @@ describe("factory init --org, the sign-in's permissions", () => {
   });
 });
 
-describe("factory init --org, a first run", () => {
+describe("kodor init --org, a first run", () => {
   it("prints what the draft shows, from what it found to the line a developer runs", async () => {
     const s = setup({
       answers: FIRST,
@@ -847,7 +847,7 @@ describe("factory init --org, a first run", () => {
     });
     expect(await s.run()).toBe(0);
     expect(s.transcript).toEqual([
-      "Setting up the software factory for the organization acme",
+      "Setting up kodor for the organization acme",
       "",
       "Found",
       "  Code host        GitHub (from the address)",
@@ -864,15 +864,15 @@ describe("factory init --org, a first run", () => {
       "? select: How often does the poller read the board?",
       "",
       "This is everything setup will do:",
-      '  app       Register the GitHub App "Software Factory for acme" and install it',
-      "  secrets   Store FACTORY_APP_PRIVATE_KEY, CLAUDE_CODE_OAUTH_TOKEN, and the variable FACTORY_APP_CLIENT_ID for acme",
-      "  preset    Create acme/factory-config, a private repository, with the organization's preset and the poller",
-      '  rule      Require "Review verdict" on repositories set up with the factory',
-      "  board     Create a board with the factory's columns and fields",
+      '  app       Register the GitHub App "kodor-acme" and install it',
+      "  secrets   Store KODOR_APP_PRIVATE_KEY, CLAUDE_CODE_OAUTH_TOKEN, and the variable KODOR_APP_CLIENT_ID for acme",
+      "  preset    Create acme/kodor-config, a private repository, with the organization's preset and the poller",
+      '  rule      Require "Review verdict" on repositories set up with kodor',
+      "  board     Create a board with kodor's columns and fields",
       "? confirm: Go ahead?",
       "",
-      '✓ Created board 12, "Software factory".',
-      "✓ Created acme/factory-config.",
+      '✓ Created board 12, "kodor".',
+      "✓ Created acme/kodor-config.",
       ...STEP_1,
       CREATED,
       ...STEP_2,
@@ -882,7 +882,7 @@ describe("factory init --org, a first run", () => {
       "? secret: Paste the token it printed, the line that starts sk-ant-oat01- (leave empty to do this later):",
       "Trying the token...",
       "✓ Stored 2 secrets and 1 variable for acme.",
-      '✓ Required "Review verdict" where the property software-factory is "on".',
+      '✓ Required "Review verdict" where the property kodor is "on".',
       "",
       ...ending(),
     ]);
@@ -899,7 +899,7 @@ describe("factory init --org, a first run", () => {
     });
     expect(await s.run()).toBe(0);
     expect(s.looks).toEqual([
-      "Setting up the software factory for the organization {name:acme}",
+      "Setting up kodor for the organization {name:acme}",
       "",
       "{heading:Found}",
       "  {name:Code host}        GitHub (from the address)",
@@ -912,16 +912,16 @@ describe("factory init --org, a first run", () => {
       "Each run of the poller bills at least one Actions minute in a private repository.",
       "",
       "{heading:This is everything setup will do:}",
-      '  {name:app}       Register the GitHub App "Software Factory for acme" and install it',
-      "  {name:secrets}   Store FACTORY_APP_PRIVATE_KEY, CLAUDE_CODE_OAUTH_TOKEN, and the variable FACTORY_APP_CLIENT_ID for acme",
-      "  {name:preset}    Create acme/factory-config, a private repository, with the organization's preset and the poller",
-      '  {name:rule}      Require "Review verdict" on repositories set up with the factory',
-      "  {name:board}     Create a board with the factory's columns and fields",
+      '  {name:app}       Register the GitHub App "kodor-acme" and install it',
+      "  {name:secrets}   Store KODOR_APP_PRIVATE_KEY, CLAUDE_CODE_OAUTH_TOKEN, and the variable KODOR_APP_CLIENT_ID for acme",
+      "  {name:preset}    Create acme/kodor-config, a private repository, with the organization's preset and the poller",
+      '  {name:rule}      Require "Review verdict" on repositories set up with kodor',
+      "  {name:board}     Create a board with kodor's columns and fields",
       "",
-      '{good:✓} Created board 12, "Software factory".',
-      "{good:✓} Created acme/factory-config.",
+      '{good:✓} Created board 12, "kodor".',
+      "{good:✓} Created acme/kodor-config.",
       "",
-      '{yourTurn:Registering the GitHub App "Software Factory for acme". Two steps, both in your browser.}',
+      '{yourTurn:Registering the GitHub App "kodor-acme". Two steps, both in your browser.}',
       "",
       "{yourTurn:1.} Create the app. Your browser should open this address. If it does not, open it yourself:",
       "     {copy:http://127.0.0.1:4100/}",
@@ -931,28 +931,28 @@ describe("factory init --org, a first run", () => {
       "",
       "{yourTurn:2.} Install it. Your browser should open this address. If it does not, open it yourself:",
       `     {copy:${INSTALL_PAGE}}`,
-      '   Choose all repositories, or a selection that includes factory-config, and press "Install".',
+      '   Choose all repositories, or a selection that includes kodor-config, and press "Install".',
       "   Waiting up to 10 minutes for the installation to show.",
       "{good:✓} Installed the app on 212 repositories.",
       "",
       "The coding agent's token: running {copy:claude setup-token}...",
       "{skip:Trying the token...}",
       "{good:✓} Stored 2 secrets and 1 variable for acme.",
-      '{good:✓} Required "Review verdict" where the property software-factory is "on".',
+      '{good:✓} Required "Review verdict" where the property kodor is "on".',
       "",
       "{good:✓} acme is set up.",
       "",
-      "{yourTurn:Next, in each repository you want the factory in:}",
-      "  {yourTurn:1.} A developer installs the factory once on their machine:",
-      "       {copy:npm install -g @davidbyoung/software-factory}",
+      "{yourTurn:Next, in each repository you want kodor in:}",
+      "  {yourTurn:1.} A developer installs kodor once on their machine:",
+      "       {copy:npm install -g @kodor-ai/kodor}",
       "  {yourTurn:2.} In the repository's checkout, they run:",
-      "       {copy:factory init}",
+      "       {copy:kodor init}",
       "     It asks them for no token, and opens the pull request that sets the repository up.",
       "",
       "The settings every repository shares are yours to edit:",
-      "     {copy:https://github.com/acme/factory-config/blob/HEAD/factory-preset.yaml}",
+      "     {copy:https://github.com/acme/kodor-config/blob/HEAD/kodor-preset.yaml}",
       "The steps in full:",
-      "     {copy:https://github.com/davidbyoung/software-factory/blob/v0.4.0/docs/setup/organization.md#what-each-developer-does-next}",
+      "     {copy:https://github.com/kodor-ai/kodor/blob/v0.4.0/docs/setup/organization.md#what-each-developer-does-next}",
     ]);
   });
 
@@ -964,7 +964,7 @@ describe("factory init --org, a first run", () => {
     await s.run();
     expect(s.selects[0]).toEqual({
       message: "Which board?",
-      names: ["A new one, made with the factory's columns", "7  Engineering"],
+      names: ["A new one, made with kodor's columns", "7  Engineering"],
       fallback: undefined,
     });
   });
@@ -1008,24 +1008,24 @@ describe("factory init --org, a first run", () => {
     const s = setup({ answers: FIRST });
     await s.run();
     expect(s.changes()).toEqual([
-      "createRepository factory-config private",
-      "createBoard Software factory",
+      "createRepository kodor-config private",
+      "createBoard kodor",
       "addColumns 1",
       "addFields 1",
-      "putFiles factory-config README.md factory-preset.yaml .github/workflows/factory-poller.yml",
-      "registerApp Software Factory for acme",
-      "setSecret FACTORY_APP_PRIVATE_KEY",
-      "setVariable FACTORY_APP_CLIENT_ID Iv23client",
+      "putFiles kodor-config README.md kodor-preset.yaml .github/workflows/kodor-poller.yml",
+      "registerApp kodor-acme",
+      "setSecret KODOR_APP_PRIVATE_KEY",
+      "setVariable KODOR_APP_CLIENT_ID Iv23client",
       "setSecret CLAUDE_CODE_OAUTH_TOKEN",
-      "defineProperty software-factory on|off",
-      "requireCheckWhere Software factory Review verdict software-factory=on runner",
+      "defineProperty kodor on|off",
+      "requireCheckWhere kodor Review verdict kodor=on runner",
     ]);
     expect(
-      s.seed.repositories["factory-config"]!.files["factory-preset.yaml"],
+      s.seed.repositories["kodor-config"]!.files["kodor-preset.yaml"],
     ).toContain("board: 1\n");
   });
 
-  it("creates the board with the factory's columns and fields, and says only that it created it", async () => {
+  it("creates the board with kodor's columns and fields, and says only that it created it", async () => {
     const s = setup({ answers: FIRST });
     await s.run();
     expect(s.tickets.boards[0]!.columns.slice(0, 6)).toEqual([
@@ -1039,11 +1039,11 @@ describe("factory init --org, a first run", () => {
     ]);
     expect(s.tickets.boards[0]!.fields).toEqual(["Session", "Runs in", "Cost"]);
     expect(s.out.filter((l) => l.includes("board 1"))).toEqual([
-      '✓ Created board 1, "Software factory".',
+      '✓ Created board 1, "kodor".',
     ]);
   });
 
-  it("asks which ticket system once the factory has two, in place of the row", async () => {
+  it("asks which ticket system once kodor has two, in place of the row", async () => {
     const s = setup({
       answers: {
         ...FIRST,
@@ -1061,7 +1061,7 @@ describe("factory init --org, a first run", () => {
   });
 });
 
-describe("factory init --org, with a board the organization already has", () => {
+describe("kodor init --org, with a board the organization already has", () => {
   const FIELDS = ["Session", "Runs in", "Cost"];
   const SIX = [
     "Backlog",
@@ -1086,7 +1086,7 @@ describe("factory init --org, with a board the organization already has", () => 
       agent,
     });
   const preset = (s: ReturnType<typeof setup>) =>
-    s.seed.repositories["factory-config"]!.files["factory-preset.yaml"]!;
+    s.seed.repositories["kodor-config"]!.files["kodor-preset.yaml"]!;
 
   it("has the coding agent suggest which of the board's own columns shows each state, names them in the preset, and adds only what is missing", async () => {
     const s = existing({ columns: ["Todo", "Doing", "Code review", "Done"] }, [
@@ -1112,7 +1112,7 @@ describe("factory init --org, with a board the organization already has", () => 
       "? select: Which board?",
       "",
       "Board 7 has the columns Todo, Doing, Code review, and Done.",
-      "Asking Claude Code which of them shows each of the factory's six states...",
+      "Asking Claude Code which of them shows each of kodor's six states...",
       "",
       "  State      Column",
       "  backlog    Todo",
@@ -1133,7 +1133,7 @@ describe("factory init --org, with a board the organization already has", () => 
     expect(s.transcript.slice(went + 1, went + 5)).toEqual([
       "",
       "Added to board 7: In refinement, Ready, Session, Runs in, Cost.",
-      "✓ Created acme/factory-config.",
+      "✓ Created acme/kodor-config.",
       "",
     ]);
     expect(preset(s)).toContain(
@@ -1149,7 +1149,7 @@ describe("factory init --org, with a board the organization already has", () => 
         "",
       ].join("\n"),
     );
-    // Her own columns stay, and none of the factory's is put beside them.
+    // Her own columns stay, and none of kodor's is put beside them.
     expect(s.tickets.boards[0]!.columns).toEqual([
       "Todo",
       "In refinement",
@@ -1213,7 +1213,7 @@ describe("factory init --org, with a board the organization already has", () => 
     ).toEqual([
       "? select: Which board?",
       "",
-      "Board 7 has a column for each of the factory's six states:",
+      "Board 7 has a column for each of kodor's six states:",
       "",
       "  State      Column",
       "  backlog    Backlog",
@@ -1275,7 +1275,7 @@ describe("factory init --org, with a board the organization already has", () => 
       "? select: Which board?",
       "",
       "Board 7 has the columns Todo, Doing, Code review, and Done.",
-      "Asking Claude Code which of them shows each of the factory's six states...",
+      "Asking Claude Code which of them shows each of kodor's six states...",
       "Claude Code's answer could not be used: it failed: Failed to authenticate: OAuth session expired and could not be refreshed.",
       "Choose the column for each state yourself.",
       "? select: Which column shows backlog?",
@@ -1320,7 +1320,7 @@ describe("factory init --org, with a board the organization already has", () => 
     ]);
   });
 
-  it("names neither factory init nor a repository's settings file as what to do about a failed suggestion", async () => {
+  it("names neither kodor init nor a repository's settings file as what to do about a failed suggestion", async () => {
     const s = existing(
       { columns: ["Todo", "Doing", "Done"] },
       [{ timedOut: true }],
@@ -1332,7 +1332,7 @@ describe("factory init --org, with a board the organization already has", () => 
     expect(said).toContain(
       "Claude Code's answer could not be used: it took longer than 60 seconds.",
     );
-    expect(said).not.toMatch(/Run factory init|factory\.yaml|Nothing changed/);
+    expect(said).not.toMatch(/Run kodor init|kodor\.yaml|Nothing changed/);
   });
 
   it("stops before any other question when the board's columns cannot be read", async () => {
@@ -1351,26 +1351,26 @@ describe("factory init --org, with a board the organization already has", () => 
   });
 });
 
-describe("factory init --org, what it creates in factory-config", () => {
+describe("kodor init --org, what it creates in kodor-config", () => {
   it("writes the preset the draft shows, with the board's number and the interval", async () => {
     const s = setup({
       answers: FIRST,
       boards: [{ number: 11, title: "Old", columns: [] }],
     });
     await s.run();
-    const files = s.seed.repositories["factory-config"]!.files;
+    const files = s.seed.repositories["kodor-config"]!.files;
     expect(Object.keys(files)).toEqual([
       "README.md",
-      "factory-preset.yaml",
+      "kodor-preset.yaml",
       POLLER,
     ]);
-    expect(files["factory-preset.yaml"]).toBe(PRESET);
+    expect(files["kodor-preset.yaml"]).toBe(PRESET);
   });
 
-  it("writes the poller's workflow at the installed factory's version and the interval's cron", async () => {
+  it("writes the poller's workflow at the installed kodor's version and the interval's cron", async () => {
     const s = setup({ answers: FIRST });
     await s.run();
-    const text = s.seed.repositories["factory-config"]!.files[POLLER]!;
+    const text = s.seed.repositories["kodor-config"]!.files[POLLER]!;
     expect(text).toBe(
       pollerWorkflow({ owner: "acme", version: "0.4.0", pollMinutes: 30 }),
     );
@@ -1399,7 +1399,7 @@ describe("factory init --org, what it creates in factory-config", () => {
       "? select: What pays for sessions in the cloud?",
     ]);
     expect(
-      s.seed.repositories["factory-config"]!.files["factory-preset.yaml"],
+      s.seed.repositories["kodor-config"]!.files["kodor-preset.yaml"],
     ).toContain('branch-name: "{user}/{ticket}"\n');
   });
 
@@ -1407,7 +1407,7 @@ describe("factory init --org, what it creates in factory-config", () => {
     const s = setup({ answers: { ...FIRST, input: ['a"b/{ticket}'] } });
     await s.run();
     const preset = parse(
-      s.seed.repositories["factory-config"]!.files["factory-preset.yaml"]!,
+      s.seed.repositories["kodor-config"]!.files["kodor-preset.yaml"]!,
     );
     expect(preset["code-host"]).toEqual({
       type: "github",
@@ -1427,11 +1427,11 @@ describe("factory init --org, what it creates in factory-config", () => {
         org: {
           ...DONE,
           repositories: {
-            "factory-config": {
+            "kodor-config": {
               isPrivate: true,
               files: {
                 "README.md": "mine",
-                "factory-preset.yaml": mine,
+                "kodor-preset.yaml": mine,
                 ...poller,
               },
             },
@@ -1442,7 +1442,7 @@ describe("factory init --org, what it creates in factory-config", () => {
       expect(s.inputs).toEqual([]);
       for (const line of BRANCH_LINES) expect(s.out).not.toContain(line);
       expect(
-        s.seed.repositories["factory-config"]!.files["factory-preset.yaml"],
+        s.seed.repositories["kodor-config"]!.files["kodor-preset.yaml"],
       ).toBe(mine);
     },
   );
@@ -1453,10 +1453,10 @@ describe("factory init --org, what it creates in factory-config", () => {
       org: {
         ...DONE,
         repositories: {
-          "factory-config": {
+          "kodor-config": {
             isPrivate: true,
             files: {
-              "factory-preset.yaml": "version: 2\nrepository: acme/web\n",
+              "kodor-preset.yaml": "version: 1\nrepository: acme/web\n",
             },
           },
         },
@@ -1464,9 +1464,9 @@ describe("factory init --org, what it creates in factory-config", () => {
     });
     expect(await s.run()).toBe(1);
     expect(s.transcript).toEqual([
-      "Setting up the software factory for the organization acme",
+      "Setting up kodor for the organization acme",
       "",
-      "factory-preset.yaml: repository: a preset can't set this",
+      "kodor-preset.yaml: repository: a preset can't set this",
       "Fix it, then run init again.",
     ]);
     expect(s.changes()).toEqual([]);
@@ -1475,12 +1475,12 @@ describe("factory init --org, what it creates in factory-config", () => {
   it("writes a README that says what the two files are", async () => {
     const s = setup({ answers: FIRST });
     await s.run();
-    const readme = s.seed.repositories["factory-config"]!.files["README.md"]!;
+    const readme = s.seed.repositories["kodor-config"]!.files["README.md"]!;
     expect(readme).toContain(
       [
-        "- `factory-preset.yaml` is acme's preset: the ticket system, the board, its",
+        "- `kodor-preset.yaml` is acme's preset: the ticket system, the board, its",
         "  columns, and how builds name their branches. A repository follows it once",
-        "  a developer runs `factory init` there.",
+        "  a developer runs `kodor init` there.",
       ].join("\n"),
     );
     expect(readme).toContain(POLLER);
@@ -1492,8 +1492,8 @@ describe("factory init --org, what it creates in factory-config", () => {
       answers: { ...FIRST, select: ["new", "CLAUDE_CODE_OAUTH_TOKEN", "5"] },
     });
     await s.run();
-    const files = s.seed.repositories["factory-config"]!.files;
-    expect(files["factory-preset.yaml"]).toMatch(
+    const files = s.seed.repositories["kodor-config"]!.files;
+    expect(files["kodor-preset.yaml"]).toMatch(
       /builds:\n  trigger: github-action\n$/,
     );
     expect(files[POLLER]).toContain('- cron: "*/5 * * * *" # the poller');
@@ -1506,39 +1506,39 @@ describe("factory init --org, what it creates in factory-config", () => {
       org: {
         ...DONE,
         repositories: {
-          "factory-config": {
+          "kodor-config": {
             isPrivate: true,
-            files: { "README.md": mine, "factory-preset.yaml": PRESET },
+            files: { "README.md": mine, "kodor-preset.yaml": PRESET },
           },
         },
       },
     });
     expect(await s.run()).toBe(0);
     expect(s.out).toContain(
-      "  preset    Write .github/workflows/factory-poller.yml in acme/factory-config",
+      "  preset    Write .github/workflows/kodor-poller.yml in acme/kodor-config",
     );
     expect(s.out).toContain(
-      "✓ Wrote .github/workflows/factory-poller.yml in acme/factory-config.",
+      "✓ Wrote .github/workflows/kodor-poller.yml in acme/kodor-config.",
     );
-    const files = s.seed.repositories["factory-config"]!.files;
+    const files = s.seed.repositories["kodor-config"]!.files;
     expect(files["README.md"]).toBe(mine);
-    expect(files["factory-preset.yaml"]).toBe(PRESET);
+    expect(files["kodor-preset.yaml"]).toBe(PRESET);
     // The cron follows the interval the preset already holds.
     expect(files[POLLER]).toBe(CONFIG.files[POLLER]);
     expect(s.changes()).toEqual([
-      "putFiles factory-config .github/workflows/factory-poller.yml",
+      "putFiles kodor-config .github/workflows/kodor-poller.yml",
     ]);
   });
 });
 
-describe("factory init --org, on GitHub Free", () => {
+describe("kodor init --org, on GitHub Free", () => {
   const free = () =>
     setup({
       answers: { ...FIRST, select: ["new", "CLAUDE_CODE_OAUTH_TOKEN"] },
       org: { plan: FREE },
     });
 
-  it("says what the plan leaves out, makes factory-config public, and leaves the rule to each repository", async () => {
+  it("says what the plan leaves out, makes kodor-config public, and leaves the rule to each repository", async () => {
     const s = free();
     expect(await s.run()).toBe(0);
     expect(s.out.slice(2, 9)).toEqual([
@@ -1554,11 +1554,11 @@ describe("factory init --org, on GitHub Free", () => {
       s.out.indexOf("This is everything setup will do:") + 1,
     );
     expect(plan.slice(0, 5)).toEqual([
-      '  app       Register the GitHub App "Software Factory for acme" and install it',
-      "  secrets   Store FACTORY_APP_PRIVATE_KEY, CLAUDE_CODE_OAUTH_TOKEN, and the variable FACTORY_APP_CLIENT_ID for acme",
-      "  preset    Create acme/factory-config, a public repository, with the organization's preset and the poller",
-      "- rule      Each repository's own: once its setup merges, an admin of it runs factory init",
-      "  board     Create a board with the factory's columns and fields",
+      '  app       Register the GitHub App "kodor-acme" and install it',
+      "  secrets   Store KODOR_APP_PRIVATE_KEY, CLAUDE_CODE_OAUTH_TOKEN, and the variable KODOR_APP_CLIENT_ID for acme",
+      "  preset    Create acme/kodor-config, a public repository, with the organization's preset and the poller",
+      "- rule      Each repository's own: once its setup merges, an admin of it runs kodor init",
+      "  board     Create a board with kodor's columns and fields",
     ]);
     expect(
       s.out.slice(s.out.indexOf("✓ Stored 2 secrets and 1 variable for acme.")),
@@ -1569,7 +1569,7 @@ describe("factory init --org, on GitHub Free", () => {
     ]);
     // The plan's row is not repeated among the results.
     expect(s.out.filter((l) => l.startsWith("- rule"))).toHaveLength(1);
-    expect(s.changes()).toContain("createRepository factory-config public");
+    expect(s.changes()).toContain("createRepository kodor-config public");
     expect(s.changes().some((l) => /^(define|require)/.test(l))).toBe(false);
   });
 
@@ -1580,26 +1580,26 @@ describe("factory init --org, on GitHub Free", () => {
       "Which board?",
       "What pays for sessions in the cloud?",
     ]);
-    const files = s.seed.repositories["factory-config"]!.files;
-    expect(files["factory-preset.yaml"]).not.toContain("poll-minutes");
+    const files = s.seed.repositories["kodor-config"]!.files;
+    expect(files["kodor-preset.yaml"]).not.toContain("poll-minutes");
     expect(files[POLLER]).toContain('- cron: "*/5 * * * *" # the poller');
   });
 });
 
-describe("factory init --org, registering the app", () => {
+describe("kodor init --org, registering the app", () => {
   it("stores the key and the client ID the moment it has them, before the browser goes on to install", async () => {
     const s = setup({ answers: FIRST });
     await s.run();
     const log = s.org().log;
     const sent = log.indexOf("sent the browser to install");
-    expect(log.indexOf("setSecret FACTORY_APP_PRIVATE_KEY")).toBeLessThan(sent);
+    expect(log.indexOf("setSecret KODOR_APP_PRIVATE_KEY")).toBeLessThan(sent);
     expect(
-      log.indexOf("setVariable FACTORY_APP_CLIENT_ID Iv23client"),
+      log.indexOf("setVariable KODOR_APP_CLIENT_ID Iv23client"),
     ).toBeLessThan(sent);
-    expect(log.indexOf("setSecret FACTORY_APP_PRIVATE_KEY")).toBeGreaterThan(
-      log.indexOf("registerApp Software Factory for acme"),
+    expect(log.indexOf("setSecret KODOR_APP_PRIVATE_KEY")).toBeGreaterThan(
+      log.indexOf("registerApp kodor-acme"),
     );
-    expect(s.org().values.get("FACTORY_APP_PRIVATE_KEY")).toBe(KEY);
+    expect(s.org().values.get("KODOR_APP_PRIVATE_KEY")).toBe(KEY);
     printsNoSecret(s.transcript);
   });
 
@@ -1620,8 +1620,8 @@ describe("factory init --org, registering the app", () => {
     expect(s.transcript.slice(from + 1, from + 1 + STEP_2.length)).toEqual(
       STEP_2,
     );
-    expect(s.seed.secrets).toContain("FACTORY_APP_PRIVATE_KEY");
-    expect(s.seed.variables.FACTORY_APP_CLIENT_ID).toBe("Iv23client");
+    expect(s.seed.secrets).toContain("KODOR_APP_PRIVATE_KEY");
+    expect(s.seed.variables.KODOR_APP_CLIENT_ID).toBe("Iv23client");
   });
 
   it("takes a pasted address when her browser cannot reach her machine, and asks again for one that is not this run's", async () => {
@@ -1653,12 +1653,12 @@ describe("factory init --org, registering the app", () => {
     const s = setup({ answers: FIRST, org: { taken: true } });
     await s.run();
     const at = s.out.indexOf(
-      'An app named "Software Factory for acme" is already registered. Delete it under acme\'s Settings, Developer settings, or type another name in the form.',
+      'An app named "kodor-acme" is already registered. Delete it under acme\'s Settings, Developer settings, or type another name in the form.',
     );
     expect(s.out.slice(at - 2, at + 3)).toEqual([
       "",
       STEP_1[1],
-      'An app named "Software Factory for acme" is already registered. Delete it under acme\'s Settings, Developer settings, or type another name in the form.',
+      'An app named "kodor-acme" is already registered. Delete it under acme\'s Settings, Developer settings, or type another name in the form.',
       "",
       STEP_1[3],
     ]);
@@ -1671,10 +1671,10 @@ describe("factory init --org, registering the app", () => {
     });
     await s.run();
     expect(s.out).toContain(
-      '  app       Register the GitHub App "Software Factory for a-very-long-o", its name cut to the 34 characters GitHub allows, and install it',
+      '  app       Register the GitHub App "kodor-a-very-long-organization-nam", its name cut to the 34 characters GitHub allows, and install it',
     );
     expect(s.changes()).toContain(
-      "registerApp Software Factory for a-very-long-o",
+      "registerApp kodor-a-very-long-organization-nam",
     );
   });
 
@@ -1694,11 +1694,11 @@ describe("factory init --org, registering the app", () => {
       "✗ Could not see the app installed after 10 minutes.",
       RERUN,
     ]);
-    expect(s.seed.secrets).toContain("FACTORY_APP_PRIVATE_KEY");
-    expect(s.seed.variables.FACTORY_APP_CLIENT_ID).toBe("Iv23client");
+    expect(s.seed.secrets).toContain("KODOR_APP_PRIVATE_KEY");
+    expect(s.seed.variables.KODOR_APP_CLIENT_ID).toBe("Iv23client");
   });
 
-  it("fails when the install leaves factory-config out, with the page that adds it", async () => {
+  it("fails when the install leaves kodor-config out, with the page that adds it", async () => {
     const s = setup({
       answers: FIRST,
       org: {
@@ -1708,7 +1708,7 @@ describe("factory init --org, registering the app", () => {
     });
     expect(await s.run()).toBe(1);
     expect(s.out.slice(-2)).toEqual([
-      "✗ The app is not installed on acme/factory-config, which every repository's runs read. Add it: https://github.com/organizations/acme/settings/installations/52811",
+      "✗ The app is not installed on acme/kodor-config, which every repository's runs read. Add it: https://github.com/organizations/acme/settings/installations/52811",
       RERUN,
     ]);
     expect(s.out).toContain(CREATED);
@@ -1716,7 +1716,7 @@ describe("factory init --org, registering the app", () => {
   });
 });
 
-describe("factory init --org, the coding agent's credential", () => {
+describe("kodor init --org, the coding agent's credential", () => {
   /** What the browser gives to paste back into claude setup-token. */
   const CODE = "Xy7_pQ2vLm-9aB#kR4tZ0wE8sD1fG5hJ3nC6uI";
   const COPY =
@@ -1745,7 +1745,7 @@ describe("factory init --org, the coding agent's credential", () => {
     ]);
     expect(s.org().values.get("CLAUDE_CODE_OAUTH_TOKEN")).toBe(TOKEN);
     expect(s.org().log.filter((l) => l.startsWith("setSecret"))).toEqual([
-      "setSecret FACTORY_APP_PRIVATE_KEY",
+      "setSecret KODOR_APP_PRIVATE_KEY",
       "setSecret CLAUDE_CODE_OAUTH_TOKEN",
     ]);
     const said = s.out.join("\n");
@@ -1809,7 +1809,7 @@ describe("factory init --org, the coding agent's credential", () => {
     ]);
     expect(s.org().values.get("CLAUDE_CODE_OAUTH_TOKEN")).toBe(TOKEN);
     expect(s.org().log.filter((l) => l.startsWith("setSecret"))).toEqual([
-      "setSecret FACTORY_APP_PRIVATE_KEY",
+      "setSecret KODOR_APP_PRIVATE_KEY",
       "setSecret CLAUDE_CODE_OAUTH_TOKEN",
     ]);
     // Each try had the value pasted, under the token's name.
@@ -1856,7 +1856,7 @@ describe("factory init --org, the coding agent's credential", () => {
     });
     expect(await s.run()).toBe(0);
     expect(s.out).toContain(
-      "  secrets   Store FACTORY_APP_PRIVATE_KEY, ANTHROPIC_API_KEY, and the variable FACTORY_APP_CLIENT_ID for acme",
+      "  secrets   Store KODOR_APP_PRIVATE_KEY, ANTHROPIC_API_KEY, and the variable KODOR_APP_CLIENT_ID for acme",
     );
     expect(s.transcript).toContain(
       "? secret: Paste the API key (leave empty to do this later):",
@@ -1880,18 +1880,18 @@ describe("factory init --org, the coding agent's credential", () => {
     expect(s.org().values.get("CLAUDE_CODE_OAUTH_TOKEN")).toBe(TOKEN);
   });
 
-  it("names factory init --org as the command to run again when the token is left empty, and counts what it stored", async () => {
+  it("names kodor init --org as the command to run again when the token is left empty, and counts what it stored", async () => {
     const s = setup({ answers: { ...FIRST, secret: [""] } });
     expect(await s.run()).toBe(0);
     expect(s.out).toContain(
-      "No CLAUDE_CODE_OAUTH_TOKEN stored. Run factory init --org https://github.com/acme again to add it.",
+      "No CLAUDE_CODE_OAUTH_TOKEN stored. Run kodor init --org https://github.com/acme again to add it.",
     );
     expect(s.out).toContain("✓ Stored 1 secret and 1 variable for acme.");
-    expect(s.seed.secrets).toEqual(["FACTORY_APP_PRIVATE_KEY"]);
+    expect(s.seed.secrets).toEqual(["KODOR_APP_PRIVATE_KEY"]);
   });
 });
 
-describe("factory init --org, with a coding agent that needs no secret", () => {
+describe("kodor init --org, with a coding agent that needs no secret", () => {
   it("asks for none, and stores only the app's key and client ID", async () => {
     const s = setup({
       answers: { select: ["new", "30"], confirm: [true] },
@@ -1900,19 +1900,19 @@ describe("factory init --org, with a coding agent that needs no secret", () => {
     expect(await s.run()).toBe(0);
     expect(s.out.some((l) => l.startsWith("  Coding agent"))).toBe(false);
     expect(s.out).toContain(
-      "  secrets   Store FACTORY_APP_PRIVATE_KEY and the variable FACTORY_APP_CLIENT_ID for acme",
+      "  secrets   Store KODOR_APP_PRIVATE_KEY and the variable KODOR_APP_CLIENT_ID for acme",
     );
     expect(s.out).toContain("✓ Stored 1 secret and 1 variable for acme.");
     expect(s.transcript.some((l) => l.startsWith("? secret"))).toBe(false);
   });
 });
 
-describe("factory init --org, when the code host stops answering", () => {
+describe("kodor init --org, when the code host stops answering", () => {
   it("stops before any question when it cannot read what is there", async () => {
     const s = setup({ org: { fail: { plan: new Error("HTTP 502") } } });
     expect(await s.run()).toBe(1);
     expect(s.transcript).toEqual([
-      "Setting up the software factory for the organization acme",
+      "Setting up kodor for the organization acme",
       "",
       "Could not reach the code host: HTTP 502",
     ]);
@@ -2011,7 +2011,7 @@ describe("the line read for a pasted address", () => {
   });
 });
 
-describe("factory init --org, the address of the docs", () => {
+describe("kodor init --org, the address of the docs", () => {
   const docsLine = async (version?: string) => {
     const s = setup({ org: DONE, answers: { confirm: [false] }, version });
     await s.run();
@@ -2020,7 +2020,7 @@ describe("factory init --org, the address of the docs", () => {
 
   it("names the installed release's copy of the page", async () => {
     expect(await docsLine("1.12.3")).toBe(
-      "https://github.com/davidbyoung/software-factory/blob/v1.12.3/docs/setup/organization.md#what-each-developer-does-next",
+      "https://github.com/kodor-ai/kodor/blob/v1.12.3/docs/setup/organization.md#what-each-developer-does-next",
     );
   });
 
@@ -2028,7 +2028,7 @@ describe("factory init --org, the address of the docs", () => {
     "names the default branch's copy for %s, which is no release",
     async (version) => {
       expect(await docsLine(version)).toBe(
-        "https://github.com/davidbyoung/software-factory/blob/main/docs/setup/organization.md#what-each-developer-does-next",
+        "https://github.com/kodor-ai/kodor/blob/main/docs/setup/organization.md#what-each-developer-does-next",
       );
     },
   );
@@ -2052,7 +2052,7 @@ describe("factory init --org, the address of the docs", () => {
   });
 });
 
-describe("factory init --org, the rule", () => {
+describe("kodor init --org, the rule", () => {
   it("carries on when GitHub refuses the rule, and leaves it to each repository's admin as a third step", async () => {
     const s = setup({
       answers: FIRST,
@@ -2072,20 +2072,20 @@ describe("factory init --org, the rule", () => {
   });
 });
 
-describe("factory init --org, run again", () => {
+describe("kodor init --org, run again", () => {
   it("prints what it found, offers to replace the Claude token, and has nothing to do", async () => {
     const s = setup({ org: DONE, answers: { confirm: [false] } });
     expect(await s.run()).toBe(0);
     expect(s.transcript).toEqual([
-      "Setting up the software factory for the organization acme",
+      "Setting up kodor for the organization acme",
       "",
       "Found",
       "  Code host        GitHub (from the address)",
       "  You              an owner of acme",
-      "  App              Software Factory for acme, installed on all repositories",
-      "  Secrets          FACTORY_APP_PRIVATE_KEY and CLAUDE_CODE_OAUTH_TOKEN, stored",
-      "  Preset           acme/factory-config",
-      '  Rule             "Review verdict" is required where software-factory is "on"',
+      "  App              kodor-acme, installed on all repositories",
+      "  Secrets          KODOR_APP_PRIVATE_KEY and CLAUDE_CODE_OAUTH_TOKEN, stored",
+      "  Preset           acme/kodor-config",
+      '  Rule             "Review verdict" is required where kodor is "on"',
       "",
       "? confirm: CLAUDE_CODE_OAUTH_TOKEN is already stored for acme, and works until 2027-11-16. Replace it? Only if it has been revoked. Press Enter for no:",
       "✓ acme is set up. Nothing to do.",
@@ -2136,7 +2136,7 @@ describe("factory init --org, run again", () => {
     const s = setup({
       org: {
         ...DONE,
-        secrets: ["FACTORY_APP_PRIVATE_KEY", "ANTHROPIC_API_KEY"],
+        secrets: ["KODOR_APP_PRIVATE_KEY", "ANTHROPIC_API_KEY"],
       },
       answers: { confirm: [false] },
     });
@@ -2157,7 +2157,7 @@ describe("factory init --org, run again", () => {
     });
     await s.run();
     expect(s.out).toContain(
-      "  App              Software Factory for acme, installed on the repositories you chose",
+      "  App              kodor-acme, installed on the repositories you chose",
     );
   });
 
@@ -2197,15 +2197,15 @@ describe("factory init --org, run again", () => {
       s.out.indexOf("This is everything setup will do:") + 1,
     );
     expect(plan).toEqual([
-      '  rule      Require "Review verdict" on repositories set up with the factory',
+      '  rule      Require "Review verdict" on repositories set up with kodor',
       "",
-      '✓ Required "Review verdict" where the property software-factory is "on".',
+      '✓ Required "Review verdict" where the property kodor is "on".',
       "",
       ...ending(),
     ]);
     expect(s.changes()).toEqual([
-      "defineProperty software-factory on|off",
-      "requireCheckWhere Software factory Review verdict software-factory=on runner",
+      "defineProperty kodor on|off",
+      "requireCheckWhere kodor Review verdict kodor=on runner",
     ]);
   });
 
@@ -2221,8 +2221,8 @@ describe("factory init --org, run again", () => {
 
     it("prints only the second step, with the app's name and its install page when the code host can find them", async () => {
       const s = notInstalled({
-        name: "Software Factory for acme",
-        slug: "software-factory-for-acme",
+        name: "kodor-acme",
+        slug: "kodor-acme",
         installPage: INSTALL_PAGE,
       });
       expect(await s.run()).toBe(0);
@@ -2233,7 +2233,7 @@ describe("factory init --org, run again", () => {
         "  app       Install the GitHub App, which is registered",
       );
       expect(after(s)).toEqual([
-        'The GitHub App "Software Factory for acme" is registered and not installed yet.',
+        'The GitHub App "kodor-acme" is registered and not installed yet.',
         "",
         "Install it. Your browser should open this address. If it does not, open it yourself:",
         ...INSTALLING,
@@ -2282,7 +2282,7 @@ describe("factory init --org, run again", () => {
   });
 });
 
-describe("factory init --org, a step that fails", () => {
+describe("kodor init --org, a step that fails", () => {
   it("says what it could not do, with the code host's reason, and how to carry on", async () => {
     const s = setup({
       answers: FIRST,
@@ -2294,7 +2294,7 @@ describe("factory init --org, a step that fails", () => {
     });
     expect(await s.run()).toBe(1);
     expect(s.out.slice(-2)).toEqual([
-      "✗ Could not create acme/factory-config: HTTP 403: Repository creation failed",
+      "✗ Could not create acme/kodor-config: HTTP 403: Repository creation failed",
       RERUN,
     ]);
     expect(s.tickets.boards).toEqual([]);
@@ -2310,7 +2310,7 @@ describe("factory init --org, a step that fails", () => {
       "✗ Could not create a board: Projects are disabled for acme",
       RERUN,
     ]);
-    expect(s.changes()).toEqual(["createRepository factory-config private"]);
+    expect(s.changes()).toEqual(["createRepository kodor-config private"]);
   });
 
   it("fails when the app's key cannot be stored, and prints no key", async () => {
@@ -2320,7 +2320,7 @@ describe("factory init --org, a step that fails", () => {
     });
     expect(await s.run()).toBe(1);
     expect(s.out.slice(-2)).toEqual([
-      "✗ Could not store FACTORY_APP_PRIVATE_KEY: HTTP 403",
+      "✗ Could not store KODOR_APP_PRIVATE_KEY: HTTP 403",
       RERUN,
     ]);
     printsNoSecret(s.out);
@@ -2338,23 +2338,23 @@ describe("factory init --org, a step that fails", () => {
     ]);
   });
 
-  it("carries on from a run that stopped after factory-config was created", async () => {
+  it("carries on from a run that stopped after kodor-config was created", async () => {
     const s = setup({
       answers: FIRST,
       org: {
-        repositories: { "factory-config": { isPrivate: true, files: {} } },
+        repositories: { "kodor-config": { isPrivate: true, files: {} } },
       },
     });
     expect(await s.run()).toBe(0);
-    expect(s.out).toContain("  Preset           acme/factory-config");
+    expect(s.out).toContain("  Preset           acme/kodor-config");
     expect(s.out).toContain(
-      "  preset    Write README.md, factory-preset.yaml, and .github/workflows/factory-poller.yml in acme/factory-config",
+      "  preset    Write README.md, kodor-preset.yaml, and .github/workflows/kodor-poller.yml in acme/kodor-config",
     );
     expect(s.changes().slice(0, 4)).toEqual([
-      "createBoard Software factory",
+      "createBoard kodor",
       "addColumns 1",
       "addFields 1",
-      "putFiles factory-config README.md factory-preset.yaml .github/workflows/factory-poller.yml",
+      "putFiles kodor-config README.md kodor-preset.yaml .github/workflows/kodor-poller.yml",
     ]);
   });
 });

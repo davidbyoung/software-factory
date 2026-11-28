@@ -1,4 +1,4 @@
-// The factory's own workflows, which a repository's two short files call:
+// kodor's own workflows, which a repository's two short files call:
 // run.yml, review.yml, and session.yml, read as YAML, and the scripts of
 // their steps run for real.
 import { spawnSync } from "node:child_process";
@@ -19,7 +19,7 @@ import { manifestOf } from "../src/code-host/github-app.mts";
 import { SESSION_MINUTES } from "../src/config.mts";
 import { answerName, REVIEW_JOBS } from "../src/runner/github-actions.mts";
 import {
-  FACTORY_FILE,
+  KODOR_FILE,
   factoryWorkflow,
   POLLER_FILE,
   pollerWorkflow,
@@ -98,7 +98,7 @@ const prepareJob = session.jobs.prepare!;
 const sessionJob = session.jobs.session!;
 const publishJob = session.jobs.publish!;
 
-/** The two files as `factory sync` writes them, read as YAML. */
+/** The two files as `kodor sync` writes them, read as YAML. */
 const options = (over: Partial<WorkflowOptions> = {}): WorkflowOptions => ({
   version: "0.3.0",
   branch: "main",
@@ -328,7 +328,7 @@ const evaluate = (expression: string, context: Record<string, unknown>) =>
   truthy(valueOf(expression, context));
 
 /** The steps of run.yml that read another of a ticket's repositories, with a
- * token the factory makes from the app's key as it runs. */
+ * token kodor makes from the app's key as it runs. */
 const ACROSS = [
   "Post the verdict",
   "Tell the other repositories",
@@ -780,7 +780,7 @@ describe("the jobs that run no session", () => {
     "conflicts",
     "dependencies",
   ])(
-    "%s checks out the default branch, never the pull request, and installs the factory before it runs it",
+    "%s checks out the default branch, never the pull request, and installs kodor before it runs it",
     (name) => {
       const job = jobs[name]!;
       const checkout = job.steps![0]!;
@@ -788,10 +788,7 @@ describe("the jobs that run no session", () => {
       // How much history it fetches is its own; which commit, never.
       expect(checkout.with?.ref).toBeUndefined();
       expect(checkout.with?.repository).toBeUndefined();
-      expect(names(job).slice(1, 3)).toEqual([
-        "Set up Node",
-        "Install the factory",
-      ]);
+      expect(names(job).slice(1, 3)).toEqual(["Set up Node", "Install kodor"]);
     },
   );
 
@@ -802,7 +799,7 @@ describe("the jobs that run no session", () => {
       statuses: "write",
     });
     const post = step(job, "Post the verdict");
-    expect(post.run).toBe('factory review verdict ${PR:+--pr "$PR"}');
+    expect(post.run).toBe('kodor review verdict ${PR:+--pr "$PR"}');
     expect(post.env!.GH_TOKEN).toBe("${{ github.token }}");
   });
 
@@ -839,7 +836,7 @@ describe("the jobs that run no session", () => {
     expect(step(job, "Open the ticked tickets")).toEqual({
       name: "Open the ticked tickets",
       env: { GH_TOKEN: "${{ github.token }}" },
-      run: 'factory pr follow-ups --event "$GITHUB_EVENT_PATH"',
+      run: 'kodor pr follow-ups --event "$GITHUB_EVENT_PATH"',
     });
     expect(job.permissions).toEqual({
       contents: "read",
@@ -862,9 +859,9 @@ describe("the jobs that run no session", () => {
   it("runs one pass of the poller at a time, with the board's token", () => {
     const job = jobs.poller!;
     expect(step(job, "Start the Ready tickets")).toMatchObject({
-      run: "factory poller --once",
+      run: "kodor poller --once",
       env: {
-        FACTORY_BOARD_TOKEN:
+        KODOR_BOARD_TOKEN:
           "${{ steps.app.outputs.token || secrets.board-token }}",
       },
     });
@@ -885,7 +882,7 @@ describe("the jobs that run no session", () => {
         kind,
       );
       const started = (env: Record<string, string>) => {
-        const { dir, calls } = sandbox({ factory: "" });
+        const { dir, calls } = sandbox({ kodor: "" });
         const r = runScript(start.run!, dir, { KIND: kind, ...env });
         return { status: r.status, out: r.stdout.trim(), calls: calls() };
       };
@@ -893,7 +890,7 @@ describe("the jobs that run no session", () => {
       expect(started({ GH_TOKEN: "t" })).toEqual({
         status: 0,
         out: "",
-        calls: [`factory session each ${kind}`],
+        calls: [`kodor session each ${kind}`],
       });
       expect(started({ GH_TOKEN: "" })).toEqual({
         status: 0,
@@ -909,17 +906,17 @@ describe("the jobs that run no session", () => {
     expect(open.env!.GH_TOKEN).toBe(
       "${{ steps.app.outputs.token || secrets.build-token }}",
     );
-    expect(open.run).toContain("factory update --pull-requests");
+    expect(open.run).toContain("kodor update --pull-requests");
     expect(job.concurrency).toEqual({
       group: "factory-updates",
       "cancel-in-progress": false,
     });
 
-    const { dir, calls } = sandbox({ factory: "", gh: "", git: "" });
+    const { dir, calls } = sandbox({ kodor: "", gh: "", git: "" });
     const r = runScript(open.run!, dir, { GH_TOKEN: "" });
     expect([r.status, r.stdout.trim()]).toEqual([
       0,
-      "No build token is set, so no update's pull request is opened. factory doctor shows when you are behind.",
+      "No build token is set, so no update's pull request is opened. kodor doctor shows when you are behind.",
     ]);
     expect(calls()).toEqual([]);
   });
@@ -1000,8 +997,8 @@ describe("the approval policies' jobs", () => {
   });
 });
 
-describe("installing the factory in a run", () => {
-  const install = step(jobs.check!, "Install the factory").run!;
+describe("installing kodor in a run", () => {
+  const install = step(jobs.check!, "Install kodor").run!;
   const npm = { npm: "" };
 
   /** A checkout whose lock names `version`. */
@@ -1010,8 +1007,8 @@ describe("installing the factory in a run", () => {
     if (version !== null) {
       mkdirSync(join(box.dir, ".claude"));
       writeFileSync(
-        join(box.dir, ".claude/factory.lock"),
-        `# Written by factory sync.\nversion: ${version}\npresets: []\n`,
+        join(box.dir, ".claude/kodor.lock"),
+        `# Written by kodor sync.\nversion: ${version}\npresets: []\n`,
       );
     }
     if (manifest)
@@ -1023,7 +1020,7 @@ describe("installing the factory in a run", () => {
     const { dir, calls } = checkout("0.3.0", { name: "site" });
     expect(runScript(install, dir).status).toBe(0);
     expect(calls().filter((c) => c.startsWith("npm"))).toEqual([
-      "npm install --global --no-audit --no-fund @davidbyoung/software-factory@0.3.0",
+      "npm install --global --no-audit --no-fund @kodor-ai/kodor@0.3.0",
     ]);
   });
 
@@ -1037,14 +1034,14 @@ describe("installing the factory in a run", () => {
     const r = runScript(install, dir);
     expect(r.status).toBe(1);
     expect(r.stdout).toContain(
-      "::error::.claude/factory.lock names no release of the factory.",
+      "::error::.claude/kodor.lock names no release of kodor.",
     );
     expect(calls().filter((c) => c.startsWith("npm"))).toEqual([]);
   });
 
-  it("installs the checkout itself in the factory's own repository", () => {
+  it("installs the checkout itself in kodor's own repository", () => {
     const { dir, calls } = checkout("0.0.0-development", {
-      name: "@davidbyoung/software-factory",
+      name: "@kodor-ai/kodor",
     });
     expect(runScript(install, dir).status).toBe(0);
     expect(calls().filter((c) => c.startsWith("npm"))).toEqual([
@@ -1053,14 +1050,14 @@ describe("installing the factory in a run", () => {
     ]);
   });
 
-  it("is the same script in every job that runs the factory, with its scripts on only where the repository's own dependencies are needed", () => {
+  it("is the same script in every job that runs kodor, with its scripts on only where the repository's own dependencies are needed", () => {
     for (const job of Object.values(jobs))
       for (const s of job.steps ?? [])
-        if (s.name === "Install the factory") expect(s.run).toBe(install);
+        if (s.name === "Install kodor") expect(s.run).toBe(install);
     for (const job of [review.jobs.check!, prepareJob, publishJob])
-      expect(step(job, "Install the factory").run).toBe(install);
+      expect(step(job, "Install kodor").run).toBe(install);
     // A session's also says what it installed, for the steps after it.
-    const inSession = step(sessionJob, "Install the factory").run!;
+    const inSession = step(sessionJob, "Install kodor").run!;
     for (const line of install
       .split("\n")
       .filter((l) => /version|npm install/.test(l)))
@@ -1088,10 +1085,8 @@ describe("the repository's own secrets", () => {
       "::add-mask::line two",
     ]);
     const env = readFileSync(join(dir, "env"), "utf8");
-    expect(env).toMatch(/^NPM_TOKEN<<(FACTORY_[0-9a-f]{16})\nnpm_abc\n\1\n/);
-    expect(env).toMatch(
-      /KEY<<(FACTORY_[0-9a-f]{16})\nline one\nline two\n\1\n/,
-    );
+    expect(env).toMatch(/^NPM_TOKEN<<(KODOR_[0-9a-f]{16})\nnpm_abc\n\1\n/);
+    expect(env).toMatch(/KEY<<(KODOR_[0-9a-f]{16})\nline one\nline two\n\1\n/);
     expect(env).not.toContain("UNSET");
   });
 
@@ -1117,7 +1112,7 @@ describe("the job that prepares a session", () => {
     expect(names(prepareJob)).toEqual([
       "Checkout the default branch",
       "Set up Node",
-      "Install the factory",
+      "Install kodor",
       "Check whether there is work, then the tokens",
       "Sign in",
       "Name the committer",
@@ -1129,7 +1124,7 @@ describe("the job that prepares a session", () => {
 
   it("releases the ticket of a build that fails or is canceled here", () => {
     const release = step(prepareJob, "Release the ticket");
-    expect(release.run).toBe('factory ticket end "$ID"');
+    expect(release.run).toBe('kodor ticket end "$ID"');
     expect(release.if).toBe(
       "(failure() || cancelled()) && inputs.kind == 'build' && steps.gate.outputs.ran == 'true'",
     );
@@ -1145,10 +1140,10 @@ describe("the job that prepares a session", () => {
   it("asks whether there is work with the workflow's own token, before any step reads the build token or the app's key", () => {
     expect(gate.env).toEqual({
       GH_TOKEN: "${{ github.token }}",
-      FACTORY_BUILD_TOKEN_SET: "${{ secrets.build-token != '' }}",
-      FACTORY_APP_KEY_SET:
-        "${{ secrets.app-key != '' && vars.FACTORY_APP_CLIENT_ID != '' }}",
-      FACTORY_CLAUDE_SET:
+      KODOR_BUILD_TOKEN_SET: "${{ secrets.build-token != '' }}",
+      KODOR_APP_KEY_SET:
+        "${{ secrets.app-key != '' && vars.KODOR_APP_CLIENT_ID != '' }}",
+      KODOR_CLAUDE_SET:
         "${{ secrets.claude-token != '' || secrets.claude-api-key != '' }}",
       KIND: "${{ inputs.kind }}",
       ID: "${{ inputs.id }}",
@@ -1165,10 +1160,10 @@ describe("the job that prepares a session", () => {
   });
 
   it.each<[string, string, string]>([
-    ["", "", "factory session ready answer 31"],
-    ["with a review", "9", "factory session ready answer 31 9"],
+    ["", "", "kodor session ready answer 31"],
+    ["with a review", "9", "kodor session ready answer 31 9"],
   ])("asks about the pull request %s", (_, reviewId, asked) => {
-    const { dir, calls } = sandbox({ factory: "" });
+    const { dir, calls } = sandbox({ kodor: "" });
     const r = runScript(gate.run!, dir, {
       KIND: "answer",
       ID: "31",
@@ -1200,7 +1195,7 @@ describe("the job that prepares a session", () => {
         `echo '{"login":"acme-builds","id":42,"name":null}'`,
       ).env,
     ).toBe(
-      "FACTORY_COMMITTER_NAME=acme-builds\nFACTORY_COMMITTER_EMAIL=42+acme-builds@users.noreply.github.com\n",
+      "KODOR_COMMITTER_NAME=acme-builds\nKODOR_COMMITTER_EMAIL=42+acme-builds@users.noreply.github.com\n",
     );
     expect(
       committer(
@@ -1208,19 +1203,16 @@ describe("the job that prepares a session", () => {
         String.raw`printf '%s' '{"login":"d","id":1,"name":"Dana\nPATH=/evil"}'`,
       ).env,
     ).toBe(
-      "FACTORY_COMMITTER_NAME=Dana PATH=/evil\nFACTORY_COMMITTER_EMAIL=1+d@users.noreply.github.com\n",
+      "KODOR_COMMITTER_NAME=Dana PATH=/evil\nKODOR_COMMITTER_EMAIL=1+d@users.noreply.github.com\n",
     );
   });
 
   it("names the app's bot as the committer under the app, by its no-reply address", () => {
     expect(
-      committer(
-        { KIND: "build", APP_SLUG: "software-factory-for-acme" },
-        "echo 4242",
-      ),
+      committer({ KIND: "build", APP_SLUG: "kodor-acme" }, "echo 4242"),
     ).toEqual({
-      env: "FACTORY_COMMITTER_NAME=software-factory-for-acme[bot]\nFACTORY_COMMITTER_EMAIL=4242+software-factory-for-acme[bot]@users.noreply.github.com\n",
-      calls: ["gh api /users/software-factory-for-acme[bot] --jq .id"],
+      env: "KODOR_COMMITTER_NAME=kodor-acme[bot]\nKODOR_COMMITTER_EMAIL=4242+kodor-acme[bot]@users.noreply.github.com\n",
+      calls: ["gh api /users/kodor-acme[bot] --jq .id"],
     });
   });
 
@@ -1233,20 +1225,20 @@ describe("the job that prepares a session", () => {
   it("hands over the presets the lock names with the rest, and still hands over when they cannot be read", () => {
     const hand = step(prepareJob, "Hand over what the session works from");
     const { dir, calls } = sandbox({
-      factory:
+      kodor:
         'echo "cache $XDG_CACHE_HOME" >> "$RUNNER_TEMP/calls"; [ "$1" != sync ]',
     });
     const r = runScript(hand.run!, dir, {
-      FACTORY_RUN: "/run",
+      KODOR_RUN: "/run",
       KIND: "build",
       ID: "12",
     });
     expect([r.status, calls()]).toEqual([
       0,
       [
-        "factory sync --check",
+        "kodor sync --check",
         "cache /run/in/cache",
-        "factory session prepare build 12",
+        "kodor session prepare build 12",
         "cache",
       ],
     ]);
@@ -1262,7 +1254,7 @@ describe("the job that runs the agent", () => {
       "Lay out the default branch",
       "Read what the repository installs with",
       "Set up Node",
-      "Install the factory",
+      "Install kodor",
       "Take the repository's own secrets",
       "Install the repository's dependencies",
       "Run the build's setup commands",
@@ -1364,15 +1356,15 @@ describe("the job that runs the agent", () => {
     });
   });
 
-  it("runs factory build-setup, which runs each command in its folders, and fails when it does", () => {
+  it("runs kodor build-setup, which runs each command in its folders, and fails when it does", () => {
     const setup = step(sessionJob, "Run the build's setup commands").run!;
     const runSetup = (status: number) => {
-      const { dir, calls } = sandbox({ factory: `exit ${status}` });
+      const { dir, calls } = sandbox({ kodor: `exit ${status}` });
       return { r: runScript(setup, dir), calls: calls() };
     };
     const ok = runSetup(0);
     expect(ok.r.status).toBe(0);
-    expect(ok.calls).toEqual(["factory build-setup"]);
+    expect(ok.calls).toEqual(["kodor build-setup"]);
     expect(runSetup(1).r.status).not.toBe(0);
   });
 
@@ -1380,11 +1372,11 @@ describe("the job that runs the agent", () => {
     const script = step(sessionJob, "Run the session").run!;
     const seen = (env: Record<string, string>) => {
       const { dir, calls } = sandbox({
-        factory:
+        kodor:
           'echo "oauth=${CLAUDE_CODE_OAUTH_TOKEN-none} key=${ANTHROPIC_API_KEY-none} inputs=${OAUTH_TOKEN_INPUT-none},${API_KEY_INPUT-none}" > "$RUNNER_TEMP/seen"',
       });
       const r = runScript(script, dir, env);
-      expect([r.status, calls()]).toEqual([0, ["factory session run"]]);
+      expect([r.status, calls()]).toEqual([0, ["kodor session run"]]);
       return readFileSync(join(dir, "seen"), "utf8").trim();
     };
     expect(seen({ OAUTH_TOKEN_INPUT: "sub", API_KEY_INPUT: "key" })).toBe(
@@ -1407,7 +1399,7 @@ describe("the job that publishes what a session left", () => {
     expect(names(publishJob)).toEqual([
       "Checkout the default branch",
       "Set up Node",
-      "Install the factory",
+      "Install kodor",
       "Name the run's folder",
       "Take what was handed over",
       "Take what the session left",
@@ -1431,7 +1423,7 @@ describe("the job that publishes what a session left", () => {
 
   it("releases a build's ticket whatever happened before, signing in for it when it has to", () => {
     const release = step(publishJob, "Release the ticket");
-    expect(release.run).toBe('factory ticket end "$ID"');
+    expect(release.run).toBe('kodor ticket end "$ID"');
     expect(release.if).toBe(
       "always() && inputs.kind == 'build' && steps.app.outputs.signed == 'true'",
     );
@@ -1513,15 +1505,15 @@ describe("the job that publishes what a session left", () => {
 
 describe("the five jobs that run a session", () => {
   const SESSIONS: [string, string, string, string][] = [
-    ["build", "build", "build", "`factory-build`"],
-    ["review", "review", "review", "`.github/factory-review.md`"],
-    ["answer", "answer", "review", "`factory-address-review`"],
-    ["conflict", "conflict", "conflicts", "`factory-resolve-conflicts`"],
-    ["dependency", "dependency", "dependencies", "`factory-deps`"],
+    ["build", "build", "build", "`kodor-build`"],
+    ["review", "review", "review", "`.github/kodor-review.md`"],
+    ["answer", "answer", "review", "`kodor-address-review`"],
+    ["conflict", "conflict", "conflicts", "`kodor-resolve-conflicts`"],
+    ["dependency", "dependency", "dependencies", "`kodor-deps`"],
   ];
   const calling = Object.entries(jobs).filter(([, job]) => job.uses);
   const REPOSITORY = new URL("..", import.meta.url).pathname;
-  /** A command of the factory's, or a module's call, run in an empty folder
+  /** A command of kodor's, or a module's call, run in an empty folder
    * with nothing signed in and no settings, so it reads no code host. */
   const outside = (args: string[]) => {
     const dir = mkdtempSync(join(tmpdir(), "factory-outside-"));
@@ -1574,10 +1566,10 @@ describe("the five jobs that run a session", () => {
     string,
     boolean,
   ][])(
-    "%s is a kind that `factory session ready` and `prepare` know: %s",
+    "%s is a kind that `kodor session ready` and `prepare` know: %s",
     (kind, known) => {
       const ready = outside([
-        join(REPOSITORY, "bin/factory.js"),
+        join(REPOSITORY, "bin/kodor.js"),
         "session",
         "ready",
         kind,
@@ -1593,7 +1585,7 @@ describe("the five jobs that run a session", () => {
       expect(ready.status).toBe(known ? 1 : 2);
       for (const { said } of [ready, prepare]) {
         expect(said).not.toBe("");
-        expect(!said.includes("Usage: factory session")).toBe(known);
+        expect(!said.includes("Usage: kodor session")).toBe(known);
       }
     },
   );
@@ -1646,7 +1638,7 @@ describe("the five jobs that run a session", () => {
       "cancel-in-progress": false,
     });
     expect(jobs.dependencies!.concurrency).toEqual({
-      group: "factory-deps",
+      group: "kodor-deps",
       "cancel-in-progress": false,
     });
   });
@@ -1673,17 +1665,17 @@ describe("a token of the organization's app, where its key reaches the run", () 
   const REACHES = { APP_KEY_SET: "true", CLIENT_ID: "Iv23li" };
 
   it.each(JOBS)(
-    "%s makes one once the factory is installed, for the repositories the factory names",
+    "%s makes one once kodor is installed, for the repositories kodor names",
     (_, job) => {
       const order = names(job);
       const at = order.indexOf(LIST);
-      expect(order.indexOf("Install the factory")).toBeLessThan(at);
+      expect(order.indexOf("Install kodor")).toBeLessThan(at);
       expect(order.slice(at, at + 3)).toEqual([LIST, MAKE, SAY]);
       expect(step(job, LIST)).toMatchObject({
         id: "repositories",
         env: {
           APP_KEY_SET: "${{ secrets.app-key != '' }}",
-          CLIENT_ID: "${{ vars.FACTORY_APP_CLIENT_ID }}",
+          CLIENT_ID: "${{ vars.KODOR_APP_CLIENT_ID }}",
         },
         run: list.run,
       });
@@ -1694,7 +1686,7 @@ describe("a token of the organization's app, where its key reaches the run", () 
       });
       expect(make.if).toContain("steps.repositories.outputs.names != ''");
       expect(make.with).toMatchObject({
-        "client-id": "${{ vars.FACTORY_APP_CLIENT_ID }}",
+        "client-id": "${{ vars.KODOR_APP_CLIENT_ID }}",
         "private-key": "${{ secrets.app-key }}",
         owner: "${{ github.repository_owner }}",
         repositories: "${{ steps.repositories.outputs.names }}",
@@ -1725,9 +1717,9 @@ describe("a token of the organization's app, where its key reaches the run", () 
     },
   );
 
-  it("asks the factory for the repositories only when the key and the client ID both reach the run", () => {
+  it("asks kodor for the repositories only when the key and the client ID both reach the run", () => {
     const listed = (env: Record<string, string>) => {
-      const { dir, calls } = sandbox({ factory: "echo web,factory-config" });
+      const { dir, calls } = sandbox({ kodor: "echo web,kodor-config" });
       const r = runScript(list.run!, dir, env);
       const output = join(dir, "output");
       return {
@@ -1739,8 +1731,8 @@ describe("a token of the organization's app, where its key reaches the run", () 
 
     expect(listed(REACHES)).toEqual({
       status: 0,
-      calls: ["factory session repositories"],
-      output: "names=web,factory-config\n",
+      calls: ["kodor session repositories"],
+      output: "names=web,kodor-config\n",
     });
     for (const env of [
       { ...REACHES, APP_KEY_SET: "false" },
@@ -1749,8 +1741,8 @@ describe("a token of the organization's app, where its key reaches the run", () 
       expect(listed(env)).toEqual({ status: 0, calls: [], output: "" });
   });
 
-  it("fails the step, and so makes no token, when the factory cannot name the repositories", () => {
-    const { dir } = sandbox({ factory: "exit 1" });
+  it("fails the step, and so makes no token, when kodor cannot name the repositories", () => {
+    const { dir } = sandbox({ kodor: "exit 1" });
 
     expect(runScript(list.run!, dir, REACHES).status).not.toBe(0);
     expect(existsSync(join(dir, "output"))).toBe(false);
@@ -1774,7 +1766,7 @@ describe("a token of the organization's app, where its key reaches the run", () 
       with: { repositories: "${{ steps.repositories.outputs.names }}" },
     });
     const output = (env: Record<string, string>) => {
-      const { dir, calls } = sandbox({ factory: "" });
+      const { dir, calls } = sandbox({ kodor: "" });
       const r = runScript(check.run!, dir, {
         GITHUB_REPOSITORY: "acme/web",
         ...env,
@@ -1809,7 +1801,7 @@ describe("a token of the organization's app, where its key reaches the run", () 
         GITHUB_SERVER_URL: "https://github.com",
       });
       expect(r.stdout).toBe(
-        "::error::The software factory's app for acme is not installed on acme/web. An owner of acme adds it: https://github.com/organizations/acme/settings/installations\n",
+        "::error::kodor's app for acme is not installed on acme/web. An owner of acme adds it: https://github.com/organizations/acme/settings/installations\n",
       );
     },
   );
@@ -1833,7 +1825,7 @@ describe("a token of the organization's app, where its key reaches the run", () 
       "starts the Ready tickets",
       jobs.poller!,
       "Start the Ready tickets",
-      "FACTORY_BOARD_TOKEN",
+      "KODOR_BOARD_TOKEN",
       "board-token",
     ],
     [
@@ -1910,7 +1902,7 @@ describe("a token of the organization's app, where its key reaches the run", () 
         github: { token: "the workflow's" },
       });
     const both = { "app-key": "key", "build-token": "a person's" };
-    const id = { FACTORY_APP_CLIENT_ID: "Iv23li" };
+    const id = { KODOR_APP_CLIENT_ID: "Iv23li" };
 
     expect(token(both, id)).toBe("the workflow's");
     expect(token({ ...both, "app-key": "" }, id)).toBe("a person's");
@@ -1918,7 +1910,7 @@ describe("a token of the organization's app, where its key reaches the run", () 
     expect(token({}, {})).toBe("the workflow's");
   });
 
-  it("checks the updates' job out again with the app's token before it pushes, and cleans nothing the factory's install left", () => {
+  it("checks the updates' job out again with the app's token before it pushes, and cleans nothing kodor's install left", () => {
     const job = jobs.updates!;
     const again = step(job, AGAIN);
     expect(again.uses).toBe("actions/checkout@v7");
@@ -1938,21 +1930,21 @@ describe("a token of the organization's app, where its key reaches the run", () 
   it("commits an update as the app's bot, and signs nothing, whatever the signing key holds", () => {
     const open = step(jobs.updates!, "Open the pull requests");
     expect(open.env!.APP_SLUG).toBe("${{ steps.app.outputs.app-slug }}");
-    const { dir, calls } = sandbox({ gh: "echo 4242", git: "", factory: "" });
+    const { dir, calls } = sandbox({ gh: "echo 4242", git: "", kodor: "" });
 
     const r = runScript(open.run!, dir, {
       GH_TOKEN: "ghs_app",
-      APP_SLUG: "software-factory-for-acme",
+      APP_SLUG: "kodor-acme",
       SIGNING_KEY_INPUT: "PRIVATE KEY",
     });
     expect(r.status).toBe(0);
     expect(calls()).toEqual([
-      "gh api /users/software-factory-for-acme[bot] --jq .id",
-      "git config --global user.name software-factory-for-acme[bot]",
-      "git config --global user.email 4242+software-factory-for-acme[bot]@users.noreply.github.com",
-      "factory update --pull-requests",
+      "gh api /users/kodor-acme[bot] --jq .id",
+      "git config --global user.name kodor-acme[bot]",
+      "git config --global user.email 4242+kodor-acme[bot]@users.noreply.github.com",
+      "kodor update --pull-requests",
     ]);
-    expect(existsSync(join(dir, "factory-signing-key"))).toBe(false);
+    expect(existsSync(join(dir, "kodor-signing-key"))).toBe(false);
   });
 });
 
@@ -2007,7 +1999,7 @@ describe("what each job's token of the app may do", () => {
       { contents: "write", workflows: "write", pull_requests: "write" },
     ],
     [
-      "sets the repository's software-factory property",
+      "sets the repository's kodor property",
       "run-default-branch.yml enroll",
       { repository_custom_properties: "write" },
     ],
@@ -2075,7 +2067,7 @@ describe("what each job's token of the app may do", () => {
 
   it("asks for nothing the app's registration does not hold, which GitHub would refuse", () => {
     const held: Record<string, string> = manifestOf(
-      "Software Factory for acme",
+      "kodor for acme",
       "http://127.0.0.1/registered",
     ).default_permissions;
     const beyond = tokens.flatMap((t) =>
@@ -2093,19 +2085,19 @@ describe("what each job's token of the app may do", () => {
 
 describe("the sign-in of the two jobs around a session", () => {
   const KEY = {
-    FACTORY_APP_CLIENT_ID: "${{ vars.FACTORY_APP_CLIENT_ID }}",
-    FACTORY_APP_PRIVATE_KEY: "${{ secrets.app-key }}",
+    KODOR_APP_CLIENT_ID: "${{ vars.KODOR_APP_CLIENT_ID }}",
+    KODOR_APP_PRIVATE_KEY: "${{ secrets.app-key }}",
   };
   const APP = {
-    FACTORY_APP_CLIENT_ID: "Iv23client",
-    FACTORY_APP_PRIVATE_KEY: "PRIVATE KEY",
+    KODOR_APP_CLIENT_ID: "Iv23client",
+    KODOR_APP_PRIVATE_KEY: "PRIVATE KEY",
   };
   const JOBS: [string, Job][] = [
     ["prepare", prepareJob],
     ["publish", publishJob],
   ];
   const signing = (job: Job, env: Record<string, string>) => {
-    const { dir, calls } = sandbox({ factory: "", gh: "" });
+    const { dir, calls } = sandbox({ kodor: "", gh: "" });
     const r = runScript(step(job, "Sign in").run!, dir, {
       // Publish alone reads it: a review's answer needs a person's token.
       ...(job === publishJob ? { BUILD_TOKEN_SET: "true" } : {}),
@@ -2124,13 +2116,13 @@ describe("the sign-in of the two jobs around a session", () => {
       expect(signing(job, APP)).toEqual({
         status: 0,
         said: "",
-        calls: ["factory session token"],
+        calls: ["kodor session token"],
       });
     },
   );
 
   // `gh auth login` refuses a token without `read:org`, which the token
-  // `factory init` asks for does not have.
+  // `kodor init` asks for does not have.
   it.each(JOBS)(
     "in %s only points git at the CLI where either does not, checking no scope of the token's",
     (_, job) => {
@@ -2146,8 +2138,8 @@ describe("the sign-in of the two jobs around a session", () => {
   it("in publish signs nothing in with neither the app nor a person's token, and says so", () => {
     expect(
       signing(publishJob, {
-        FACTORY_APP_CLIENT_ID: "",
-        FACTORY_APP_PRIVATE_KEY: "",
+        KODOR_APP_CLIENT_ID: "",
+        KODOR_APP_PRIVATE_KEY: "",
         BUILD_TOKEN_SET: "false",
       }),
     ).toEqual({
@@ -2160,12 +2152,12 @@ describe("the sign-in of the two jobs around a session", () => {
   it.each(JOBS)(
     "in %s fails when the app's token cannot be made, and falls back to no other",
     (_, job) => {
-      const { dir, calls } = sandbox({ factory: "exit 1", gh: "" });
+      const { dir, calls } = sandbox({ kodor: "exit 1", gh: "" });
       const r = runScript(step(job, "Sign in").run!, dir, {
         ...APP,
         BUILD_TOKEN_SET: "true",
       });
-      expect([r.status, calls()]).toEqual([1, ["factory session token"]]);
+      expect([r.status, calls()]).toEqual([1, ["kodor session token"]]);
     },
   );
 
@@ -2187,7 +2179,7 @@ describe("the sign-in of the two jobs around a session", () => {
   ) =>
     valueOf(inside(step(job, name).env!.GH_TOKEN), {
       secrets: { "build-token": o.person, "app-key": o.key ?? "" },
-      vars: { FACTORY_APP_CLIENT_ID: o.id ?? "" },
+      vars: { KODOR_APP_CLIENT_ID: o.id ?? "" },
       inputs: { kind: o.kind },
       github: { token: "the workflow's" },
     });
@@ -2289,7 +2281,7 @@ describe("the review and its verdict, which stay the workflow's own", () => {
   ) => {
     const scope = {
       secrets: { "app-key": o.key ?? "K", "build-token": "a person's" },
-      vars: { FACTORY_APP_CLIENT_ID: o.id ?? "I" },
+      vars: { KODOR_APP_CLIENT_ID: o.id ?? "I" },
       inputs: { job: o.job ?? "", pr: "" },
       github: {
         event_name: o.job ? "workflow_dispatch" : "pull_request_target",
@@ -2297,8 +2289,8 @@ describe("the review and its verdict, which stay the workflow's own", () => {
       },
     };
     return {
-      key: valueOf(inside(s.env!.FACTORY_APP_PRIVATE_KEY), scope),
-      person: valueOf(inside(s.env!.FACTORY_BUILD_TOKEN), scope),
+      key: valueOf(inside(s.env!.KODOR_APP_PRIVATE_KEY), scope),
+      person: valueOf(inside(s.env!.KODOR_BUILD_TOKEN), scope),
     };
   };
   const READERS: [string, Step][] = [
@@ -2310,7 +2302,7 @@ describe("the review and its verdict, which stay the workflow's own", () => {
     "posts %s with the workflow's own token, and is given another to read with only for a pull request that is part of a ticket",
     (_, s) => {
       expect(s.env!.GH_TOKEN).toBe("${{ github.token }}");
-      expect(s.env!.FACTORY_ACROSS).toBe("read");
+      expect(s.env!.KODOR_ACROSS).toBe("read");
       expect(reading(s, { body: "Closes #12" }).key).toBe("");
       expect(reading(s, { body: null }).key).toBe("");
       expect(reading(s, { body: "Part of acme/api#12" })).toEqual({
@@ -2342,7 +2334,7 @@ describe("the review and its verdict, which stay the workflow's own", () => {
       GH_TOKEN: "${{ github.token }}",
       CONCLUSION: "${{ needs.session.result }}",
     });
-    expect(record.run).toBe("factory session publish");
+    expect(record.run).toBe("kodor session publish");
     expect(publishJob).not.toHaveProperty("env");
 
     const before = publishJob.steps!.slice(
@@ -2370,7 +2362,7 @@ const EVERY: [string, Workflow][] = [
   ...readdirSync(".github/workflows")
     .filter((file) => file.endsWith(".yml"))
     .map((file): [string, Workflow] => [file, read(file)]),
-  [`${FACTORY_FILE}, as sync writes it`, factoryYml()],
+  [`${KODOR_FILE}, as sync writes it`, factoryYml()],
   [`${REVIEW_FILE}, as sync writes it`, factoryReviewYml()],
 ];
 
@@ -2388,10 +2380,10 @@ const secretsIn = (part: unknown) => [
 /** What signs a step in to the code host: a secret that is a sign-in, the
  * workflow's own token, or a command or an action that makes or takes one. */
 const SIGN_IN =
-  /app-key|(?:build|board|automerge)-token|signing-key|github\.token|GITHUB_TOKEN|GH_TOKEN|steps\.app\b|create-github-app-token|session token|gh auth|FACTORY_APP_PRIVATE_KEY/;
+  /app-key|(?:build|board|automerge)-token|signing-key|github\.token|GITHUB_TOKEN|GH_TOKEN|steps\.app\b|create-github-app-token|session token|gh auth|KODOR_APP_PRIVATE_KEY/;
 /** Whether a step starts an AI. */
 const startsAi = (s: Step) =>
-  /\bfactory session run\b|(?:^|[\s;&|("'])claude(?=[\s"']|$)/m.test(
+  /\bkodor session run\b|(?:^|[\s;&|("'])claude(?=[\s"']|$)/m.test(
     s.run ?? "",
   ) || (s.uses ?? "").startsWith("anthropics/");
 const AI = EVERY.flatMap(([file, workflow]) =>
@@ -2402,7 +2394,7 @@ const AI = EVERY.flatMap(([file, workflow]) =>
 
 describe("the AI and a sign-in to the code host, which are never in the same job", () => {
   it.each([
-    "factory session run",
+    "kodor session run",
     "cd work && claude -p x",
     'timeout 5m claude "$P"',
   ])("takes a step that runs %s as one that starts an AI", (script) => {
@@ -2411,7 +2403,7 @@ describe("the AI and a sign-in to the code host, which are never in the same job
 
   it.each([
     "npm install @anthropic-ai/claude-code@2.1.0",
-    "factory session ready",
+    "kodor session ready",
   ])("does not take a step that runs %s as one", (script) => {
     expect(startsAi({ name: "s", run: script })).toBe(false);
   });
@@ -2550,10 +2542,10 @@ describe("the two jobs around a session, which have a sign-in", () => {
   );
 
   it.each(JOBS)(
-    "%s runs nothing but the factory's commands and the code host's, from the default branch's checkout",
+    "%s runs nothing but kodor's commands and the code host's, from the default branch's checkout",
     (_, job) => {
       const scripts = job.steps!.filter(
-        (s) => s.run && s.name !== "Install the factory",
+        (s) => s.run && s.name !== "Install kodor",
       );
       for (const s of scripts) {
         expect(s, s.name).not.toHaveProperty("working-directory");
@@ -2627,7 +2619,7 @@ describe("the files GitHub runs from a pull request's copy", () => {
   it.each<[string, Workflow]>([
     ["review.yml", review],
     [
-      "factory-review.yml, whatever the settings turn on",
+      "kodor-review.yml, whatever the settings turn on",
       factoryReviewYml({ secrets: ["NPM_TOKEN", "GITHUB_TOKEN"] }),
     ],
   ])(
@@ -2676,7 +2668,7 @@ describe("what the two files grant the jobs they call, which can have no more", 
     },
   );
 
-  it("is what review.yml asks for, and no more, from factory-review.yml", () => {
+  it("is what review.yml asks for, and no more, from kodor-review.yml", () => {
     expect(factoryReviewYml().permissions).toEqual(most(asked(review)));
   });
 
@@ -2739,7 +2731,7 @@ describe("run.yml's groups", () => {
     [
       "default-branch",
       [
-        "Factory files in step",
+        "kodor files in step",
         "Require the verdict",
         "Build",
         "Find the conflicts",
@@ -2788,7 +2780,7 @@ describe("run.yml's groups", () => {
   );
 });
 
-describe("the names one part of the factory goes by for another", () => {
+describe("the names one part of kodor goes by for another", () => {
   it("names an answer's run as the runner counts it, a pull request's as it finds its review, and leaves any other to GitHub", () => {
     const named = (
       inputs: Record<string, string>,
@@ -2821,9 +2813,9 @@ describe("the names one part of the factory goes by for another", () => {
 describe("the job that makes the verdict required, once a setup has merged", () => {
   const job = jobs.enroll!;
 
-  it("runs factory enroll with the app's token, or a person's build token, or the workflow's own, and says which it holds", () => {
+  it("runs kodor enroll with the app's token, or a person's build token, or the workflow's own, and says which it holds", () => {
     const enroll = step(job, "Require the verdict");
-    expect(enroll.run).toBe("factory enroll");
+    expect(enroll.run).toBe("kodor enroll");
     const env = (app: string, person: string) =>
       Object.fromEntries(
         Object.entries(enroll.env!).map(([name, value]) => [
@@ -2838,18 +2830,18 @@ describe("the job that makes the verdict required, once a setup has merged", () 
 
     expect(env("the app's", "a person's")).toEqual({
       GH_TOKEN: "the app's",
-      FACTORY_APP_TOKEN_SET: true,
-      FACTORY_BUILD_TOKEN_SET: true,
+      KODOR_APP_TOKEN_SET: true,
+      KODOR_BUILD_TOKEN_SET: true,
     });
     expect(env("", "a person's")).toEqual({
       GH_TOKEN: "a person's",
-      FACTORY_APP_TOKEN_SET: false,
-      FACTORY_BUILD_TOKEN_SET: true,
+      KODOR_APP_TOKEN_SET: false,
+      KODOR_BUILD_TOKEN_SET: true,
     });
     expect(env("", "")).toEqual({
       GH_TOKEN: "the workflow's",
-      FACTORY_APP_TOKEN_SET: false,
-      FACTORY_BUILD_TOKEN_SET: false,
+      KODOR_APP_TOKEN_SET: false,
+      KODOR_BUILD_TOKEN_SET: false,
     });
   });
 
@@ -2865,11 +2857,15 @@ describe("the job that makes the verdict required, once a setup has merged", () 
 describe("review.yml", () => {
   const { jobs } = review;
 
+  it("names its job kodor files in step", () => {
+    expect(jobs.check!.name).toBe("kodor files in step");
+  });
+
   it("has the one job that reads a pull request's own code, on every pull request", () => {
     expect(Object.keys(jobs)).toEqual(["check"]);
     expect(jobs.check!.if).toBeUndefined();
     expect(step(jobs.check!, "Check the settings").run).toBe(
-      "factory config check",
+      "kodor config check",
     );
   });
 
@@ -2879,7 +2875,7 @@ describe("review.yml", () => {
     });
   });
 
-  it("compares the files with the base commit's lock, with no sign-in in what the factory runs with", () => {
+  it("compares the files with the base commit's lock, with no sign-in in what kodor runs with", () => {
     const compare = step(jobs.check!, "Compare the copies with their source");
     expect(compare.env).toEqual({
       BASE: "${{ github.event.pull_request.base.sha }}",
@@ -2887,20 +2883,20 @@ describe("review.yml", () => {
     });
     const { dir, calls } = sandbox({
       git: "",
-      factory: 'echo "token ${TOKEN-none}" >> "$RUNNER_TEMP/calls"',
+      kodor: 'echo "token ${TOKEN-none}" >> "$RUNNER_TEMP/calls"',
     });
     const r = runScript(compare.run!, dir, { BASE: "abc123", TOKEN: "t0ken" });
 
     expect([r.status, r.stdout + r.stderr]).toEqual([0, ""]);
     expect(calls()).toEqual([
       expect.stringMatching(/^git -c http\.extraheader=.* origin abc123$/),
-      "factory sync --check --against abc123 --public",
+      "kodor sync --check --against abc123 --public",
       "token none",
     ]);
   });
 
-  describe("the step that checks factory.yml", () => {
-    const check = () => step(jobs.check!, "Check that factory.yml is enabled");
+  describe("the step that checks kodor.yml", () => {
+    const check = () => step(jobs.check!, "Check that kodor.yml is enabled");
     /** The step, with GitHub's answer as the GitHub CLI gives it. */
     const answered = (gh: string) => {
       const { dir, calls } = sandbox({ gh });
@@ -2913,11 +2909,11 @@ describe("review.yml", () => {
     const refused = (said: string) =>
       `echo '{"message":"as GitHub gives it"}'; printf '%s\\n' ${said} >&2; exit 1`;
     const FIX =
-      "Enable it on the Actions tab, or run: gh workflow enable factory.yml. Then push a commit to this pull request.";
+      "Enable it on the Actions tab, or run: gh workflow enable kodor.yml. Then push a commit to this pull request.";
 
-    it("asks for the state of the repository's own factory.yml", () => {
+    it("asks for the state of the repository's own kodor.yml", () => {
       expect(answered("echo active").calls()).toEqual([
-        "gh api repos/acme/web/actions/workflows/factory.yml --jq .state",
+        "gh api repos/acme/web/actions/workflows/kodor.yml --jq .state",
       ]);
     });
 
@@ -2926,38 +2922,38 @@ describe("review.yml", () => {
         "fails, saying GitHub did it, when GitHub switched it off",
         "echo disabled_inactivity",
         1,
-        `::error::GitHub switched factory.yml off after 60 days with no activity, so nothing posts "Review verdict" here. ${FIX}`,
+        `::error::GitHub switched kodor.yml off after 60 days with no activity, so nothing posts "Review verdict" here. ${FIX}`,
       ],
       [
         "fails, not saying GitHub did it, when a person disabled it",
         "echo disabled_manually",
         1,
-        `::error::factory.yml is disabled, so nothing posts "Review verdict" here. ${FIX}`,
+        `::error::kodor.yml is disabled, so nothing posts "Review verdict" here. ${FIX}`,
       ],
       [
         "passes in a fork where GitHub has it off",
         "echo disabled_fork",
         0,
-        "factory.yml is off in this fork",
+        "kodor.yml is off in this fork",
       ],
-      ["passes when it is enabled", "echo active", 0, "factory.yml is enabled"],
+      ["passes when it is enabled", "echo active", 0, "kodor.yml is enabled"],
       [
         "passes when the default branch does not have it yet",
         refused("'gh: Not Found (HTTP 404)'"),
         0,
-        "factory.yml is not on the default branch yet",
+        "kodor.yml is not on the default branch yet",
       ],
       [
         "passes with a warning that gives the last line of the error when GitHub does not answer",
         refused("'a notice' 'gh: Bad Gateway (HTTP 502)'"),
         0,
-        "::warning::Could not tell whether factory.yml is enabled: Bad Gateway (HTTP 502)",
+        "::warning::Could not tell whether kodor.yml is enabled: Bad Gateway (HTTP 502)",
       ],
       [
         "passes with a warning that names a state it does not know",
         "echo deleted",
         0,
-        "::warning::Could not tell whether factory.yml is enabled: its state is deleted",
+        "::warning::Could not tell whether kodor.yml is enabled: its state is deleted",
       ],
     ])("%s", (_, gh, status, printed) => {
       const r = answered(gh);
@@ -2974,7 +2970,7 @@ describe("review.yml", () => {
       );
       expect(holders.map((s) => [s.name, s.env])).toEqual([
         [
-          "Check that factory.yml is enabled",
+          "Check that kodor.yml is enabled",
           { GH_TOKEN: "${{ github.token }}" },
         ],
       ]);
@@ -2985,13 +2981,13 @@ describe("review.yml", () => {
 describe("Dependabot's auto-merge", () => {
   const job = jobs.dependabot!;
 
-  it("is turned on only for Dependabot's own pull request, never a major, and never one that names the factory", () => {
+  it("is turned on only for Dependabot's own pull request, never a major, and never one that names kodor", () => {
     expect(job.if!.replace(/\s+/g, " ")).toBe(
       "contains(format(' {0} ', inputs.parts), ' dependabot ') && github.event_name == 'pull_request_target' && contains(fromJSON('[\"opened\", \"reopened\", \"synchronize\"]'), github.event.action) && github.actor == 'dependabot[bot]'",
     );
     const enable = step(job, "Enable auto-merge");
     expect(enable.if!.replace(/\s+/g, " ")).toBe(
-      "steps.meta.outputs.update-type != 'version-update:semver-major' && !contains(steps.meta.outputs.dependency-names, 'davidbyoung/software-factory')",
+      "steps.meta.outputs.update-type != 'version-update:semver-major' && !contains(steps.meta.outputs.dependency-names, 'kodor-ai/kodor')",
     );
     expect(job.permissions).toEqual({
       contents: "read",
@@ -3004,7 +3000,7 @@ describe("Dependabot's auto-merge", () => {
   });
 });
 
-describe("poller.yml, which an organization's factory-poller.yml calls", () => {
+describe("poller.yml, which an organization's kodor-poller.yml calls", () => {
   const poller = read("poller.yml");
   const { jobs } = poller;
   const TOKEN = "${{ steps.app.outputs.token }}";
@@ -3068,8 +3064,8 @@ describe("poller.yml, which an organization's factory-poller.yml calls", () => {
       "cancel-in-progress": false,
     });
     expect(step(job, "Start the Ready tickets")).toMatchObject({
-      run: "factory poller --once --preset factory-preset.yaml",
-      env: { FACTORY_BOARD_TOKEN: TOKEN },
+      run: "kodor poller --once --preset kodor-preset.yaml",
+      env: { KODOR_BOARD_TOKEN: TOKEN },
     });
   });
 
@@ -3083,7 +3079,7 @@ describe("poller.yml, which an organization's factory-poller.yml calls", () => {
         uses: "actions/create-github-app-token@v3",
       });
       expect(token.with).toMatchObject({
-        "client-id": "${{ vars.FACTORY_APP_CLIENT_ID }}",
+        "client-id": "${{ vars.KODOR_APP_CLIENT_ID }}",
         "private-key": "${{ secrets.app-key }}",
         owner: "${{ github.repository_owner }}",
       });
@@ -3105,11 +3101,11 @@ describe("poller.yml, which an organization's factory-poller.yml calls", () => {
     );
     expect(check.env).toEqual({
       APP_KEY_SET: "${{ secrets.app-key != '' }}",
-      CLIENT_ID: "${{ vars.FACTORY_APP_CLIENT_ID }}",
+      CLIENT_ID: "${{ vars.KODOR_APP_CLIENT_ID }}",
     });
     const run = (env: Record<string, string>) =>
       runScript(check.run!, sandbox().dir, {
-        GITHUB_REPOSITORY: "acme/factory-config",
+        GITHUB_REPOSITORY: "acme/kodor-config",
         GITHUB_REPOSITORY_OWNER: "acme",
         GITHUB_SERVER_URL: "https://github.com",
         ...env,
@@ -3123,24 +3119,24 @@ describe("poller.yml, which an organization's factory-poller.yml calls", () => {
       const r = run(env);
       expect(r.status).toBe(1);
       expect(r.stdout).toBe(
-        "::error::FACTORY_APP_PRIVATE_KEY or FACTORY_APP_CLIENT_ID does not reach acme/factory-config. An owner of acme runs: factory init --org https://github.com/acme\n",
+        "::error::KODOR_APP_PRIVATE_KEY or KODOR_APP_CLIENT_ID does not reach acme/kodor-config. An owner of acme runs: kodor init --org https://github.com/acme\n",
       );
     }
   });
 
   it("installs the release the file that calls it names", () => {
-    const install = step(jobs.poller!, "Install the factory");
+    const install = step(jobs.poller!, "Install kodor");
     const { dir, calls } = checkout(calling("0.4.0"), { npm: "" });
 
     expect(runScript(install.run!, dir).status).toBe(0);
     expect(calls()).toEqual([
-      "npm install --global --no-audit --no-fund @davidbyoung/software-factory@0.4.0",
+      "npm install --global --no-audit --no-fund @kodor-ai/kodor@0.4.0",
     ]);
-    expect(step(jobs.updates!, "Install the factory").run).toBe(install.run);
+    expect(step(jobs.updates!, "Install kodor").run).toBe(install.run);
   });
 
   it("installs nothing, naming the file, when it names no release", () => {
-    const install = step(jobs.poller!, "Install the factory");
+    const install = step(jobs.poller!, "Install kodor");
     const { dir, calls } = checkout(
       calling().replace("poller.yml@v0.4.0", "poller.yml@main"),
       { npm: "" },
@@ -3149,7 +3145,7 @@ describe("poller.yml, which an organization's factory-poller.yml calls", () => {
     const r = runScript(install.run!, dir);
     expect(r.status).toBe(1);
     expect(r.stdout).toBe(
-      "::error::.github/workflows/factory-poller.yml names no release of the factory after poller.yml@v.\n",
+      "::error::.github/workflows/kodor-poller.yml names no release of kodor after poller.yml@v.\n",
     );
     expect(calls()).toEqual([]);
   });
@@ -3175,17 +3171,17 @@ describe("poller.yml, which an organization's factory-poller.yml calls", () => {
       GH_TOKEN: TOKEN,
       APP_SLUG: "${{ steps.app.outputs.app-slug }}",
     });
-    const { dir, calls } = sandbox({ gh: "echo 4242", git: "", factory: "" });
+    const { dir, calls } = sandbox({ gh: "echo 4242", git: "", kodor: "" });
 
     const r = runScript(open.run!, dir, {
-      APP_SLUG: "software-factory-for-acme",
+      APP_SLUG: "kodor-acme",
     });
     expect(r.status).toBe(0);
     expect(calls()).toEqual([
-      "gh api /users/software-factory-for-acme[bot] --jq .id",
-      "git config --global user.name software-factory-for-acme[bot]",
-      "git config --global user.email 4242+software-factory-for-acme[bot]@users.noreply.github.com",
-      "factory update --pull-requests",
+      "gh api /users/kodor-acme[bot] --jq .id",
+      "git config --global user.name kodor-acme[bot]",
+      "git config --global user.email 4242+kodor-acme[bot]@users.noreply.github.com",
+      "kodor update --pull-requests",
     ]);
   });
 });

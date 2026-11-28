@@ -1,4 +1,4 @@
-// The one interface every ticket system's adapter implements. The factory's
+// The one interface every ticket system's adapter implements. kodor's
 // commands read and write tickets only through it, so a second system is an
 // adapter added beside `github.mts`, not a rewrite of the commands. What a
 // ticket's state means (the marker comments, costs, and the views) stays
@@ -33,7 +33,7 @@ export type BoardItem = {
   rank?: number;
 };
 
-/** One thing the factory recorded on a ticket, such as a claim or a cost:
+/** One thing kodor recorded on a ticket, such as a claim or a cost:
  * its visible text and the marker lines that say what it means. */
 export type Entry = {
   /** Opaque, as a comment's ID is. */
@@ -54,7 +54,7 @@ export type NewEntry = {
   tellsPerson: boolean;
 };
 
-/** Where the factory keeps what it did on a ticket. */
+/** Where kodor keeps what it did on a ticket. */
 export type RecordOps = {
   /** Returns the entry's ID. */
   add(ticket: Key, entry: NewEntry): Promise<string>;
@@ -79,7 +79,7 @@ export type Ticket = {
   body: string;
   /** Oldest first, in the order the ticket system keeps them. */
   comments: TicketComment[];
-  /** What the factory recorded on it, oldest first. */
+  /** What kodor recorded on it, oldest first. */
   record: Entry[];
   /** The ticket's card, when "Read everything at once" was asked for the
    * board and the adapter has one; null when it is not on the board. */
@@ -99,7 +99,7 @@ export type BoardField = {
 export type Board = {
   /** The system's own ID for the board, for the adapter's writes. */
   projectId: string;
-  /** The board's own title, for the report `factory board check` prints. */
+  /** The board's own title, for the report `kodor board check` prints. */
   title?: string;
   /** The single-select field whose options are the board's columns, as
    * the ticket system names it: Status on GitHub. */
@@ -123,7 +123,7 @@ export type BoardOps = {
   add(ticket: Key): Promise<string>;
   /** Moves a card already on the board to the column of that name. */
   move(itemId: string, column: string): Promise<void>;
-  /** Writes the factory's own fields of a card already on the board. */
+  /** Writes kodor's own fields of a card already on the board. */
   set(itemId: string, writes: Write[]): Promise<void>;
   /** The repositories with an unfinished ticket in that column of board
    * `number`, each once, in the board's order. Optional. */
@@ -181,7 +181,7 @@ export type TicketField = {
   name: string;
   /** The field's own description, for the coding agent; null with none. */
   description: string | null;
-  /** Whether it holds text, so it can hold a factory field. */
+  /** Whether it holds text, so it can hold a kodor field. */
   text: boolean;
 };
 
@@ -304,7 +304,7 @@ export class NotFoundError extends Error {
 export class UnsupportedError extends Error {
   constructor(group: Group) {
     super(
-      `This ticket system does not support ${group}; check with \`factory ticket supports ${group}\` first.`,
+      `This ticket system does not support ${group}; check with \`kodor ticket supports ${group}\` first.`,
     );
     this.name = "UnsupportedError";
   }

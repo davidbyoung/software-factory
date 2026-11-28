@@ -9,7 +9,7 @@ type Seed = {
   blockers?: [number | string, "open" | "closed"][];
 };
 
-/** A `factory ticket` runner over these open tickets. `failing` names a
+/** A `kodor ticket` runner over these open tickets. `failing` names a
  * command, by its arguments joined with spaces, that exits 1. */
 function tickets(seeds: Seed[], failing?: string): Run {
   return async (args) => {
@@ -157,7 +157,7 @@ describe("ticket-order", () => {
       expect(code).not.toBe(0);
       expect(out).toBe("");
       expect(err).toContain(
-        `factory ticket ${failing} failed: could not read ${failing}`,
+        `kodor ticket ${failing} failed: could not read ${failing}`,
       );
     },
   );

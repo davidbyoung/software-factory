@@ -1,17 +1,17 @@
-# The factory's rules
+# kodor's rules
 
-The process rules that hold in any repository the factory builds.
+The process rules that hold in any repository kodor builds.
 `CLAUDE.md` imports this file, and says what is the repository's own under
 a heading of the same name with ": this repository" added. Where the two
 differ, `CLAUDE.md` wins.
 
-Tickets are read and written only through `factory ticket`,
+Tickets are read and written only through `kodor ticket`,
 and a pull request's conversation comments and labels through
-`factory pr`, so the rules and skills hold whatever the ticket system.
+`kodor pr`, so the rules and skills hold whatever the ticket system.
 
 A label is named here by its key under `tickets.labels` or
 `code-host.labels`, such as `spec` or `verdict-override`, and those
-commands take the key; `factory ticket view` shows the key beside a label
+commands take the key; `kodor ticket view` shows the key beside a label
 the repository renamed, as `needs-spec (spec)`.
 
 ## Small changes
@@ -22,7 +22,7 @@ user sees it: a style tweak, a bug fix, a link, or a line of copy. Its
 size decides, not its kind; content the repository reviews by what changed
 instead is named in "Small changes: this repository" in `CLAUDE.md`. The
 process around a small change has cost far more than the change: on one ticket, under 20 changed lines took a 27
-minute read by the UI reviewer and an 8 minute `factory-ticket-readiness`
+minute read by the UI reviewer and an 8 minute `kodor-ticket-readiness`
 read, and on another one link took an OpenSpec change, eight mutations, and
 two reviewers.
 
@@ -34,13 +34,13 @@ here rather than restate it.
   owner can overrule it before the work starts rather than halfway through.
 - **No `spec` label**, even when a user sees it: the issue's acceptance
   criteria are the spec. No spec tool change either, unless the change
-  makes a line of a spec `factory specs list` prints
+  makes a line of a spec `kodor specs list` prints
   false, as renaming a label a spec quotes would. That issue also carries
   a Spec section of the changed line, and the build folds it into the
   specs in the same pull request, which then waits for the owner. A fix that restores what a spec says
   changes no line of it.
-- **No `factory-ticket-readiness` read and no read by the test reviewers**
-  (`factory plugins test-reviewer` lists them), with two
+- **No `kodor-ticket-readiness` read and no read by the test reviewers**
+  (`kodor plugins test-reviewer` lists them), with two
   exceptions that keep every test reviewer it prints whose `files`, if it
   has any, the change touches: a change to
   tests alone, the one kind they exist for, and code that builds what is
@@ -66,14 +66,14 @@ here rather than restate it.
   itself.
 - For a visible change, a UI reviewer read pointed at the states the change
   touched, not every size and scheme, and told the change is small. The UI
-  reviewer is `factory-ui-reviewer` where the repository lists it, and
+  reviewer is `kodor-ui-reviewer` where the repository lists it, and
   otherwise the repository's own, among its reviewer plugins
-  (`factory plugins reviewer`).
+  (`kodor plugins reviewer`).
 - The gate and CI stay. The pull request says it took this path.
 
 ## Branching, pushing, and review
 
-The default branch, whose name `factory default-branch`
+The default branch, whose name `kodor default-branch`
 prints, is protected: no direct pushes, no bypass, CI must pass, and every
 review thread must be resolved before a merge. Work accordingly rather than
 discovering it at push time.
@@ -91,8 +91,8 @@ discovering it at push time.
   built it, wherever it ran, marks it ready once: when the gate passes,
   everything is pushed, GitHub shows the pushed commit as the head, and
   every CI run on it has passed or been skipped
-  (`factory pr wait-checks N`, then
-  `factory pr ready N`).
+  (`kodor pr wait-checks N`, then
+  `kodor pr ready N`).
   It stays a draft for the owner to mark ready in three cases: a small change
   whose build made a layout or style choice, with the UI reviewer's
   screenshots in the body ("Small changes" above), a pull request the
@@ -104,58 +104,58 @@ discovering it at push time.
 - **The session that built a PR watches it until it merges or closes.** It
   has the context to fix what comes in. The desktop app's PR monitor does not
   connect in local sessions here, so once the PR is ready, or left a draft
-  for the owner to mark ready (above), a local session runs `factory pr watch N` in the background. That exits when a
+  for the owner to mark ready (above), a local session runs `kodor pr watch N` in the background. That exits when a
   check fails, a review or comment lands, or a conflict appears, which wakes
   the session. Work what it reports, then run it again, until it prints
   `merged` or `closed`. A session that stops watching an open PR first runs
   it with `--release`. A session in the cloud watches nothing ("A session in
-  the cloud" below). A pull request `factory update`
+  the cloud" below). A pull request `kodor update`
   opened was built by no session: its review waits for the owner, who
-  merges it or tells a session to work it with `factory-address-review`.
-  So does the pull request `factory init` opens, which a person's command
+  merges it or tells a session to work it with `kodor-address-review`.
+  So does the pull request `kodor init` opens, which a person's command
   opens ready, not as a draft.
 - **A pull request that resolves an issue closes it.** When asked to open
-  one, start the body with the line `factory ticket link N`
-  prints for each issue the branch resolves, so the merge closes them. Check that `factory pr closes PR`
+  one, start the body with the line `kodor ticket link N`
+  prints for each issue the branch resolves, so the merge closes them. Check that `kodor pr closes PR`
   prints each one. For a ticket that names several repositories the line
   says `Part of`, and what merges first: it closes by itself when the last
   of their pull requests merges, where each has a board or builds in the
-  cloud set up, so `factory pr closes PR` prints nothing
+  cloud set up, so `kodor pr closes PR` prints nothing
   for it.
 - **After pushing, check for review automatically.** Where the automated
-  review is on, which is where `factory config get pr-review` prints `on`,
+  review is on, which is where `kodor config get pr-review` prints `on`,
   it reviews every push to a PR that is marked
   ready. If an open PR exists for the branch, wait for the review of that
-  push, then work it with the `factory-address-review` skill
+  push, then work it with the `kodor-address-review` skill
   without being asked. If no PR exists yet, say so in one line: review begins
   when the user opens one. Where the review is off, none comes: a push is
   done once its checks pass.
-- **A conflict with the default branch is fixed through the `factory-resolve-conflicts` skill.** Its
+- **A conflict with the default branch is fixed through the `kodor-resolve-conflicts` skill.** Its
   sweep runs after each merge into the default branch and nightly, on every ready pull
   request that conflicts, and a session working a pull request with
-  `factory-address-review` runs its conflict fix before anything else. When the two
+  `kodor-address-review` runs its conflict fix before anything else. When the two
   sides contradict, it pushes nothing, comments why, and opens an issue.
 - **An issue is built in GitHub Actions by moving its card to Ready** on
   the board, the GitHub Project whose number
-  `factory config get tickets.board` prints: the
-  poller starts a build, a run of the "Factory" workflow, within about a minute
+  `kodor config get tickets.board` prints: the
+  poller starts a build, a run of the "kodor" workflow, within about a minute
   when you host it (`builds.trigger: own-server`) or at its next scheduled
   pass (`github-action`), the same run that
-  `factory build N` starts by hand. A local build starts by telling a session to work the
-  issue. Where `factory config get builds.trigger` prints
+  `kodor build N` starts by hand. A local build starts by telling a session to work the
+  issue. Where `kodor config get builds.trigger` prints
   `manual`, no poller runs and a card moved to Ready starts nothing: a
   build starts only when the owner tells a session to work the issue or
-  runs `factory build N`, so wherever these rules or a skill say Ready
+  runs `kodor build N`, so wherever these rules or a skill say Ready
   starts a build, read it as that.
-  The poller starts only a ticket with the factory label, which refinement
-  and `factory ticket ready` add. It skips a card whose blocker is open
+  The poller starts only a ticket with the kodor label, which refinement
+  and `kodor ticket ready` add. It skips a card whose blocker is open
   and starts it at its first pass after the blocker closes. A card moves only forward on its own: a
   build that ends without a merge stays In progress, and a finished
   refinement stays In refinement, both "Waiting on you", and nothing
   retries on its own. The board sync alone writes Status,
   Session, and Runs in, with one exception: a local session moves the
-  card to Ready with `factory ticket ready N` when the
-  owner asks it to. `factory status` shows the
+  card to Ready with `kodor ticket ready N` when the
+  owner asks it to. `kodor status` shows the
   same in the terminal.
 - **No thread stays unresolved.** The ruleset blocks a merge while any review
   thread is open. Each one ends fixed, or rejected with evidence, and
@@ -182,24 +182,24 @@ them.
   `cd ../work`, and every change is made there. A file under `.claude/` is
   written by a command, since the file tools refuse it.
 - **A ticket across repositories is built one repository at a time,** each
-  in a run of its own. `factory workspace N` prints the others, which are
+  in a run of its own. `kodor workspace N` prints the others, which are
   in `../others` to read, and nothing there can be changed.
 - **It is claimed and branched already.** A skill's steps that claim a
   ticket, name a branch, look for an earlier one, or check one out are done.
-- **A `factory` command that reads** answers from what was handed over. One
+- **A `kodor` command that reads** answers from what was handed over. One
   that says something `was not handed to this run` is not retried: go on
   without it, or stop as it says.
-- **A `factory` command that writes** prints `Asked:`. It is done after the
+- **A `kodor` command that writes** prints `Asked:`. It is done after the
   session ends, if it is one this run may make, so nothing waits for its
   result. A number that is not known yet, such as the pull request's after
-  `factory pr open`, is left out. The pull request is marked ready once CI
+  `kodor pr open`, is left out. The pull request is marked ready once CI
   has passed. One its owner marks ready is opened with
-  `factory pr open --draft` in place of skipping that step.
-- **Commits are handed over with `factory pr push`,** once, at the end.
+  `kodor pr open --draft` in place of skipping that step.
+- **Commits are handed over with `kodor pr push`,** once, at the end.
   Nothing is pushed, fetched, or pulled with git, and nothing is signed. A
   commit that changes a file under `.github/workflows/`, other than a merge
   that brings in the default branch's own change, is refused, with the
-  rest of the session's work. A setting whose `factory sync` rewrites one
+  rest of the session's work. A setting whose `kodor sync` rewrites one
   needs such a commit too. When a ticket needs one, stop and say it is built
   on a person's machine.
 - **Where a skill waits** for checks or a review, the session ends with its
@@ -209,11 +209,11 @@ them.
   checks a commit.
 - **A picture can't be attached.** The pull request says so in place of a
   screenshot, and one whose look the owner picks is opened with `--draft`.
-- **What comes before "marked ready" comes before `factory pr open`,** the
+- **What comes before "marked ready" comes before `kodor pr open`,** the
   fresh-agent trace included, since nobody marks it ready by hand. A
   follow-up alone comes right after it, since it is listed there.
-- **The report** is asked for with `factory ticket comment N`, or on an
-  answer with `factory pr comment N`, and is the final message too.
+- **The report** is asked for with `kodor ticket comment N`, or on an
+  answer with `kodor pr comment N`, and is the final message too.
 
 ## What merges without the owner
 
@@ -221,7 +221,7 @@ A pull request merges itself only when the merge policy labels it
 `merge-automatic` and every gate passes on its newest commit,
 `Review verdict` included. The agents' own rules always wait for the
 owner. Its `Who merges` status in the checks list says which, and why.
-Where `.claude/factory.yaml` lists no file under `auto-merge.allow`, the
+Where `.claude/kodor.yaml` lists no file under `auto-merge.allow`, the
 merge policy does not run: no pull request gets either label or a `Who merges`
 status, and every one waits for the owner, so wherever these rules or a
 skill name them, read it as "waits for the owner".
@@ -230,7 +230,7 @@ Agents never merge, enable auto-merge, or add the `verdict-override`
 label, an approver's pass of the verdict for one commit, which does not
 pass what it waits for in another repository, or the `policy-override`
 label, an approver's acceptance of what an approval policy found;
-`factory pr label` and `factory ticket label` refuse both, and the guard
+`kodor pr label` and `kodor ticket label` refuse both, and the guard
 hook stops the ordinary ways of adding them around them. While "Approval
 policies" waits, a session leaves it alone: it never renames or moves a
 file, or edits a ticket, to stop a policy applying. The merge policy, the
@@ -240,10 +240,10 @@ always the owner's.
 
 ## Spec track
 
-The ticket is the spec: `factory-refine` writes it, the owner
+The ticket is the spec: `kodor-refine` writes it, the owner
 approves it by moving its card to Ready or telling a session to build
-it, and `factory-build` builds it. A change that adds or alters behavior
-a user can see carries the `spec` label, which `factory-refine` adds,
+it, and `kodor-build` builds it. A change that adds or alters behavior
+a user can see carries the `spec` label, which `kodor-refine` adds,
 unless it is small ("Small changes" above), whatever spec tool the
 repository uses. Its issue holds "Decisions", numbered "Spec" lines, and
 "For the builder" with a design and tasks, so a build needs nothing
@@ -259,42 +259,42 @@ through the owner's GitHub account, or through the organization's app in
 an organization's cloud build, and either way a label already decided is
 the owner's call.
 
-A spec tool, which `factory config get specs` names,
-also keeps each Spec in the repository: `factory-build` starts it with
-`factory specs new N` and folds it in with
-`factory specs finish N`, in the same pull request.
-`factory specs list` prints the specs the repository
+A spec tool, which `kodor config get specs` names,
+also keeps each Spec in the repository: `kodor-build` starts it with
+`kodor specs new N` and folds it in with
+`kodor specs finish N`, in the same pull request.
+`kodor specs list` prints the specs the repository
 keeps, its current description of what it does; a change to one starts
 by reading it. With `specs: none` each of these says each ticket holds
 its own spec, and the issue is the only copy. No skill, agent, rule, or
-workflow runs a spec tool's own commands: the `factory specs` commands
+workflow runs a spec tool's own commands: the `kodor specs` commands
 reach it.
 
 ## Issues that wait on another
 
 A build order stated only in prose is one nothing reads: a build starts
 whenever the owner approves it, within minutes of a card moving to Ready
-where a poller runs, and the poller and `factory-build` stop only on a
+where a poller runs, and the poller and `kodor-build` stop only on a
 recorded relationship. So whoever opens or refines an issue records each
 blocker as a blocked-by relationship, and says why in the issue's
 body (under Decisions, for a refined issue).
 
 An issue is blocked by another when building it first would break it, or
 would mean redoing work. Touching the same file does not count: that is a
-merge conflict, and the `factory-resolve-conflicts` conflict sweep resolves those.
+merge conflict, and the `kodor-resolve-conflicts` conflict sweep resolves those.
 
 To record that issue N is blocked by issue M, list what N waits on, and
 remove one, in any session:
 
 ```bash
-factory ticket block N --by M
-factory ticket blockers N
-factory ticket unblock N --by M
+kodor ticket block N --by M
+kodor ticket blockers N
+kodor ticket unblock N --by M
 ```
 
 `blockers` prints one line per ticket N waits on, as the ticket system
 writes it, and whether it is open. A ticket system without blockers says so: check with
-`factory ticket supports blockers`.
+`kodor ticket supports blockers`.
 
 ## Follow-ups
 
@@ -317,7 +317,7 @@ becomes a ticket, one a review says to fix is fixed there, and any other is
 dropped. A session never ticks a box.
 
 ```bash
-factory follow-up "TITLE" "WHAT IS WRONG"
+kodor follow-up "TITLE" "WHAT IS WRONG"
 ```
 
 It adds the follow-up to the open pull request of the branch, so it runs
@@ -328,29 +328,29 @@ without the pull request. A pull request lists three at most: with more
 than three, list the three that matter most. Neither may link a ticket.
 
 - A finding in a review thread is answered there, as
-  `factory-address-review` says, and is not listed too.
+  `kodor-address-review` says, and is not listed too.
 - A build that ends with no pull request lists nothing. A run in the cloud
   that resolves a conflict or works a dependency lists nothing either.
 - A session with no pull request, such as a refinement, says what it noticed
   in its report, and opens a ticket only when the owner asks for one.
 - A request from the owner is a ticket of its own.
-- The `factory-resolve-conflicts` conflict stop keeps opening its own
+- The `kodor-resolve-conflicts` conflict stop keeps opening its own
   ticket: which side wins is the owner's decision, and nothing else records
   it.
 
 A placeholder or tag name in issue or comment text, such as `<slug>` or
 `<code>`, goes in backticks: GitHub drops an unknown tag and renders a
-real one. `factory ticket edit`, `comment`, and `open`,
-`factory pr comment`, and `factory follow-up` refuse a body that has one
+real one. `kodor ticket edit`, `comment`, and `open`,
+`kodor pr comment`, and `kodor follow-up` refuse a body that has one
 bare, and name it. A hook refuses the same in text sent to GitHub directly,
-as the `factory guard ticket-text` command describes.
+as the `kodor guard ticket-text` command describes.
 
 ## Changing the process
 
-The factory's skills, agents, rules, and review instructions under
+kodor's skills, agents, rules, and review instructions under
 `.claude/` and `.github/` are copies, and its two workflow files are
-written from the settings, all by `factory sync` from the factory's
-package. Change the source in the package, run `factory sync`, and commit
+written from the settings, all by `kodor sync` from kodor's
+package. Change the source in the package, run `kodor sync`, and commit
 both: the gate and CI fail when a file differs from what `sync` writes
 from its source and the settings.
 
@@ -359,13 +359,13 @@ every other kind. Once, the step that adds the `spec` label kept adding
 it to small changes after the table that defines the label stopped, and
 "content is never small" would have sent a typo fix through two reviewer
 agents. So a change to `CLAUDE.md`, this file, a skill, an agent,
-`.github/factory-review.md`, `.github/review-notes.md`, a workflow,
-`openspec/config.yaml`, the settings in `.claude/factory.yaml`, or the
-code that decides what runs and who merges (the factory's own commands,
+`.github/kodor-review.md`, `.github/review-notes.md`, a workflow,
+`openspec/config.yaml`, the settings in `.claude/kodor.yaml`, or the
+code that decides what runs and who merges (kodor's own commands,
 and the scripts "Changing the process: this
 repository" in `CLAUDE.md` names)
 that alters what triggers a step, who runs or when,
-is traced with the `factory-trace` skill before its pull request is
+is traced with the `kodor-trace` skill before its pull request is
 marked ready: a fresh agent walks each kind in `.claude/change-types.md`
 through the rules as they will stand, and reports a kind that got heavier,
 lighter, or ambiguous, and any two rules that now disagree. Fix what holds

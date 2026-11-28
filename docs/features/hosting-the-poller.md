@@ -22,7 +22,7 @@ off, see [Stop hosting it](#stop-hosting-it).
 
 ### Hosting the poller: `own-server`
 
-Set the trigger in `.claude/factory.yaml`. `factory init` writes it when
+Set the trigger in `.claude/kodor.yaml`. `kodor init` writes it when
 you choose a server you host; without it the poller polls nothing:
 
 ```yaml
@@ -30,23 +30,23 @@ builds:
   trigger: own-server # start a build when a ticket moves to Ready, through the poller you host
 ```
 
-Each release of the factory publishes the poller as a container image,
-`ghcr.io/davidbyoung/software-factory-poller`, tagged with its version and
-`latest`. It holds nothing but Node and that version of the factory, runs
+Each release of kodor publishes the poller as a container image,
+`ghcr.io/kodor-ai/kodor-poller`, tagged with its version and
+`latest`. It holds nothing but Node and that version of kodor, runs
 as an unprivileged user, and needs no sign-in to pull. Run the version on
-the `version:` line of your repository's `.claude/factory.lock`, with the
-two variables [What it reads](builds-from-the-board.md#what-it-reads) names; `factory init` prints the exact
+the `version:` line of your repository's `.claude/kodor.lock`, with the
+two variables [What it reads](builds-from-the-board.md#what-it-reads) names; `kodor init` prints the exact
 line. To try it on your machine, with the token in your shell's own
-`FACTORY_BOARD_TOKEN`:
+`KODOR_BOARD_TOKEN`:
 
 ```bash
 docker run \
-  -e FACTORY_REPOSITORY=your-name/your-repo \
-  -e FACTORY_BOARD_TOKEN \
-  ghcr.io/davidbyoung/software-factory-poller:0.2.0
+  -e KODOR_REPOSITORY=your-name/your-repo \
+  -e KODOR_BOARD_TOKEN \
+  ghcr.io/kodor-ai/kodor-poller:0.2.0
 ```
 
-**It worked when** its log shows `settings from .claude/factory.lock on main:`
+**It worked when** its log shows `settings from .claude/kodor.lock on main:`
 with your board and ready column, then a heartbeat with the number of Ready
 tickets.
 
@@ -55,11 +55,11 @@ needs a Dockerfile there. Add one of a single line, such as
 `poller/Dockerfile`:
 
 ```dockerfile
-FROM ghcr.io/davidbyoung/software-factory-poller:0.2.0
+FROM ghcr.io/kodor-ai/kodor-poller:0.2.0
 ```
 
 and an entry for your dependency bot, so it opens a pull request for each
-new version of the image, which waits for you as the factory's own
+new version of the image, which waits for you as kodor's own
 [update](../maintain/updating.md) does.
 [GitHub](../integrations/github.md#dependabot-and-the-pollers-image) has the entry.
 
@@ -73,7 +73,7 @@ secret. Any host that runs a container works the same way.
 
 Set [`builds.trigger`](../reference/settings/builds.md#builds) to another
 value first, so nothing waits on the poller. Then stop the poller wherever
-you host it, and delete it with the `FACTORY_` variables you gave it.
+you host it, and delete it with the `KODOR_` variables you gave it.
 
 ## How it works
 
@@ -86,7 +86,7 @@ where it finds your settings.
 
 One: [`builds.trigger`](../reference/settings/builds.md#builds), set to
 `own-server`. The hosting is yours: nothing else about it goes in
-`.claude/factory.yaml`, and the factory never deploys it.
+`.claude/kodor.yaml`, and kodor never deploys it.
 
 ## When something goes wrong
 
@@ -94,7 +94,7 @@ One: [`builds.trigger`](../reference/settings/builds.md#builds), set to
 
 | What you see                                                                | What happened                                   | What to do                                                                                               |
 | --------------------------------------------------------------------------- | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `factory status` flags a Ready ticket "not started, is the poller running?" | The poller is down or stuck                     | Read its log, wherever your host shows the container's log                                               |
+| `kodor status` flags a Ready ticket "not started, is the poller running?"   | The poller is down or stuck                     | Read its log, wherever your host shows the container's log                                               |
 | A comment saying a build could not start, with a refusal from the code host | The token cannot start a build                  | Give it what [Secrets](../security/credentials.md#secrets) names, then move the ticket to Ready again    |
 | The board stops updating                                                    | The board's token is missing or expired         | Replace it. The poller uses the same token                                                               |
 | A ticket in Ready is skipped                                                | It is blocked by an open ticket                 | It starts at the poller's first pass after the blocker closes                                            |

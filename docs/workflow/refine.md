@@ -1,10 +1,10 @@
 # Refine a ticket
 
-For someone turning a ticket into a spec with `/factory-refine 12`. At
+For someone turning a ticket into a spec with `/kodor-refine 12`. At
 the end the ticket holds every decision, each answered by you or left at
 its recommendation, and what a build checks it against.
 
-## `factory-refine`
+## `kodor-refine`
 
 **What it does.** Turns a ticket into something a session can build without
 asking anything. It works in two roles: a product manager, who challenges
@@ -12,7 +12,7 @@ the ask and brings you only the decisions that are yours, and a tech lead,
 who settles everything the code and the rules can answer.
 
 **When to use it.** On any ticket before it is built. A ticket with no
-acceptance criteria cannot be built; `factory-build` sends it here.
+acceptance criteria cannot be built; `kodor-build` sends it here.
 
 **What it reads.** The ticket and its comments, the open tickets that touch
 the same code, the code itself, your project's instructions for the agent
@@ -34,11 +34,11 @@ spec when [`specs`](../reference/settings/specs.md#specs) is on.
 - **A `## Threats` section** when the ticket names a credential your
   repository does not have, or write access for a workflow: what is
   held, who can reach it, how established tools handle it, and what stays
-  exposed. You approve it with the rest. `factory ticket refined` refuses
+  exposed. You approve it with the rest. `kodor ticket refined` refuses
   the ticket without one, and says which name it found:
   `missing: ## Threats, since the ticket names a credential this repository does not have: DEPLOY_TOKEN`.
   Once it is built, its pull request is read too, by the
-  [`credentials` policy](../features/credentials-policy.md#the-factorys-own-policy).
+  [`credentials` policy](../features/credentials-policy.md#kodors-own-policy).
 
 **How it asks.** In the session if you are there: each decision as a
 choice, the recommended answer first. Otherwise as one comment on the
@@ -49,9 +49,9 @@ questions once posted. Ask you something the code or the rules already
 answer. Ask more than five questions: more than that means the ticket is
 several tickets, and it proposes the split.
 
-**Its check.** The built-in `factory-ticket-readiness` agent reads the
+**Its check.** The built-in `kodor-ticket-readiness` agent reads the
 result cold, at most twice, and lists what a builder would still have to
-ask. Then `factory ticket refined` refuses to mark the ticket refined
+ask. Then `kodor ticket refined` refuses to mark the ticket refined
 while its body lacks a section a build reads.
 
 **Your own in its place.** A skill of yours can refine tickets instead, as

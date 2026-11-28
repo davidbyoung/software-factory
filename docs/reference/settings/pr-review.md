@@ -9,10 +9,10 @@ your own CI, which keeps running your tests as before.
 pr-review: true
 ```
 
-- **Default:** off. `true` turns it on, and `factory sync` then turns the
-  review's run on in `.github/workflows/factory.yml`. While it is off,
+- **Default:** off. `true` turns it on, and `kodor sync` then turns the
+  review's run on in `.github/workflows/kodor.yml`. While it is off,
   each pull request's "Review verdict" status passes, reading "The
-  automated review is off". `factory config get pr-review` prints `on`
+  automated review is off". `kodor config get pr-review` prints `on`
   or `off`.
   [The automated review](../../features/automated-review.md) has what it
   needs.
@@ -22,7 +22,7 @@ pr-review: true
   to your code host. It doesn't run your tests on every pull request: your
   CI does that.
 - **To turn it off,** set it to `false`, or delete it, and run
-  `factory sync`, which turns the run off again. `false` also turns off a
+  `kodor sync`, which turns the run off again. `false` also turns off a
   review a [preset](presets.md#presets) turns on.
 - **An older file that says `pr-review: {}`,** or lists `commands` under
-  it, fails `factory config check`. Write `pr-review: true` in its place.
+  it, fails `kodor config check`. Write `pr-review: true` in its place.

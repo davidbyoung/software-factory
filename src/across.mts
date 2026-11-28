@@ -1,4 +1,4 @@
-// What the factory reads of a ticket's other repositories: whether each is
+// What kodor reads of a ticket's other repositories: whether each is
 // set up, the pull requests that build the ticket in it, and whether
 // whoever confirmed the list can write to it. The rules on what it reads
 // are `lib/repositories.mts`'s.

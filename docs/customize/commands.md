@@ -1,6 +1,6 @@
 # Your commands
 
-For someone telling the factory how to check a change in their
+For someone telling kodor how to check a change in their
 repository. At the end a build runs your tests, your linter, and one test
 at a time, as you do. Every key is on
 [`commands`](../reference/settings/commands.md#commands).
@@ -8,8 +8,8 @@ at a time, as you do. Every key is on
 ## Set your commands
 
 A build needs one command from you: the one that checks a change, under
-`gate`. `factory init` asks for it. To write it yourself, or to add the
-command that runs one test, put them in `.claude/factory.yaml`:
+`gate`. `kodor init` asks for it. To write it yourself, or to add the
+command that runs one test, put them in `.claude/kodor.yaml`:
 
 ```yaml
 commands:
@@ -30,11 +30,11 @@ change to what your project runs ([Any language](any-language.md)):
 | PHP        | `composer test`                 | `vendor/bin/phpunit $FILE --filter "$NAME"` |
 | Rust       | `cargo test`                    | `cargo test "$NAME"`                        |
 
-**It worked when** `factory gate` runs your commands and passes.
+**It worked when** `kodor gate` runs your commands and passes.
 
 ## Optional: tune it
 
-Each is a few lines in `.claude/factory.yaml`, merged like any change.
+Each is a few lines in `.claude/kodor.yaml`, merged like any change.
 
 - **Let a session in the cloud reach your registry.** Its commands reach
   the npm registry and no other host. List any other that your tests or

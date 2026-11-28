@@ -3,11 +3,11 @@
 // sign-in, it holds no AI, and nothing the session made is checked out or
 // run here.
 //
-//   factory session publish    # with FACTORY_PUBLISH naming the folder
+//   kodor session publish    # with KODOR_PUBLISH naming the folder
 //
-//   FACTORY_PUBLISH/in/run.json       from Prepare, as the session got it
-//   FACTORY_PUBLISH/out/build.bundle  the session's commits
-//   FACTORY_PUBLISH/out/request.json  the commands it asked for
+//   KODOR_PUBLISH/in/run.json       from Prepare, as the session got it
+//   KODOR_PUBLISH/out/build.bundle  the session's commits
+//   KODOR_PUBLISH/out/request.json  the commands it asked for
 import { existsSync, readFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import {
@@ -84,7 +84,7 @@ export type PublishDeps = {
   codeHost: CodeHost;
   runner: Runner;
   tickets: Tickets;
-  /** Runs a `factory ticket` command, its files read through `readFile`. */
+  /** Runs a `kodor ticket` command, its files read through `readFile`. */
   ticket(argv: string[], readFile: (path: string) => string): Promise<number>;
   pr: PrDeps;
   /** A bare clone of the repository, made now. */
@@ -464,7 +464,7 @@ export async function publish(d: PublishDeps): Promise<number> {
       const { argv, readFile } = filesOf(may);
       if (argv[0] === "follow-up") {
         if (pull === null) {
-          d.out(`Refused: factory follow-up ${argv[1]}: no pull request`);
+          d.out(`Refused: kodor follow-up ${argv[1]}: no pull request`);
           continue;
         }
         const listed = await listFollowUp(
@@ -496,7 +496,7 @@ export async function publish(d: PublishDeps): Promise<number> {
     } catch (error) {
       failed = true;
       d.out(
-        `Failed: factory ${one.argv.slice(0, 3).join(" ")}: ${(error as Error).message}`,
+        `Failed: kodor ${one.argv.slice(0, 3).join(" ")}: ${(error as Error).message}`,
       );
     }
   }
@@ -547,7 +547,7 @@ export async function postCost(
 
 type Ci = "passed" | "failed" | "not finished" | "not started";
 
-/** How CI ended on the commit, waited for up to `CI_MS`. The factory's own
+/** How CI ended on the commit, waited for up to `CI_MS`. kodor's own
  * check runs on every pull request, so no run at all means something kept
  * them from starting, and not that there is no CI. */
 async function ciOn(d: PublishDeps, tip: string): Promise<Ci> {

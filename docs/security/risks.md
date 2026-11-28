@@ -1,6 +1,6 @@
 # Risks that remain
 
-For whoever judges what is left once the factory's limits hold. Each
+For whoever judges what is left once kodor's limits hold. Each
 risk has a heading of its own, and says what limits it.
 
 ## What a hijacked session could still do
@@ -24,7 +24,7 @@ hijacked session could still:
   runs beside it. A new repository's token can only read by default, but
   an older repository's may still write
   ([GitHub Actions](../integrations/github-actions.md#limits-that-come-from-github)),
-  so `factory doctor` checks it. A workflow of yours
+  so `kodor doctor` checks it. A workflow of yours
   that runs a pull request's code should say no more than
   `permissions: contents: read`. A workflow the pull request adds is another
   matter ([Who can pass the review without it](#who-can-pass-the-review-without-it)).
@@ -58,7 +58,7 @@ session that got out of it would still find no key to your code host on its mach
 
 Your branch rules require "Review verdict", and "Approval policies" where
 you have [approval policies](../features/approval-policies.md), from the cloud
-runner, not from the factory's own workflow. So a workflow that a pull request
+runner, not from kodor's own workflow. So a workflow that a pull request
 adds can pass them:
 
 - **From a branch of your repository,** a workflow that asks for
@@ -73,7 +73,7 @@ adds can pass them:
 - **From a fork,** a workflow can't post a status, since
   [its token is read-only](https://docs.github.com/en/actions/writing-workflows/workflow-syntax-for-github-actions#how-permissions-are-calculated-for-a-workflow-job).
   A job named `Review verdict` or `Approval policies` does pass them, but
-  only for the few seconds after each push, before the factory marks them
+  only for the few seconds after each push, before kodor marks them
   waiting. A fork's push
   [turns auto-merge off](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/incorporating-changes-from-a-pull-request/automatically-merging-a-pull-request),
   so only someone merging by hand in those seconds would let it through.

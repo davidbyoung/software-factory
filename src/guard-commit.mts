@@ -1,15 +1,15 @@
-// PreToolUse hook for Bash, run as `factory guard commit` or within
-// `factory guard`. Blocks commits and pushes on the default branch, force
+// PreToolUse hook for Bash, run as `kodor guard commit` or within
+// `kodor guard`. Blocks commits and pushes on the default branch, force
 // pushes, adding the owner's override label, and any commit the fast half of
 // the gate would fail: the `commands.before-commit` commands in
-// `.claude/factory.yaml`. A block is exit 2, which stops the call and shows
+// `.claude/kodor.yaml`. A block is exit 2, which stops the call and shows
 // the message to Claude.
 //
 // The default branch is whatever the repository calls it
-// (`lib/default-branch.mts`). In a checkout with the factory's settings,
+// (`lib/default-branch.mts`). In a checkout with kodor's settings,
 // every source may answer, and a commit or push is blocked when none does,
 // or when no remote is the repository the settings name. Any other checkout
-// is not the factory's to govern: there the guard reads `origin/HEAD`
+// is not kodor's to govern: there the guard reads `origin/HEAD`
 // alone, asks nobody, and lets the call through when it is not set.
 import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, realpathSync } from "node:fs";
@@ -93,10 +93,10 @@ export function addsOverride(raw: string, name: string): boolean {
 async function approverNames(dir: string): Promise<string[]> {
   const defaults = APPROVER_LABELS.map((k) => PR_LABELS[k]);
   const top = checkoutOf(dir);
-  const lock = join(top, ".claude/factory.lock");
+  const lock = join(top, ".claude/kodor.lock");
   if (!existsSync(lock)) return defaults;
   try {
-    const s = await loadSettings(defaultDeps(top, { FACTORY_LOCK: lock }));
+    const s = await loadSettings(defaultDeps(top, { KODOR_LOCK: lock }));
     return APPROVER_LABELS.map((k) => s.codeHost.labels[k]);
   } catch {
     return defaults;
@@ -180,7 +180,7 @@ const toplevel = (dir: string) =>
     stdio: ["ignore", "pipe", "ignore"],
   }).trim();
 
-/** The launcher of the factory in the checkout `top`, where this copy sits
+/** The launcher of kodor in the checkout `top`, where this copy sits
  * in its own checkout, or null when there is none or it is this copy. A
  * session's hook runs the copy in the folder the session opened, whichever
  * worktree the commit is in, and each copy reads only the settings it knows. */
@@ -189,7 +189,7 @@ export function ownLauncher(top: string): string | null {
     const pkg = realpathSync(
       join(dirname(fileURLToPath(import.meta.url)), ".."),
     );
-    const own = join(top, relative(toplevel(pkg), pkg), "bin", "factory.js");
+    const own = join(top, relative(toplevel(pkg), pkg), "bin", "kodor.js");
     return existsSync(own) && realpathSync(dirname(dirname(own))) !== pkg
       ? own
       : null;
@@ -291,9 +291,9 @@ export async function checkCommit(
     });
     if (r.status === 0) return null;
     err(lastLines(`${r.stdout ?? ""}${r.stderr ?? ""}`).join("\n"));
-    return `the factory in ${top} blocked it, as above.`;
+    return `kodor in ${top} blocked it, as above.`;
   }
-  // A repository with no settings is not one the factory governs, such as
+  // A repository with no settings is not one kodor governs, such as
   // another repository a session works in: it has no gate to run.
   if (!existsSync(settingsPath(top))) return null;
   let settings: Settings;
@@ -301,7 +301,7 @@ export async function checkCommit(
     settings = await loadSettings(defaultDeps(top));
   } catch (e) {
     err(lastLines(e instanceof Error ? e.message : String(e)).join("\n"));
-    return "the gate failed: the factory's settings could not be read. Fix the error above, then commit.";
+    return "the gate failed: kodor's settings could not be read. Fix the error above, then commit.";
   }
   const git = gitIn(top);
   const change = commitChange(git);

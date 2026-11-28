@@ -2,7 +2,7 @@
 // what Prepare handed over, starts the agent confined to it, and keeps only
 // what the session may hand on. It has no sign-in to the code host.
 //
-//   factory session run     # with FACTORY_SESSION naming the folder
+//   kodor session run     # with KODOR_SESSION naming the folder
 //
 //   in/     from Prepare, read-only to the session
 //   home/   the default branch, where the session starts, read-only to it
@@ -43,7 +43,7 @@ export type SessionDeps = {
   schema?: object;
   git(cwd: string, args: string[]): void;
   untar(file: string, to: string): void;
-  /** The factory's own install, which the session's commands run. */
+  /** kodor's own install, which the session's commands run. */
   install: string[];
   settings(s: CloudSession): object;
   command(s: CloudSession, file: string): SessionCommand;
@@ -65,14 +65,14 @@ const MAX_TURNS = 1000;
 export function sessionEnv(env: Env, run: RunFile, dir: string): Env {
   const kept = Object.entries(env).filter(
     ([name]) =>
-      !/^(?:ACTIONS_|GITHUB_|RUNNER_|GH_|FACTORY_)/.test(name) &&
+      !/^(?:ACTIONS_|GITHUB_|RUNNER_|GH_|KODOR_)/.test(name) &&
       !/PRIVATE_KEY/.test(name),
   );
   return {
     ...Object.fromEntries(kept),
     [HANDOFF]: dir,
-    FACTORY_VERSION: env.FACTORY_VERSION,
-    FACTORY_LOCK: env.FACTORY_LOCK,
+    KODOR_VERSION: env.KODOR_VERSION,
+    KODOR_LOCK: env.KODOR_LOCK,
     npm_config_cache: join(dir, "cache"),
     XDG_CACHE_HOME: join(dir, "cache"),
     // The browsers a setup command installed are in the cache it had.

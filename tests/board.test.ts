@@ -371,14 +371,12 @@ describe("the repository read", () => {
 });
 
 describe("apply", () => {
-  it("fails when FACTORY_BOARD_TOKEN is missing", async () => {
+  it("fails when KODOR_BOARD_TOKEN is missing", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     const { d } = deps();
 
     expect(await main(["apply", "--in", `${FIXTURE}/repo.json`], d)).toBe(1);
-    expect(console.error).toHaveBeenCalledWith(
-      "FACTORY_BOARD_TOKEN is not set.",
-    );
+    expect(console.error).toHaveBeenCalledWith("KODOR_BOARD_TOKEN is not set.");
   });
 
   it("reads the board's number from the settings", async () => {
@@ -628,7 +626,7 @@ describe("the board job of run.yml's Tickets group", () => {
   ];
 
   // A pull_request run uses the pull request's own copy of the sync with
-  // FACTORY_BOARD_TOKEN, so an unreviewed edit to the sync could rewrite the board.
+  // KODOR_BOARD_TOKEN, so an unreviewed edit to the sync could rewrite the board.
   it("runs the default branch's copy of the sync on pull request events", () => {
     expect(events).toContain("pull_request_target");
     expect(events).not.toContain("pull_request");
@@ -641,7 +639,7 @@ describe("the board job of run.yml's Tickets group", () => {
     ).toBeUndefined();
   });
 
-  it("runs when the factory starts it, on pull request events, and nightly, never on a ticket's own events", () => {
+  it("runs when kodor starts it, on pull request events, and nightly, never on a ticket's own events", () => {
     expect([...events].sort()).toEqual([
       "pull_request_target",
       "schedule",
@@ -659,10 +657,10 @@ describe("the board job of run.yml's Tickets group", () => {
   });
 });
 
-describe("tickets without the factory label", () => {
+describe("tickets without the kodor label", () => {
   const unlabel = (saved: Saved, key: string) => {
     const t = saved.tickets.find((x) => x.key === key)!;
-    t.labels = t.labels.filter((l) => l !== "factory");
+    t.labels = t.labels.filter((l) => l !== "kodor");
   };
 
   it("writes nothing to the card of a ticket without the label, and leaves it where it is", async () => {
@@ -685,7 +683,7 @@ describe("tickets without the factory label", () => {
     const mem = seeded();
     for (const key of ["15", "18"]) {
       const t = mem.state.get(key)!;
-      t.labels = t.labels.filter((l) => l !== "factory");
+      t.labels = t.labels.filter((l) => l !== "kodor");
     }
     const { d, written } = deps(mem, { GH_TOKEN: "t" });
 
@@ -769,7 +767,7 @@ describe("a merged pull request", () => {
   it("leaves a ticket without the label alone", async () => {
     const mem = seeded();
     const t = mem.state.get("16")!;
-    t.labels = t.labels.filter((l) => l !== "factory");
+    t.labels = t.labels.filter((l) => l !== "kodor");
     const r = merged(mem);
 
     await r.run();
@@ -806,7 +804,7 @@ describe("the sync's own notes", () => {
       [
         {
           key: "PROJ-1",
-          labels: ["factory"],
+          labels: ["kodor"],
           record: [
             {
               id: "e-1",
@@ -846,7 +844,7 @@ describe("a ticket across repositories", () => {
       [
         {
           key: "12",
-          labels: ["factory"],
+          labels: ["kodor"],
           body: over.body ?? `The ask.\n\n${SECTION}`,
           comments: over.comments ?? [confirming([API, WEB])],
         },

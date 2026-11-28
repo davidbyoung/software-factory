@@ -23,7 +23,7 @@ afterEach(() => vi.restoreAllMocks());
 
 const AGENT = "<!-- agent -->";
 
-/** `factory pr` against the in-memory code host and runner, which share one
+/** `kodor pr` against the in-memory code host and runner, which share one
  * log of what was asked of them. */
 function pr(
   seed: PullSeed[] = [],
@@ -939,7 +939,7 @@ describe("review-pending", () => {
     expect(out[0]).toBe("nothing to do: review 5 is not an approver's");
   });
 
-  it("exits 1 for the factory's reply: an empty body and one comment with the marker", async () => {
+  it("exits 1 for kodor's reply: an empty body and one comment with the marker", async () => {
     const { code, out } = await run({
       reviews: [review("", "acme", [`Fixed.\n\n${AGENT}`])],
     });
@@ -1285,7 +1285,7 @@ describe("what the skills run in place of the code host's and the runner's own t
     const DIFF = ["+++ b/src/a.ts", "@@ -1,0 +2,2 @@"].join("\n");
     const FOUND = ["=== src/a.ts", "MISS 2: two", "PART 3: three"];
 
-    /** `factory pr uncovered` over these files, with `git diff` printing
+    /** `kodor pr uncovered` over these files, with `git diff` printing
      * `diff`. `read` and `asked` are the paths read and the git calls. */
     function uncovered(
       files: Record<string, string>,
@@ -1358,7 +1358,7 @@ describe("what the skills run in place of the code host's and the runner's own t
       const error = vi.spyOn(console, "error").mockImplementation(() => {});
       const { d, asked } = uncovered(FILES);
       const line =
-        "✗ repository: .claude/factory.yaml says o/r, and no remote here is o/r. Add the remote, or change the line and run factory sync.";
+        "✗ repository: .claude/kodor.yaml says o/r, and no remote here is o/r. Add the remote, or change the line and run kodor sync.";
 
       expect(
         await main(["uncovered"], {
@@ -1654,13 +1654,13 @@ describe("approvers", () => {
       expect(out).toEqual(["nothing to do: review 5 is not an approver's"]);
     });
 
-    it("says an approver's review that is all the factory's own is its own reply", async () => {
+    it("says an approver's review that is all kodor's own is its own reply", async () => {
       const { d, out } = org({
         reviews: [review(5, "alice", "", [`Fixed.\n\n${AGENT}`])],
       });
       expect(await main(["review-pending", "31", "5"], d)).toBe(1);
       expect(out).toEqual([
-        "nothing to do: review 5 is the factory's own reply: nothing of an approver's in it",
+        "nothing to do: review 5 is kodor's own reply: nothing of an approver's in it",
       ]);
     });
 
@@ -1779,7 +1779,7 @@ describe("approvers", () => {
       ],
     };
 
-    it("keeps the comments whose author can write, the factory's own included", async () => {
+    it("keeps the comments whose author can write, kodor's own included", async () => {
       const { d, out } = org(seed);
       expect(await main(["comments", "31", "--from-approvers"], d)).toBe(0);
       expect(out).toEqual([

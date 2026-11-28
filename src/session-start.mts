@@ -1,4 +1,4 @@
-// The SessionStart hook, run as `factory session-start`. Its output opens
+// The SessionStart hook, run as `kodor session-start`. Its output opens
 // the session's context, so work left on another branch is visible before
 // anything new starts: the checkout's state, the local branches with work
 // not on the default branch, then each ticket's state.
@@ -89,7 +89,7 @@ const readPackages = (file: string): Locked | null => {
 /** A line telling the person to run `npm ci` when `node_modules` is older
  * than `package-lock.json`, or null when it is current or there is no
  * lockfile. Without it, a command installed since the lockfile last changed,
- * such as `factory` once it became a workspace package, is missing and the
+ * such as `kodor` once it became a workspace package, is missing and the
  * shell's "Permission denied" says nothing of why. */
 export function installBehind(dir: string): string | null {
   const wanted = readPackages(join(dir, "package-lock.json"));
@@ -138,14 +138,14 @@ export async function main(d: Deps): Promise<number> {
   d.out(repositoryState(gitIn(d.dir), await baseOf(d.branch)).join("\n"));
   const behind = installBehind(d.dir);
   if (behind) d.out(`\n${behind}\n`);
-  // A stale lock stops every command but `factory sync`, so the session is
+  // A stale lock stops every command but `kodor sync`, so the session is
   // told now, and starts anyway.
   const stale = await d.stale?.().catch(() => null);
   if (stale) d.out(`\n${stale}\n`);
   return d.tickets();
 }
 
-/** `factory session-start`. */
+/** `kodor session-start`. */
 export async function run(): Promise<number> {
   const dir = process.env.CLAUDE_PROJECT_DIR || process.cwd();
   try {

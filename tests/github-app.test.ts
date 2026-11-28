@@ -26,12 +26,12 @@ import type { NewApp } from "../src/code-host/types.mts";
 
 const STATE = "state-1";
 const ORIGIN = "http://127.0.0.1:4100";
-const INSTALL = "https://github.com/apps/software-factory-for-acme/install";
+const INSTALL = "https://github.com/apps/kodor-acme/install";
 const KEY_LINE = "MIIEowIBAAKCAQEAu1SU1LfVLPHCozMxH2Mo";
 const PEM = `-----BEGIN RSA PRIVATE KEY-----\n${KEY_LINE}\n-----END RSA PRIVATE KEY-----`;
 const CONVERTED = {
   id: 9,
-  slug: "software-factory-for-acme",
+  slug: "kodor-acme",
   client_id: "Iv23client",
   pem: PEM,
   webhook_secret: null,
@@ -104,7 +104,7 @@ function registration(
   const queue = [...(o.pasted ?? [])];
   const result = register({
     organization: "acme",
-    name: "Software Factory for acme",
+    name: "kodor-acme",
     state: STATE,
     listen: l.listen,
     fetch: g.fetch,
@@ -134,7 +134,7 @@ const untilOpen = async (r: { opened: string[] }) => {
 describe("the app's name", () => {
   it("names the organization", () => {
     expect(appName("acme")).toEqual({
-      name: "Software Factory for acme",
+      name: "kodor-acme",
       shortened: false,
     });
   });
@@ -142,7 +142,7 @@ describe("the app's name", () => {
   it("is cut to the 34 characters GitHub allows", () => {
     const long = appName("a-very-long-organization-name");
     expect(long).toEqual({
-      name: "Software Factory for a-very-long-o",
+      name: "kodor-a-very-long-organization-nam",
       shortened: true,
     });
     expect(long.name).toHaveLength(34);
@@ -151,14 +151,12 @@ describe("the app's name", () => {
 });
 
 describe("the manifest", () => {
-  it("describes a private app with no webhook and the factory's permissions", () => {
-    expect(
-      manifestOf("Software Factory for acme", `${ORIGIN}/registered`),
-    ).toEqual({
-      name: "Software Factory for acme",
-      url: "https://github.com/davidbyoung/software-factory",
+  it("describes a private app with no webhook and kodor's permissions", () => {
+    expect(manifestOf("kodor-acme", `${ORIGIN}/registered`)).toEqual({
+      name: "kodor-acme",
+      url: "https://github.com/kodor-ai/kodor",
       hook_attributes: {
-        url: "https://github.com/davidbyoung/software-factory",
+        url: "https://github.com/kodor-ai/kodor",
         active: false,
       },
       redirect_url: `${ORIGIN}/registered`,
@@ -195,7 +193,7 @@ describe("registering the app", () => {
       field.replaceAll("&quot;", '"').replaceAll("&amp;", "&"),
     );
     expect(manifest.redirect_url).toBe(`${ORIGIN}/registered`);
-    expect(manifest.name).toBe("Software Factory for acme");
+    expect(manifest.name).toBe("kodor-acme");
     await r.visit(`/registered?code=c1&state=${STATE}`);
     await r.result;
   });
@@ -215,7 +213,7 @@ describe("registering the app", () => {
     });
     expect(await r.result).toEqual({
       id: 9,
-      slug: "software-factory-for-acme",
+      slug: "kodor-acme",
       clientId: "Iv23client",
     });
     expect(await reply).toEqual({
@@ -251,7 +249,7 @@ describe("registering the app", () => {
     const r = registration({
       pasted: [`${ORIGIN}/registered?code=c1&state=${STATE}`],
     });
-    expect((await r.result).slug).toBe("software-factory-for-acme");
+    expect((await r.result).slug).toBe("kodor-acme");
     expect(r.kept.map((a) => a.id)).toEqual([9]);
     expect(r.opened).toEqual([`${ORIGIN}/`, INSTALL]);
     expect(r.isClosed()).toBe(true);
@@ -275,7 +273,7 @@ describe("registering the app", () => {
     const l = listener();
     const result = register({
       organization: "acme",
-      name: "Software Factory for acme",
+      name: "kodor-acme",
       state: STATE,
       listen: l.listen,
       fetch: github([[/conversions$/, CONVERTED]]).fetch,
@@ -335,7 +333,7 @@ describe("registering the app, on its real listener", () => {
     const kept: string[] = [];
     const result = register({
       organization: "acme",
-      name: "Software Factory for acme",
+      name: "kodor-acme",
       state: STATE,
       listen: listenLocally,
       fetch: github(routes).fetch,
@@ -417,7 +415,7 @@ describe("acting as the app", () => {
       })),
     });
     const second = page(100, 100);
-    second.repositories[40] = { name: "factory-config" };
+    second.repositories[40] = { name: "kodor-config" };
     const g = github([
       [
         /POST .*\/app\/installations\/52811\/access_tokens$/,
@@ -431,7 +429,7 @@ describe("acting as the app", () => {
       now: () => 0,
       installation: 52811,
       app: { clientId: "Iv23client", key },
-      repository: "factory-config",
+      repository: "kodor-config",
     });
     expect(answer).toEqual({ count: 212, covered: true });
     expect(g.calls[0]!.auth).toBe(`Bearer ${appJwt("Iv23client", key, 0)}`);
@@ -455,7 +453,7 @@ describe("acting as the app", () => {
         now: () => 0,
         installation: 1,
         app: { clientId: "Iv23client", key },
-        repository: "factory-config",
+        repository: "kodor-config",
       }),
     ).toEqual({ count: 2, covered: false });
   });
@@ -470,7 +468,7 @@ describe("acting as the app", () => {
         now: () => 0,
         installation: 1,
         app: { clientId: "Iv23client", key },
-        repository: "factory-config",
+        repository: "kodor-config",
       }),
     ).rejects.toThrow("Integration not found");
   });
@@ -497,7 +495,7 @@ describe("a run's token under the app", () => {
   };
   const FOUND: [RegExp, unknown, number?][] = [
     [/GET .*\/repos\/acme\/web\/installation$/, { id: 52811 }],
-    [/GET .*\/app$/, { slug: "software-factory-for-acme" }],
+    [/GET .*\/app$/, { slug: "kodor-acme" }],
   ];
 
   it("finds the installation on the run's repository as the app, and makes a token for the repositories named", async () => {
@@ -509,19 +507,19 @@ describe("a run's token under the app", () => {
           { token: "ghs_run" },
         ],
       ],
-      ["web", "factory-config"],
+      ["web", "kodor-config"],
     );
 
     expect(await made).toEqual({
       token: "ghs_run",
-      slug: "software-factory-for-acme",
+      slug: "kodor-acme",
     });
     const signed = `Bearer ${appJwt("Iv23client", key, NOW)}`;
     expect(calls.map((c) => c.auth)).toEqual([signed, signed, signed]);
     const token = calls.find((c) => c.method === "POST")!;
     expect(JSON.parse(token.body!).repositories).toEqual([
       "web",
-      "factory-config",
+      "kodor-config",
     ]);
   });
 
@@ -549,7 +547,7 @@ describe("a run's token under the app", () => {
 
   it("asks for nothing the app's registration does not hold", () => {
     const held: Record<string, string> = manifestOf(
-      "Software Factory for acme",
+      "kodor-acme",
       "http://127.0.0.1/registered",
     ).default_permissions;
 
@@ -565,7 +563,7 @@ describe("a run's token under the app", () => {
     ]);
 
     await expect(made).rejects.toThrow(
-      /^The software factory's app for acme is not installed on acme\/web\. An owner of acme adds it: https:\/\/github\.com\/organizations\/acme\/settings\/installations$/,
+      /^kodor's app for acme is not installed on acme\/web\. An owner of acme adds it: https:\/\/github\.com\/organizations\/acme\/settings\/installations$/,
     );
     expect(calls.map((c) => c.method)).toEqual(["GET"]);
   });
@@ -736,7 +734,7 @@ describe("the listener", () => {
 describe("a token for another of a ticket's repositories", () => {
   const { privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
   const pem = privateKey.export({ type: "pkcs1", format: "pem" }) as string;
-  const APP = { FACTORY_APP_CLIENT_ID: "Iv23x", FACTORY_APP_PRIVATE_KEY: pem };
+  const APP = { KODOR_APP_CLIENT_ID: "Iv23x", KODOR_APP_PRIVATE_KEY: pem };
   const routes: Parameters<typeof github>[0] = [
     [/GET .*\/repos\/acme\/\w+\/installation$/, { id: 7 }],
     [/POST .*\/access_tokens$/, { token: "ghs_x" }],
@@ -769,7 +767,7 @@ describe("a token for another of a ticket's repositories", () => {
     await acrossTransport(
       "acme/two",
       "write",
-      { ...APP, FACTORY_ACROSS: "read" },
+      { ...APP, KODOR_ACROSS: "read" },
       { fetch: g.fetch, now },
     );
     expect(asked(g.calls)[0].permissions).toEqual({
@@ -807,14 +805,12 @@ describe("a token for another of a ticket's repositories", () => {
     const g = github([[/installation$/, {}, 404]]);
     await expect(
       acrossTransport("acme/five", "read", APP, { fetch: g.fetch, now }),
-    ).rejects.toThrow(
-      "The software factory's app for acme is not installed on acme/five",
-    );
+    ).rejects.toThrow("kodor's app for acme is not installed on acme/five");
   });
 
   it("is the build token where no app's key reaches the run, and none with neither", async () => {
     const g = github(routes);
-    const env = { FACTORY_BUILD_TOKEN: "ghp_b" };
+    const env = { KODOR_BUILD_TOKEN: "ghp_b" };
     const t = await acrossTransport("acme/six", "write", env, {
       fetch: g.fetch,
       now,
@@ -825,7 +821,7 @@ describe("a token for another of a ticket's repositories", () => {
     expect(reachesOthers({})).toBe(false);
     expect(reachesOthers(env)).toBe(true);
     expect(reachesOthers(APP)).toBe(true);
-    expect(reachesOthers({ FACTORY_APP_CLIENT_ID: "x" })).toBe(false);
+    expect(reachesOthers({ KODOR_APP_CLIENT_ID: "x" })).toBe(false);
   });
 });
 
@@ -840,7 +836,7 @@ describe("git's sign-in to another repository", () => {
     ]);
     const env = await acrossGitEnv(
       "acme/git",
-      { FACTORY_APP_CLIENT_ID: "I", FACTORY_APP_PRIVATE_KEY: pem },
+      { KODOR_APP_CLIENT_ID: "I", KODOR_APP_PRIVATE_KEY: pem },
       { fetch: g.fetch, now: () => 0 },
     );
     expect(env).toEqual({

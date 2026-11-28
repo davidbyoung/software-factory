@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 // The open Dependabot pull requests, oldest first, and what each needs, for
-// the factory-deps skill's steps 0 and 1.
+// the kodor-deps skill's steps 0 and 1.
 //
-//   factory deps
-//   factory deps --any   # exits 0 when one is open, 1 when none, 2 when it could not tell
+//   kodor deps
+//   kodor deps --any   # exits 0 when one is open, 1 when none, 2 when it could not tell
 //
 // A failed read exits 1 with the error, or 2 with `--any`.
 import { reachOf, repoRoot } from "./config.mts";
@@ -42,12 +42,12 @@ export function isMajor(title: string): boolean {
 
 /** What the skill does with a bump, in the order its steps take them.
  * `branch` is the default branch, which a conflicting bump merges, and
- * `factory` the name a bump of the factory's own workflows carries: such a
+ * `kodor` the name a bump of kodor's own workflows carries: such a
  * one is left for the Updates job's pull request, which also holds the
  * files that version writes. */
 export function nextStep(bump: Bump, branch: string, factory = ""): string {
   if (factory && bump.title.includes(factory))
-    return "leave (step 4): it names the factory";
+    return "leave (step 4): it names kodor";
   if (bump.mergeableState === "unknown") return "leave: state not computed yet";
   if (bump.checks.some((c) => c.status !== "completed"))
     return "leave: checks still running";
@@ -164,7 +164,7 @@ export async function main(
   }
 }
 
-/** The factory's own repository, as a bump of its workflows names it. */
+/** kodor's own repository, as a bump of its workflows names it. */
 async function factoryName(): Promise<string> {
   const { readFileSync } = await import("node:fs");
   const { join } = await import("node:path");
@@ -175,7 +175,7 @@ async function factoryName(): Promise<string> {
   return name.replace(/^@/, "");
 }
 
-/** `factory deps`. */
+/** `kodor deps`. */
 export async function run(argv: string[] = []): Promise<number> {
   const { repository, codeHost } = await reachOf(process.env);
   const p = openCodeHost(repository, codeHost);

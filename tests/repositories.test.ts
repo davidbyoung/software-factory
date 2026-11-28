@@ -229,7 +229,7 @@ describe("who confirmed the list", () => {
     expect(
       unconfirmed("#12", "12", [API, WEB], { counts: false, at: "acme/web" }),
     ).toBe(
-      "#12's repositories were not confirmed by someone who can write to acme/web: run factory ticket repositories 12 --set acme/api acme/web --after acme/web=acme/api",
+      "#12's repositories were not confirmed by someone who can write to acme/web: run kodor ticket repositories 12 --set acme/api acme/web --after acme/web=acme/api",
     );
   });
 });

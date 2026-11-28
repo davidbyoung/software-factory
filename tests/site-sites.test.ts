@@ -13,7 +13,7 @@ const FILES = [
 
 const settingsOf = (raw: Record<string, unknown>): Settings =>
   parseSettings(
-    { version: 2, repository: "o/r", "code-host": CODE_HOST, ...raw },
+    { version: 1, repository: "o/r", "code-host": CODE_HOST, ...raw },
     () => true,
   );
 
@@ -58,7 +58,7 @@ function pick(
   return { folders: runs.map((r) => r.folder), out };
 }
 
-describe("which sites factory site compare pictures", () => {
+describe("which sites kodor site compare pictures", () => {
   it("pictures each site a change touches, after a line that says why", () => {
     const { folders, out } = pick(["packages/ui/src/button.tsx"]);
     expect(folders).toEqual(["apps/admin", "apps/web"]);

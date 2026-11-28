@@ -1,6 +1,6 @@
 // Reading a preset's repository with git, against local repositories: the
 // newest commit, one commit in the cache, the sign-in each owner's is read
-// with, and what `factory update` and the check of a moved pin are built
+// with, and what `kodor update` and the check of a moved pin are built
 // from.
 import { existsSync, rmSync } from "node:fs";
 import { devNull } from "node:os";
@@ -46,8 +46,8 @@ import {
 let root = "";
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 
-const REPO = "acme/factory-config";
-const BASE = { "": { settings: "version: 2\n", agents: { a: "one\n" } } };
+const REPO = "acme/kodor-config";
+const BASE = { "": { settings: "version: 1\n", agents: { a: "one\n" } } };
 
 /** The fixture's reader, recording each call it makes to git. */
 function recording(over: Partial<FetchDeps> = {}) {
@@ -64,7 +64,7 @@ describe("the newest commit of a preset's repository", () => {
     root = repo(own([]));
     publish(REPO, BASE);
     const newest = publish(REPO, {
-      "": { settings: "version: 2\n", agents: { a: "two\n" } },
+      "": { settings: "version: 1\n", agents: { a: "two\n" } },
     });
     const { d, calls } = recording();
     expect(newestCommit(d, REPO)).toBe(newest);
@@ -97,16 +97,14 @@ describe("one commit of a preset's repository in the cache", () => {
   it("is downloaded with git init, a fetch of that commit alone, and a checkout, into presets/HOST/OWNER/NAME/COMMIT", () => {
     root = repo(own([]));
     const first = publish(REPO, {
-      "": { settings: "version: 2\n", agents: { a: `${Math.random()}\n` } },
+      "": { settings: "version: 1\n", agents: { a: `${Math.random()}\n` } },
     });
     publish(REPO, BASE);
     const { d, calls } = recording();
     expect(cachedCommit(d, REPO, first)).toBeNull();
     const dir = fetchCommit(d, REPO, first);
-    expect(dir).toBe(
-      join(CACHE, "presets", HOST, "acme/factory-config", first),
-    );
-    expect(read(dir, "factory-preset.yaml")).toBe("version: 2\n");
+    expect(dir).toBe(join(CACHE, "presets", HOST, "acme/kodor-config", first));
+    expect(read(dir, "kodor-preset.yaml")).toBe("version: 1\n");
     expect(calls.map((c) => c.args.filter((a) => !a.startsWith("/")))).toEqual([
       ["init", "--quiet"],
       ["fetch", "--quiet", "--depth", "1", first],
@@ -160,12 +158,12 @@ describe("the sign-in a preset's repository is read with", () => {
   const d = (env: Record<string, string | undefined>) => ({
     env,
     repository: "acme/billing",
-    cache: "/home/sam/.cache/software-factory",
+    cache: "/home/sam/.cache/kodor",
   });
 
   it("is the same owner's when the first part of its name is the repository's owner", () => {
-    expect(sameOwner("acme/factory-config", "acme/billing")).toBe(true);
-    expect(sameOwner("Acme/factory-config", "acme/billing")).toBe(true);
+    expect(sameOwner("acme/kodor-config", "acme/billing")).toBe(true);
+    expect(sameOwner("Acme/kodor-config", "acme/billing")).toBe(true);
     expect(sameOwner("acme/platform/config", "acme/billing")).toBe(true);
     expect(sameOwner("foo/presets", "acme/billing")).toBe(false);
   });
@@ -197,10 +195,10 @@ describe("the sign-in a preset's repository is read with", () => {
       ]);
       expect(env.GIT_CONFIG_KEY_1).toBe("credential.helper");
       expect(env.GIT_CONFIG_VALUE_1).toContain(
-        'echo "password=$FACTORY_PRESET_TOKEN"',
+        'echo "password=$KODOR_PRESET_TOKEN"',
       );
       expect(env.GIT_CONFIG_VALUE_1).not.toContain("s3cret");
-      expect(env.FACTORY_PRESET_TOKEN).toBe("s3cret");
+      expect(env.KODOR_PRESET_TOKEN).toBe("s3cret");
       expect(env.GIT_TERMINAL_PROMPT).toBe("0");
     },
   );
@@ -210,9 +208,9 @@ describe("the sign-in a preset's repository is read with", () => {
       { ...d({ PATH: "/bin" }), signIn: () => "gho_machine" },
       REPO,
     );
-    expect(env.FACTORY_PRESET_TOKEN).toBe("gho_machine");
+    expect(env.KODOR_PRESET_TOKEN).toBe("gho_machine");
     expect(env.GIT_CONFIG_VALUE_1).toContain(
-      'echo "password=$FACTORY_PRESET_TOKEN"',
+      'echo "password=$KODOR_PRESET_TOKEN"',
     );
   });
 
@@ -223,18 +221,17 @@ describe("the sign-in a preset's repository is read with", () => {
       return "gho_machine";
     };
     expect(
-      gitEnv({ ...d({ GH_TOKEN: "s3cret" }), signIn }, REPO)
-        .FACTORY_PRESET_TOKEN,
+      gitEnv({ ...d({ GH_TOKEN: "s3cret" }), signIn }, REPO).KODOR_PRESET_TOKEN,
     ).toBe("s3cret");
     expect(
-      gitEnv({ ...d({}), signIn }, "foo/presets").FACTORY_PRESET_TOKEN,
+      gitEnv({ ...d({}), signIn }, "foo/presets").KODOR_PRESET_TOKEN,
     ).toBeUndefined();
     expect(asked).toBe(0);
   });
 
   it("is the machine's own when the code host's tool is signed in as nobody", () => {
     const env = gitEnv({ ...d({ PATH: "/bin" }), signIn: () => null }, REPO);
-    expect(env.FACTORY_PRESET_TOKEN).toBeUndefined();
+    expect(env.KODOR_PRESET_TOKEN).toBeUndefined();
     expect(env.GIT_CONFIG_COUNT).toBeUndefined();
   });
 
@@ -316,11 +313,11 @@ describe("git's last line", () => {
 describe("a preset at one commit", () => {
   const TWO = {
     "": {
-      settings: "version: 2\nrules:\n  review-rounds: 3\n",
+      settings: "version: 1\nrules:\n  review-rounds: 3\n",
       agents: { a: "one\n" },
       skills: { tidy: "tidy\n" },
     },
-    node: { settings: "version: 2\n", agents: { n: "node\n" } },
+    node: { settings: "version: 1\n", agents: { n: "node\n" } },
   };
 
   it("is its settings without the version, and a hash of each agent and skill by its path in a repository that follows it", () => {
@@ -345,20 +342,20 @@ describe("a preset at one commit", () => {
     root = repo(own([]));
     const commit = publish(REPO, {
       "": {
-        settings: "version: 2\n",
+        settings: "version: 1\n",
         others: {
-          ".github/workflows/factory-poller.yml": "name: Factory poller\n",
+          ".github/workflows/kodor-poller.yml": "name: Factory poller\n",
         },
       },
-      node: { settings: "version: 2\n" },
+      node: { settings: "version: 1\n" },
     });
     expect(pinAt(fetching(), ACME, commit, load).poller).toBe(true);
     expect(pinAt(fetching(), NODE, commit, load).poller).toBe(true);
     const without = publish(REPO, {
       node: {
-        settings: "version: 2\n",
+        settings: "version: 1\n",
         others: {
-          ".github/workflows/factory-poller.yml": "name: Factory poller\n",
+          ".github/workflows/kodor-poller.yml": "name: Factory poller\n",
         },
       },
     });
@@ -367,19 +364,19 @@ describe("a preset at one commit", () => {
 
   it("says where it looked when the commit holds no preset file", () => {
     root = repo(own([]));
-    const commit = publish(REPO, { node: { settings: "version: 2\n" } });
+    const commit = publish(REPO, { node: { settings: "version: 1\n" } });
     expect(() => pinAt(fetching(), ACME, commit, load)).toThrow(
-      new PresetError(`${ACME}: no factory-preset.yaml in ${REPO}`),
+      new PresetError(`${ACME}: no kodor-preset.yaml in ${REPO}`),
     );
     expect(() => pinAt(fetching(), `${REPO}//go`, commit, load)).toThrow(
-      new PresetError(`${REPO}//go: no go/factory-preset.yaml in ${REPO}`),
+      new PresetError(`${REPO}//go: no go/kodor-preset.yaml in ${REPO}`),
     );
   });
 
   it("refuses a preset file a preset can't be, naming the key", () => {
     root = repo(own([]));
     const commit = publish(REPO, {
-      "": { settings: "version: 2\nrules:\n  small-change-lnes: 3\n" },
+      "": { settings: "version: 1\nrules:\n  small-change-lnes: 3\n" },
     });
     expect(() => pinAt(fetching(), ACME, commit, load)).toThrow(
       `${ACME}: rules.small-change-lnes: unknown key`,
@@ -416,14 +413,14 @@ describe("whether a preset's own files differ between two commits", () => {
     root = repo(own([]));
     const first = at(BASE);
     const settings = at({
-      "": { settings: "version: 2\nspecs: none\n", agents: { a: "one\n" } },
+      "": { settings: "version: 1\nspecs: none\n", agents: { a: "one\n" } },
     });
     const agent = at({
-      "": { settings: "version: 2\nspecs: none\n", agents: { a: "two\n" } },
+      "": { settings: "version: 1\nspecs: none\n", agents: { a: "two\n" } },
     });
     const skill = at({
       "": {
-        settings: "version: 2\nspecs: none\n",
+        settings: "version: 1\nspecs: none\n",
         agents: { a: "two\n" },
         skills: { tidy: "tidy\n" },
       },
@@ -437,10 +434,10 @@ describe("whether a preset's own files differ between two commits", () => {
 
   it("is false when only another folder of the repository changed", () => {
     root = repo(own([]));
-    const first = at({ ...BASE, go: { settings: "version: 2\n" } });
+    const first = at({ ...BASE, go: { settings: "version: 1\n" } });
     const second = at({
       ...BASE,
-      go: { settings: "version: 2\nspecs: none\n", agents: { g: "go\n" } },
+      go: { settings: "version: 1\nspecs: none\n", agents: { g: "go\n" } },
     });
     expect(presetDiffers(fetching(), ACME, first, second)).toBe(false);
     expect(presetDiffers(fetching(), `${REPO}//go`, first, second)).toBe(true);
@@ -449,7 +446,7 @@ describe("whether a preset's own files differ between two commits", () => {
   it("downloads a commit the cache lacks", () => {
     root = repo(own([]));
     const first = at({
-      "": { settings: "version: 2\n", agents: { a: `${Math.random()}\n` } },
+      "": { settings: "version: 1\n", agents: { a: `${Math.random()}\n` } },
     });
     const second = at(BASE);
     expect(cachedCommit(fetching(), REPO, first)).toBeNull();
@@ -463,20 +460,16 @@ describe("moving a preset's pin in the lock", () => {
     root = repo(own([ACME, NODE]));
     install(root, REPO, {
       ...BASE,
-      node: { settings: "version: 2\n" },
+      node: { settings: "version: 1\n" },
     });
-    const before = read(root, ".claude/factory.lock")!;
-    put(
-      root,
-      ".claude/factory.lock",
-      `version: 1.2.3\n${before}files:\n  - a\n`,
-    );
+    const before = read(root, ".claude/kodor.lock")!;
+    put(root, ".claude/kodor.lock", `version: 1.2.3\n${before}files:\n  - a\n`);
     const next = publish(REPO, {
       "": {
-        settings: "version: 2\nrules:\n  review-rounds: 4\n",
+        settings: "version: 1\nrules:\n  review-rounds: 4\n",
         agents: { a: "two\n" },
       },
-      node: { settings: "version: 2\n" },
+      node: { settings: "version: 1\n" },
     });
     const [moved] = await movePins(
       root,
@@ -490,7 +483,7 @@ describe("moving a preset's pin in the lock", () => {
       settings: { rules: { "review-rounds": 4 } },
       files: { ".claude/agents/a.md": fileHash("two\n") },
     });
-    const text = read(root, ".claude/factory.lock")!;
+    const text = read(root, ".claude/kodor.lock")!;
     const pins = pinsOf(text, load);
     expect(pins.map((p) => p.name)).toEqual([ACME, NODE]);
     expect(pins[0]).toEqual(moved);
@@ -503,18 +496,18 @@ describe("moving a preset's pin in the lock", () => {
     root = repo(own([ACME]));
     const commit = publish(REPO, BASE);
     await movePins(root, [{ name: ACME, commit }], fetching());
-    expect(pinsOf(read(root, ".claude/factory.lock"), load)).toEqual([
+    expect(pinsOf(read(root, ".claude/kodor.lock"), load)).toEqual([
       pinAt(fetching(), ACME, commit, load),
     ]);
   });
 
   it("leaves the lock as it was when one of several is not valid", async () => {
     root = repo(own([ACME, NODE]));
-    install(root, REPO, { ...BASE, node: { settings: "version: 2\n" } });
-    const before = read(root, ".claude/factory.lock");
+    install(root, REPO, { ...BASE, node: { settings: "version: 1\n" } });
+    const before = read(root, ".claude/kodor.lock");
     const commit = publish(REPO, {
-      "": { settings: "version: 2\nrules:\n  review-rounds: 4\n" },
-      node: { settings: "version: 2\nrules:\n  review-rounds: zero\n" },
+      "": { settings: "version: 1\nrules:\n  review-rounds: 4\n" },
+      node: { settings: "version: 1\nrules:\n  review-rounds: zero\n" },
     });
     await expect(
       movePins(
@@ -530,12 +523,12 @@ describe("moving a preset's pin in the lock", () => {
         `${NODE}: rules.review-rounds: must be a whole number above zero`,
       ),
     );
-    expect(read(root, ".claude/factory.lock")).toBe(before);
+    expect(read(root, ".claude/kodor.lock")).toBe(before);
   });
 });
 
 describe("what is wrong with a lock's pins beside the base lock's", () => {
-  const LOCK = ".claude/factory.lock";
+  const LOCK = ".claude/kodor.lock";
   const setUp = () => {
     root = repo(own([ACME]));
     install(root, REPO, BASE);
@@ -545,7 +538,7 @@ describe("what is wrong with a lock's pins beside the base lock's", () => {
   it("is nothing for a moved pin that holds what its commit holds, though a value there is not valid", () => {
     const pins = setUp();
     const commit = publish(REPO, {
-      "": { settings: "version: 2\nrules:\n  review-rounds: zero\n" },
+      "": { settings: "version: 1\nrules:\n  review-rounds: zero\n" },
     });
     const moved = {
       name: ACME,
@@ -588,7 +581,7 @@ describe("what is wrong with a lock's pins beside the base lock's", () => {
       expect(
         pinFaults(fetching(), [{ ...pinned!, ...change }], [], load),
       ).toEqual([
-        `.claude/factory.lock: ${ACME} at ${pinned!.commit.slice(0, 7)} does not match what that commit holds. Run: factory update`,
+        `.claude/kodor.lock: ${ACME} at ${pinned!.commit.slice(0, 7)} does not match what that commit holds. Run: kodor update`,
       ]);
     },
   );
@@ -598,7 +591,7 @@ describe("what is wrong with a lock's pins beside the base lock's", () => {
     expect(
       pinFaults(fetching(), [{ ...pinned!, name: `${REPO}//go` }], [], load),
     ).toEqual([
-      `.claude/factory.lock: ${REPO}//go at ${pinned!.commit.slice(0, 7)} does not match what that commit holds. Run: factory update`,
+      `.claude/kodor.lock: ${REPO}//go at ${pinned!.commit.slice(0, 7)} does not match what that commit holds. Run: kodor update`,
     ]);
   });
 
@@ -613,7 +606,7 @@ describe("what is wrong with a lock's pins beside the base lock's", () => {
       expect(
         pinFaults(fetching(), [{ ...pins[0]!, ...change }], pins, load),
       ).toEqual([
-        `.claude/factory.lock: the settings or files recorded for ${ACME} changed, and its commit did not. Restore the lock from the default branch, then run: factory sync`,
+        `.claude/kodor.lock: the settings or files recorded for ${ACME} changed, and its commit did not. Restore the lock from the default branch, then run: kodor sync`,
       ]);
     },
   );
@@ -629,7 +622,7 @@ describe("what is wrong with a lock's pins beside the base lock's", () => {
     );
     expect(faults).toHaveLength(1);
     expect(faults[0]).toMatch(
-      /^\.claude\/factory\.lock: acme\/factory-config at 0123456 could not be read to check it: fatal: /,
+      /^\.claude\/kodor\.lock: acme\/kodor-config at 0123456 could not be read to check it: fatal: /,
     );
   });
 
@@ -667,11 +660,11 @@ describe("what is wrong with a lock's pins beside the base lock's", () => {
   });
 });
 
-describe("why a preset's repository could not be read, for factory update", () => {
+describe("why a preset's repository could not be read, for kodor update", () => {
   const git = new FetchError("fatal: Could not read from remote repository.");
 
   it("is git's last line, without its period, for a repository of the same owner", () => {
-    expect(whyUnread(git, "acme/factory-config", "acme/web")).toBe(
+    expect(whyUnread(git, "acme/kodor-config", "acme/web")).toBe(
       "fatal: Could not read from remote repository",
     );
   });
@@ -686,10 +679,10 @@ describe("why a preset's repository could not be read, for factory update", () =
 describe("a file at a revision of the repository", () => {
   it("is its text at that commit, and null where the commit has none", () => {
     const commit = publish("acme/base-lock", {
-      "": { settings: "version: 2\n" },
+      "": { settings: "version: 1\n" },
     });
     const dir = remoteOf("acme/base-lock");
-    expect(fileAt(dir, commit, "factory-preset.yaml")).toBe("version: 2\n");
-    expect(fileAt(dir, commit, ".claude/factory.lock")).toBeNull();
+    expect(fileAt(dir, commit, "kodor-preset.yaml")).toBe("version: 1\n");
+    expect(fileAt(dir, commit, ".claude/kodor.lock")).toBeNull();
   });
 });

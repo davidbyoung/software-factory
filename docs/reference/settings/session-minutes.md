@@ -17,8 +17,8 @@ session-minutes:
 | `dependencies` | Working through dependency updates                          | `50`    |
 
 - **Each is a whole number above zero.**
-- **Run `factory sync` after changing one,** since it writes them into
-  `.github/workflows/factory.yml`. `factory config check` fails until
+- **Run `kodor sync` after changing one,** since it writes them into
+  `.github/workflows/kodor.yml`. `kodor config check` fails until
   you do.
 - **The cloud runner may stop a job sooner:** see
   [its limits](../../integrations/github-actions.md#limits-that-come-from-github).

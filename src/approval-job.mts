@@ -1,14 +1,14 @@
-// `factory approval-policies`: the steps of the jobs that check a pull
+// `kodor approval-policies`: the steps of the jobs that check a pull
 // request against the approval policies, and `check`, which tries them on
 // a person's machine.
 //
-//   factory approval-policies check [--pull N]   what a change would wait for
-//   factory approval-policies prepare DIR        the change and each check's input
-//   factory approval-policies commands DIR       each policy's command, with no token
-//   factory approval-policies agent DIR I        check I's agent
-//   factory approval-policies status DIR         the "Approval policies" status
-//   factory approval-policies kept NAME          the trusted run that kept NAME
-//   factory approval-policies approve DIR        what the label approves
+//   kodor approval-policies check [--pull N]   what a change would wait for
+//   kodor approval-policies prepare DIR        the change and each check's input
+//   kodor approval-policies commands DIR       each policy's command, with no token
+//   kodor approval-policies agent DIR I        check I's agent
+//   kodor approval-policies status DIR         the "Approval policies" status
+//   kodor approval-policies kept NAME          the trusted run that kept NAME
+//   kodor approval-policies approve DIR        what the label approves
 //
 // The jobs run from a checkout of the default branch, with its settings,
 // so a pull request cannot change how it is judged.
@@ -40,9 +40,9 @@ import {
 import * as say from "./lib/output.mts";
 
 /** The workflow file a trusted run is of. */
-export const WORKFLOW_FILE = "factory.yml";
+export const WORKFLOW_FILE = "kodor.yml";
 
-/** What the factory names the artifacts that keep a pull request's
+/** What kodor names the artifacts that keep a pull request's
  * findings, and what an approval approved, for one commit against one base
  * branch: a change of base finds neither. An artifact's name takes no `/`,
  * which a branch's can hold. */
@@ -52,7 +52,7 @@ export const keptName = (pr: number, head: string, base: string) =>
 export const approvedName = (pr: number, head: string, base: string) =>
   `approval-policies-approved-${pr}-${head}-${baseOf(base)}`;
 
-/** A comment the factory posts once, told apart by its first line. */
+/** A comment kodor posts once, told apart by its first line. */
 const REVIEW_NOTE = "<!-- factory: approval policies wait for the label -->";
 
 /** One check of the plan: what it is called and what checks it. */
@@ -624,7 +624,7 @@ export async function check(d: CheckDeps, argv: string[]): Promise<number> {
   const at = argv.indexOf("--pull");
   const pull = at === -1 ? null : Number(argv[at + 1]);
   if (pull !== null && !(Number.isInteger(pull) && pull > 0)) {
-    d.err(say.text("Usage: factory approval-policies check [--pull N]"));
+    d.err(say.text("Usage: kodor approval-policies check [--pull N]"));
     return 2;
   }
   const policies: ApprovalPolicy[] = d.settings.approvalPolicies;
@@ -726,7 +726,7 @@ export async function check(d: CheckDeps, argv: string[]): Promise<number> {
       d.err(
         say.mark(
           "fail",
-          `${name}: ${outcome.command} failed (${outcome.why}). Fix it, then run: factory approval-policies check`,
+          `${name}: ${outcome.command} failed (${outcome.why}). Fix it, then run: kodor approval-policies check`,
         ),
       );
       for (const line of outcome.stderr.split("\n").filter(Boolean))
@@ -756,10 +756,10 @@ export async function check(d: CheckDeps, argv: string[]): Promise<number> {
 export type { ChangedFile };
 
 const USAGE =
-  "Usage: factory approval-policies check [--pull N] | prepare DIR | commands DIR | agent DIR I | status DIR | kept NAME | approve DIR";
+  "Usage: kodor approval-policies check [--pull N] | prepare DIR | commands DIR | agent DIR I | status DIR | kept NAME | approve DIR";
 
 // Only run as a CLI. Importing this module for tests must not call GitHub.
-/** `factory approval-policies SUB`. */
+/** `kodor approval-policies SUB`. */
 export async function run(argv: string[]): Promise<number> {
   const [sub, ...rest] = argv;
   const { appendFileSync } = await import("node:fs");

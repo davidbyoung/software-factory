@@ -30,7 +30,7 @@ permissions:
 jobs:
   # Tells the other repositories of a pull request's ticket that it opened,
   # merged, or closed: theirs wait for it, and the last to merge finishes the
-  # ticket. `factory across` holds every rule.
+  # ticket. `kodor across` holds every rule.
   across:
     name: Tell the other repositories
     if: >-
@@ -54,30 +54,30 @@ jobs:
           node-version: 22
 
       - &install
-        name: Install the factory
+        name: Install kodor
         run: |
-          if [ "$(jq -r '.name // empty' package.json 2> /dev/null)" = "@davidbyoung/software-factory" ]; then
+          if [ "$(jq -r '.name // empty' package.json 2> /dev/null)" = "@kodor-ai/kodor" ]; then
             npm ci --ignore-scripts
             npm link
           else
-            version="$(sed -n 's/^version: *//p' .claude/factory.lock | head -n 1)"
+            version="$(sed -n 's/^version: *//p' .claude/kodor.lock | head -n 1)"
             if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-              echo "::error::.claude/factory.lock names no release of the factory. Run factory sync, and commit what it writes."
+              echo "::error::.claude/kodor.lock names no release of kodor. Run kodor sync, and commit what it writes."
               exit 1
             fi
-            npm install --global --no-audit --no-fund "@davidbyoung/software-factory@$version"
+            npm install --global --no-audit --no-fund "@kodor-ai/kodor@$version"
           fi
 
       - name: Tell the other repositories
         env:
           GH_TOKEN: ${{ github.token }}
-          FACTORY_APP_CLIENT_ID: ${{ vars.FACTORY_APP_CLIENT_ID }}
-          FACTORY_APP_PRIVATE_KEY: ${{ secrets.app-key }}
-          FACTORY_BUILD_TOKEN: ${{ (secrets.app-key == '' || vars.FACTORY_APP_CLIENT_ID == '') && secrets.build-token || '' }}
-        run: factory across --event "$GITHUB_EVENT_PATH"
+          KODOR_APP_CLIENT_ID: ${{ vars.KODOR_APP_CLIENT_ID }}
+          KODOR_APP_PRIVATE_KEY: ${{ secrets.app-key }}
+          KODOR_BUILD_TOKEN: ${{ (secrets.app-key == '' || vars.KODOR_APP_CLIENT_ID == '') && secrets.build-token || '' }}
+        run: kodor across --event "$GITHUB_EVENT_PATH"
 
   # Opens a ticket for each follow-up a person ticked in a pull request's
-  # description before it merged. No AI runs here: `factory pr follow-ups`
+  # description before it merged. No AI runs here: `kodor pr follow-ups`
   # decides everything, from the event. A fork's author can edit what it
   # reads, so it runs for this repository's own branches alone.
   follow-ups:
@@ -114,7 +114,7 @@ jobs:
           EXTRA: ${{ secrets.extra }}
         run: |
           [ -n "$EXTRA" ] || exit 0
-          end="FACTORY_$(openssl rand -hex 8)"
+          end="KODOR_$(openssl rand -hex 8)"
           for name in $(jq -r 'to_entries[] | select(.value != "") | .key' <<< "$EXTRA"); do
             value="$(jq -r --arg name "$name" '.[$name]' <<< "$EXTRA")"
             while IFS= read -r line; do
@@ -126,7 +126,7 @@ jobs:
       - name: Open the ticked tickets
         env:
           GH_TOKEN: ${{ github.token }}
-        run: factory pr follow-ups --event "$GITHUB_EVENT_PATH"
+        run: kodor pr follow-ups --event "$GITHUB_EVENT_PATH"
 
   # Keeps the board's Status, Session, and Runs in in step with what
   # sessions record on each labeled ticket, and Cost with the costs on each
@@ -174,10 +174,10 @@ jobs:
         id: repositories
         env:
           APP_KEY_SET: ${{ secrets.app-key != '' }}
-          CLIENT_ID: ${{ vars.FACTORY_APP_CLIENT_ID }}
+          CLIENT_ID: ${{ vars.KODOR_APP_CLIENT_ID }}
         run: |
           if [ "$APP_KEY_SET" = "true" ] && [ -n "$CLIENT_ID" ]; then
-            names="$(factory session repositories)"
+            names="$(kodor session repositories)"
             echo "names=$names" >> "$GITHUB_OUTPUT"
           fi
 
@@ -186,7 +186,7 @@ jobs:
         if: steps.repositories.outputs.names != ''
         uses: actions/create-github-app-token@v3
         with:
-          client-id: ${{ vars.FACTORY_APP_CLIENT_ID }}
+          client-id: ${{ vars.KODOR_APP_CLIENT_ID }}
           private-key: ${{ secrets.app-key }}
           owner: ${{ github.repository_owner }}
           repositories: ${{ steps.repositories.outputs.names }}
@@ -197,19 +197,19 @@ jobs:
         name: Say that the app is not installed
         if: failure() && steps.app.outcome == 'failure'
         run: |
-          echo "::error::The software factory's app for $GITHUB_REPOSITORY_OWNER is not installed on $GITHUB_REPOSITORY. An owner of $GITHUB_REPOSITORY_OWNER adds it: $GITHUB_SERVER_URL/organizations/$GITHUB_REPOSITORY_OWNER/settings/installations"
+          echo "::error::kodor's app for $GITHUB_REPOSITORY_OWNER is not installed on $GITHUB_REPOSITORY. An owner of $GITHUB_REPOSITORY_OWNER adds it: $GITHUB_SERVER_URL/organizations/$GITHUB_REPOSITORY_OWNER/settings/installations"
 
       - *extra
 
       - name: Read the repository
         env:
           GH_TOKEN: ${{ github.token }}
-          FACTORY_APP_CLIENT_ID: ${{ vars.FACTORY_APP_CLIENT_ID }}
-          FACTORY_APP_PRIVATE_KEY: ${{ secrets.app-key }}
-          FACTORY_BUILD_TOKEN: ${{ (secrets.app-key == '' || vars.FACTORY_APP_CLIENT_ID == '') && secrets.build-token || '' }}
-          FACTORY_ACROSS: read
+          KODOR_APP_CLIENT_ID: ${{ vars.KODOR_APP_CLIENT_ID }}
+          KODOR_APP_PRIVATE_KEY: ${{ secrets.app-key }}
+          KODOR_BUILD_TOKEN: ${{ (secrets.app-key == '' || vars.KODOR_APP_CLIENT_ID == '') && secrets.build-token || '' }}
+          KODOR_ACROSS: read
         run: >-
-          factory board collect
+          kodor board collect
           --out "$RUNNER_TEMP/repo.json"
           --event "$GITHUB_EVENT_PATH"
           --event-name "$GITHUB_EVENT_NAME"
@@ -217,4 +217,4 @@ jobs:
       - name: Write the board
         env:
           GH_TOKEN: ${{ steps.app.outputs.token || secrets.board-token }}
-        run: factory board apply --in "$RUNNER_TEMP/repo.json"
+        run: kodor board apply --in "$RUNNER_TEMP/repo.json"

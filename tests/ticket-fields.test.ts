@@ -247,12 +247,12 @@ describe("check, the agent's answer", () => {
       "it named Notes, which acme/shop's tickets don't have",
     ],
     [
-      "one field for two factory fields",
+      "one field for two kodor fields",
       { ...GOOD, decisions: "Design notes" },
       "it put Design notes in both Decisions and For the builder",
     ],
     [
-      "a factory field left out",
+      "a kodor field left out",
       { ...GOOD, "for-the-builder": undefined },
       "it left out For the builder",
     ],
@@ -285,7 +285,7 @@ describe("check, the agent's answer", () => {
 });
 
 describe("table", () => {
-  it("lines each factory field up with its ticket field, or the description", () => {
+  it("lines each kodor field up with its ticket field, or the description", () => {
     expect(
       table({
         decisions: null,
@@ -294,7 +294,7 @@ describe("table", () => {
         "for-the-builder": "Design notes",
       }).map(plainOf),
     ).toEqual([
-      "  Factory field         Ticket field",
+      "  kodor field           Ticket field",
       "  Decisions             the description",
       "  Spec                  Acceptance criteria",
       "  Acceptance criteria   Acceptance criteria",

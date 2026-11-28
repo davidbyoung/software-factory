@@ -76,10 +76,10 @@ describe("the runner's secrets, on GitHub Actions", () => {
       repository: REPO,
       cli: g.runIn,
     });
-    await runner.setSecret("FACTORY_BOARD_TOKEN", "ghp_secret");
+    await runner.setSecret("KODOR_BOARD_TOKEN", "ghp_secret");
     expect(g.calls).toEqual([
       {
-        line: `secret set FACTORY_BOARD_TOKEN --repo ${REPO}`,
+        line: `secret set KODOR_BOARD_TOKEN --repo ${REPO}`,
         stdin: "ghp_secret",
       },
     ]);
@@ -134,12 +134,12 @@ describe("the runner's Dependabot and organization secrets, on GitHub Actions", 
       ],
       [
         /repos\/acme\/site\/actions\/organization-variables\?per_page=30&page=2$/,
-        { variables: [{ name: "FACTORY_APP_CLIENT_ID" }] },
+        { variables: [{ name: "KODOR_APP_CLIENT_ID" }] },
       ],
     ]);
     const names = await runner(g).organizationVariableNames();
     expect(names).toHaveLength(31);
-    expect(names.at(-1)).toBe("FACTORY_APP_CLIENT_ID");
+    expect(names.at(-1)).toBe("KODOR_APP_CLIENT_ID");
   });
 
   it("lists the organization's Dependabot secrets that reach the repository, by visibility", async () => {
@@ -294,8 +294,8 @@ describe("the code host's setup operations, on GitHub", () => {
 
   it("gives the page that makes a token with the scopes asked for", () => {
     const { host: h } = host([]);
-    expect(h.newTokenPage(["repo", "workflow"], "factory acme/site")).toBe(
-      "https://github.com/settings/tokens/new?scopes=repo,workflow&description=factory%20acme%2Fsite",
+    expect(h.newTokenPage(["repo", "workflow"], "kodor acme/site")).toBe(
+      "https://github.com/settings/tokens/new?scopes=repo,workflow&description=kodor%20acme%2Fsite",
     );
   });
 
@@ -317,9 +317,9 @@ describe("the code host's setup operations, on GitHub", () => {
       [/^api repos\/acme\/site\/rulesets/, []],
       [/-X POST repos\/acme\/site\/rulesets/, { id: 1 }],
     ]);
-    await h.requireCheck("Software factory", "Review verdict");
+    await h.requireCheck("kodor", "Review verdict");
     expect(calls[1].input).toEqual({
-      name: "Software factory",
+      name: "kodor",
       target: "branch",
       enforcement: "active",
       conditions: { ref_name: { include: ["~DEFAULT_BRANCH"], exclude: [] } },
@@ -350,22 +350,19 @@ describe("the code host's setup operations, on GitHub", () => {
           ],
         },
       ],
-      [
-        /^api repos\/acme\/site\/rulesets/,
-        [{ id: 3, name: "Software factory" }],
-      ],
+      [/^api repos\/acme\/site\/rulesets/, [{ id: 3, name: "kodor" }]],
     ]);
-    await h.requireCheck("Software factory", "Review verdict");
+    await h.requireCheck("kodor", "Review verdict");
     expect(calls).toHaveLength(2);
     expect(calls.some((c) => c.line.includes("PUT"))).toBe(false);
   });
 
   describe("the events a workflow file may start on", () => {
-    const FILE = ".github/workflows/factory.yml";
+    const FILE = ".github/workflows/kodor.yml";
     const LIST = /^api repos\/acme\/site\/actions\/policies\?per_page=100$/;
     const policy = (over: Record<string, unknown> = {}) => ({
       id: 7,
-      name: "Software factory",
+      name: "kodor",
       enforcement: "active",
       conditions: { workflow_path: { include: [FILE], exclude: [] } },
       rules: [
@@ -478,12 +475,9 @@ describe("the code host's setup operations, on GitHub", () => {
         [LIST, { total_count: 0, policies: [] }],
         [/-X POST repos\/acme\/site\/actions\/policies/, { id: 9 }],
       ]);
-      await h.allowEvents("Software factory", FILE, [
-        "push",
-        "pull_request_target",
-      ]);
+      await h.allowEvents("kodor", FILE, ["push", "pull_request_target"]);
       expect(calls[1].input).toEqual({
-        name: "Software factory",
+        name: "kodor",
         enforcement: "active",
         conditions: { workflow_path: { include: [FILE], exclude: [] } },
         rules: [
@@ -501,14 +495,12 @@ describe("the code host's setup operations, on GitHub", () => {
           LIST,
           {
             total_count: 1,
-            policies: [
-              { id: 7, name: "Software factory", enforcement: "disabled" },
-            ],
+            policies: [{ id: 7, name: "kodor", enforcement: "disabled" }],
           },
         ],
         [/-X PUT repos\/acme\/site\/actions\/policies\/7/, { id: 7 }],
       ]);
-      await h.allowEvents("Software factory", FILE, ["push"]);
+      await h.allowEvents("kodor", FILE, ["push"]);
       expect(calls).toHaveLength(2);
       expect(calls[1].input).toMatchObject({
         enforcement: "active",

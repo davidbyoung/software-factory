@@ -63,7 +63,7 @@ export async function startSite(
   // The command's output goes to a file, not a pipe: a pipe fills when
   // nothing reads it, which blocks the site while a check runs and breaks it
   // once `--keep` has let this process end.
-  const log = join(mkdtempSync(join(tmpdir(), "factory-site-log-")), "log");
+  const log = join(mkdtempSync(join(tmpdir(), "kodor-site-log-")), "log");
   const out = openSync(log, "a");
   const child = spawn("sh", ["-c", opts.start], {
     cwd: opts.cwd,
@@ -150,7 +150,7 @@ export async function defaultBase(
 /** A detached worktree of `ref` in a temporary folder, with its dependencies
  * installed when it has a lockfile. Returns its path. */
 export function addWorktree(root: string, ref: string): string {
-  const dir = join(mkdtempSync(join(tmpdir(), "factory-site-")), "base");
+  const dir = join(mkdtempSync(join(tmpdir(), "kodor-site-")), "base");
   execFileSync("git", ["worktree", "add", "--detach", dir, ref], {
     cwd: root,
     stdio: "ignore",
@@ -188,7 +188,7 @@ export type Kept = {
 };
 
 const stateFile = (root: string) =>
-  join(root, "node_modules/.cache/factory/site/kept.json");
+  join(root, "node_modules/.cache/kodor/site/kept.json");
 
 export function keep(root: string, kept: Kept): void {
   mkdirSync(join(stateFile(root), ".."), { recursive: true });

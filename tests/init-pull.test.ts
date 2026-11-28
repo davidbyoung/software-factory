@@ -1,4 +1,4 @@
-// `factory init`, from "Go ahead?" to the pull request: the plan's rows,
+// `kodor init`, from "Go ahead?" to the pull request: the plan's rows,
 // the gate, the branch and its commit, the push, the pull request, the
 // lines when one of those fails, and the rule that requires the review's
 // verdict.
@@ -13,8 +13,8 @@ import { CODE_HOST_YAML } from "./settings-fixture";
 import { AGENT, GOOD, init, type Setup } from "./init-harness";
 import { into } from "./printed";
 
-const GATED = `version: 2\nrepository: acme/site\n${CODE_HOST_YAML}\ncommands:\n  gate:\n    - npm run check\n`;
-const OPENED_FIRST = '✓ Opened acme/site#1, "Set up the software factory".';
+const GATED = `version: 1\nrepository: acme/site\n${CODE_HOST_YAML}\ncommands:\n  gate:\n    - npm run check\n`;
+const OPENED_FIRST = '✓ Opened acme/site#1, "Set up kodor".';
 /** A run that goes ahead with no part on. */
 const quick = (over: Partial<Setup> = {}) =>
   init({ answers: { checkbox: [[]], confirm: [true] }, ...over });
@@ -26,15 +26,15 @@ const planOf = (out: string[]) => {
 };
 const commands = (git: string[][]) => git.map((args) => args[0]);
 
-describe("factory init, the plan's rows", () => {
+describe("kodor init, the plan's rows", () => {
   it("names the settings, the copies, and the workflows in one row each, and the pull request last", async () => {
     const r = quick({
       syncs: [
-        ".claude/skills/factory-build/SKILL.md",
-        ".claude/factory/rules.md",
-        ".github/workflows/factory.yml",
-        ".github/workflows/factory-review.yml",
-        ".claude/factory.lock",
+        ".claude/skills/kodor-build/SKILL.md",
+        ".claude/kodor/rules.md",
+        ".github/workflows/kodor.yml",
+        ".github/workflows/kodor-review.yml",
+        ".claude/kodor.lock",
       ],
       answers: {
         checkbox: [["auto-merge"]],
@@ -46,29 +46,29 @@ describe("factory init, the plan's rows", () => {
     await r.run();
     const at = r.out.indexOf("This is everything setup will do:");
     expect(r.out.slice(at + 1, at + 7)).toEqual([
-      "  settings      Write .claude/factory.yaml and .claude/factory.lock",
-      "  files         Copy the factory's skills, agents, rules, and guards",
-      "  workflows     Write .github/workflows/factory.yml and factory-review.yml",
-      "  secrets       FACTORY_AUTOMERGE_TOKEN",
+      "  settings      Write .claude/kodor.yaml and .claude/kodor.lock",
+      "  files         Copy kodor's skills, agents, rules, and guards",
+      "  workflows     Write .github/workflows/kodor.yml and kodor-review.yml",
+      "  secrets       KODOR_AUTOMERGE_TOKEN",
       "  store         your GitHub token on this machine, in " +
-        `${r.env.XDG_CONFIG_HOME}/software-factory/credentials.yaml`,
+        `${r.env.XDG_CONFIG_HOME}/kodor/credentials.yaml`,
       "  repository    allow auto-merge on the repository",
     ]);
     expect(planOf(r.out).at(-1)).toBe(
-      "  pull request  Push the branch set-up-factory and open a pull request",
+      "  pull request  Push the branch set-up-kodor and open a pull request",
     );
   });
 
   it("has a row only for the kind of file that changes", () => {
     expect(fileRows([], null)).toEqual([]);
-    expect(fileRows([".github/workflows/factory.yml"], null)).toEqual([
-      ["workflows", "Write .github/workflows/factory.yml"],
+    expect(fileRows([".github/workflows/kodor.yml"], null)).toEqual([
+      ["workflows", "Write .github/workflows/kodor.yml"],
     ]);
     expect(
       fileRows(
         [
           "package.json",
-          ".claude/factory.choices.yaml",
+          ".claude/kodor.choices.yaml",
           ".gitignore",
           ".claude/agents/acme.md",
         ],
@@ -77,11 +77,11 @@ describe("factory init, the plan's rows", () => {
     ).toEqual([
       [
         "settings",
-        "Write .claude/factory.choices.yaml, package.json, and .gitignore",
+        "Write .claude/kodor.choices.yaml, package.json, and .gitignore",
       ],
       [
         "files",
-        "Copy the factory's skills, agents, rules, and guards, and acme's own agent",
+        "Copy kodor's skills, agents, rules, and guards, and acme's own agent",
       ],
     ]);
   });
@@ -98,11 +98,11 @@ describe("factory init, the plan's rows", () => {
     expect(planOf(r.out)).toEqual([]);
     expect(r.out).toContain("Nothing to commit: the files already match.");
     expect(commands(r.git)).not.toContain("switch");
-    expect(r.read(".claude/factory.yaml")).toBe(`${GATED}specs: none\n`);
+    expect(r.read(".claude/kodor.yaml")).toBe(`${GATED}specs: none\n`);
   });
 });
 
-describe("factory init, the gate", () => {
+describe("kodor init, the gate", () => {
   it("runs each gate command after the sync, and says they pass", async () => {
     const r = quick({ settings: GATED });
     expect(await r.run()).toBe(0);
@@ -111,7 +111,7 @@ describe("factory init, the gate", () => {
     expect(r.out.slice(at - 1, at + 3)).toEqual([
       "",
       "✓ npm run check passes here.",
-      '✓ Opened acme/site#1, "Change the software factory\'s settings".',
+      '✓ Opened acme/site#1, "Change kodor\'s settings".',
       "Merge it to finish. Nothing else is left to do.",
     ]);
   });
@@ -157,7 +157,7 @@ describe("factory init, the gate", () => {
       "    four",
       "    five",
       "    src/cart.test.ts: 2 tests failed",
-      "Fix it, or change commands.gate in .claude/factory.yaml, then run factory init again. Nothing is committed.",
+      "Fix it, or change commands.gate in .claude/kodor.yaml, then run kodor init again. Nothing is committed.",
     ]);
     expect(commands(r.git)).not.toContain("commit");
     expect(commands(r.git)).not.toContain("switch");
@@ -188,7 +188,7 @@ describe("factory init, the gate", () => {
       {
         gate: async () => ({
           status: 1,
-          output: "✗ it broke, see https://a.example\nRun: factory init\n",
+          output: "✗ it broke, see https://a.example\nRun: kodor init\n",
         }),
         out: into([], looks),
       },
@@ -197,7 +197,7 @@ describe("factory init, the gate", () => {
     expect(looks.slice(0, 3)).toEqual([
       "{bad:✗} a fails here, so a build could not finish:",
       "    ✗ it broke, see https://a.example",
-      "    Run: factory init",
+      "    Run: kodor init",
     ]);
   });
 
@@ -209,7 +209,7 @@ describe("factory init, the gate", () => {
   });
 });
 
-describe("factory init, the branch and its commit", () => {
+describe("kodor init, the branch and its commit", () => {
   /** What git was asked after the name of a command it ran once. */
   const ran = (r: ReturnType<typeof init>, command: string) => {
     const calls = r.git.filter((args) => args[0] === command);
@@ -217,14 +217,14 @@ describe("factory init, the branch and its commit", () => {
     return calls[0]!.slice(1);
   };
 
-  it("makes the branch set-up-factory from the commit checked out, moving to no other first", async () => {
+  it("makes the branch set-up-kodor from the commit checked out, moving to no other first", async () => {
     const r = quick();
     expect(await r.run()).toBe(0);
     const made = ran(r, "switch");
     expect(made).toContain("-c");
     // The name comes last: a commit named after it would be where the
     // branch starts.
-    expect(made.at(-1)).toBe("set-up-factory");
+    expect(made.at(-1)).toBe("set-up-kodor");
     expect(
       commands(r.git).filter((c) =>
         ["checkout", "reset", "merge", "rebase", "pull"].includes(c),
@@ -244,15 +244,15 @@ describe("factory init, the branch and its commit", () => {
     expect(await r.run()).toBe(0);
     const pushed = ran(r, "push");
     expect(pushed).toContain("upstream");
-    expect(pushed).toContain("set-up-factory");
+    expect(pushed).toContain("set-up-kodor");
     expect(pushed).not.toContain("origin");
   });
 
   it("hands on the paths it wrote itself and the paths the sync would change, and no other", async () => {
     const syncs = [
-      ".claude/skills/factory-build/SKILL.md",
-      ".github/workflows/factory.yml",
-      ".claude/factory.lock",
+      ".claude/skills/kodor-build/SKILL.md",
+      ".github/workflows/kodor.yml",
+      ".claude/kodor.lock",
     ];
     const r = quick({
       syncs,
@@ -263,7 +263,7 @@ describe("factory init, the branch and its commit", () => {
     const asked = ran(r, "status");
     expect(asked.slice(asked.indexOf("--") + 1).sort()).toEqual(
       [
-        ".claude/factory.yaml",
+        ".claude/kodor.yaml",
         "package.json",
         ".gitignore",
         // What the spec tool's install writes.
@@ -276,20 +276,15 @@ describe("factory init, the branch and its commit", () => {
   it("names the branch it will take in the plan, and makes that one", async () => {
     const r = quick({
       git: (args) =>
-        args[0] === "ls-remote" && args.at(-1) === "set-up-factory"
+        args[0] === "ls-remote" && args.at(-1) === "set-up-kodor"
           ? { status: 0 }
           : undefined,
     });
     await r.run();
     expect(r.out).toContain(
-      "  pull request  Push the branch set-up-factory-2 and open a pull request",
+      "  pull request  Push the branch set-up-kodor-2 and open a pull request",
     );
-    expect(r.git).toContainEqual([
-      "switch",
-      "--quiet",
-      "-c",
-      "set-up-factory-2",
-    ]);
+    expect(r.git).toContainEqual(["switch", "--quiet", "-c", "set-up-kodor-2"]);
   });
 
   it("opens a pull request into the default branch that is no draft, described by the plan's rows", async () => {
@@ -297,17 +292,17 @@ describe("factory init, the branch and its commit", () => {
     await r.run();
     const pull = await r.host.codeHost.get(1);
     expect(pull).toMatchObject({
-      title: "Set up the software factory",
+      title: "Set up kodor",
       isDraft: false,
-      head: { branch: "set-up-factory" },
+      head: { branch: "set-up-kodor" },
       base: { branch: "trunk" },
     });
     expect(pull.body).toBe(
       [
         "```text",
-        "settings      Write .claude/factory.yaml",
-        "files         Copy the factory's skills, agents, rules, and guards",
-        "pull request  Push the branch set-up-factory and open a pull request",
+        "settings      Write .claude/kodor.yaml",
+        "files         Copy kodor's skills, agents, rules, and guards",
+        "pull request  Push the branch set-up-kodor and open a pull request",
         "```",
         "",
       ].join("\n"),
@@ -320,13 +315,13 @@ describe("factory init, the branch and its commit", () => {
     expect(r.git).toContainEqual([
       "cat-file",
       "-e",
-      "base000:.claude/factory.yaml",
+      "base000:.claude/kodor.yaml",
     ]);
     expect((await r.host.codeHost.get(1)).title).toBe(
-      "Change the software factory's settings",
+      "Change kodor's settings",
     );
     expect(r.out).toContain(
-      '✓ Opened acme/site#1, "Change the software factory\'s settings".',
+      '✓ Opened acme/site#1, "Change kodor\'s settings".',
     );
   });
 
@@ -336,22 +331,20 @@ describe("factory init, the branch and its commit", () => {
       git: (args) => (args[0] === "cat-file" ? { status: 128 } : undefined),
     });
     await r.run();
-    expect((await r.host.codeHost.get(1)).title).toBe(
-      "Set up the software factory",
-    );
+    expect((await r.host.codeHost.get(1)).title).toBe("Set up kodor");
   });
 });
 
-describe("factory init, its closing lines", () => {
+describe("kodor init, its closing lines", () => {
   const ADDRESS =
-    "https://github.com/davidbyoung/software-factory/blob/v0.2.0/docs/get-started/quick-start.md#4-open-a-ticket";
+    "https://github.com/kodor-ai/kodor/blob/v0.2.0/docs/get-started/quick-start.md#4-open-a-ticket";
   /** What comes after the setup merges, for a default branch. */
   const after = (branch: string) => [
     "After it merges:",
     `  1. Come back to ${branch} and bring it up to date:`,
     `       git switch ${branch} && git pull`,
-    "  2. Start a new session of your coding agent here. It loads the factory from the files now in your repository.",
-    "  3. Refine a ticket with /factory-refine N, then build it with /factory-build N.",
+    "  2. Start a new session of your coding agent here. It loads kodor from the files now in your repository.",
+    "  3. Refine a ticket with /kodor-refine N, then build it with /kodor-build N.",
     "The steps in full:",
     `     ${ADDRESS}`,
   ];
@@ -382,7 +375,7 @@ describe("factory init, its closing lines", () => {
     expect(r.out).toContain(OPENED_FIRST);
     expect(ending(r.out)).toEqual([
       "Merge it to finish. Left to do:",
-      "  1. Add the commands that check a change, under commands.gate in .claude/factory.yaml",
+      "  1. Add the commands that check a change, under commands.gate in .claude/kodor.yaml",
       "",
       ...after("main"),
       "",
@@ -417,7 +410,7 @@ describe("factory init, its closing lines", () => {
       docsPage("0.2.0", "get-started/quick-start.md#4-open-a-ticket"),
     ).toBe(ADDRESS);
     expect(docsPage("0.0.0-development", "get-started/quick-start.md")).toBe(
-      "https://github.com/davidbyoung/software-factory/blob/main/docs/get-started/quick-start.md",
+      "https://github.com/kodor-ai/kodor/blob/main/docs/get-started/quick-start.md",
     );
     expect(docsPage("main", "cli.md")).toMatch(/\/blob\/main\/docs\//);
   });
@@ -479,7 +472,7 @@ describe("factory init, its closing lines", () => {
   );
 });
 
-describe("factory init, a step that fails after the files are written", () => {
+describe("kodor init, a step that fails after the files are written", () => {
   it("says git's last line when the commit fails, and where the work is", async () => {
     const r = quick({
       git: (args) =>
@@ -505,13 +498,13 @@ describe("factory init, a step that fails after the files are written", () => {
         args[0] === "switch"
           ? {
               status: 128,
-              stderr: "fatal: a branch named 'set-up-factory' already exists\n",
+              stderr: "fatal: a branch named 'set-up-kodor' already exists\n",
             }
           : undefined,
     });
     expect(await r.run()).toBe(1);
     expect(r.out.slice(-2)).toEqual([
-      "✗ Could not commit: fatal: a branch named 'set-up-factory' already exists",
+      "✗ Could not commit: fatal: a branch named 'set-up-kodor' already exists",
       "The files are written, and nothing is committed.",
     ]);
     expect(commands(r.git)).not.toContain("add");
@@ -530,8 +523,8 @@ describe("factory init, a step that fails after the files are written", () => {
     });
     expect(await r.run()).toBe(1);
     expect(r.out.slice(-2)).toEqual([
-      "✗ Could not push set-up-factory to acme/site: remote: Permission to acme/site.git denied to dev.",
-      "The commit is on the branch set-up-factory here. Push it and open a pull request.",
+      "✗ Could not push set-up-kodor to acme/site: remote: Permission to acme/site.git denied to dev.",
+      "The commit is on the branch set-up-kodor here. Push it and open a pull request.",
     ]);
     await expect(r.host.codeHost.listOpen()).resolves.toEqual([]);
   });
@@ -548,7 +541,7 @@ describe("factory init, a step that fails after the files are written", () => {
     });
     await r.run();
     expect(r.out.at(-2)).toBe(
-      "✗ Could not push set-up-factory to acme/site: fatal: Could not read from remote repository.",
+      "✗ Could not push set-up-kodor to acme/site: fatal: Could not read from remote repository.",
     );
   });
 
@@ -563,7 +556,7 @@ describe("factory init, a step that fails after the files are written", () => {
     expect(await r.run()).toBe(1);
     expect(r.out.slice(-2)).toEqual([
       "✗ Could not open a pull request in acme/site: 403 Resource not accessible by personal access token",
-      "The branch set-up-factory is pushed. Open a pull request from it.",
+      "The branch set-up-kodor is pushed. Open a pull request from it.",
     ]);
   });
 
@@ -609,7 +602,7 @@ describe("factory init, a step that fails after the files are written", () => {
     const at = r.out.indexOf("Nothing to commit: the files already match.");
     expect(r.out.slice(at + 1, at + 3)).toEqual([
       "Left to do:",
-      "  1. Add the commands that check a change, under commands.gate in .claude/factory.yaml",
+      "  1. Add the commands that check a change, under commands.gate in .claude/kodor.yaml",
     ]);
   });
 
@@ -626,9 +619,9 @@ describe("factory init, a step that fails after the files are written", () => {
       repository: "acme/web",
       remote: "origin",
       base: "main",
-      branch: "set-up-factory",
+      branch: "set-up-kodor",
       paths: ["a"],
-      title: "Change the software factory's settings",
+      title: "Change kodor's settings",
       body: "",
     };
     const d = (status: Partial<GitResult>) => ({
@@ -639,9 +632,7 @@ describe("factory init, a step that fails after the files are written", () => {
       state: "opened",
       number: 57,
     });
-    expect(out).toEqual([
-      '✓ Opened acme/web#57, "Change the software factory\'s settings".',
-    ]);
+    expect(out).toEqual(['✓ Opened acme/web#57, "Change kodor\'s settings".']);
     expect(await openPull(d({ stdout: "" }), o)).toEqual({ state: "nothing" });
     expect(
       await openPull(
@@ -656,23 +647,23 @@ describe("factory init, a step that fails after the files are written", () => {
   });
 });
 
-describe("factory init, the rule that requires the review's verdict", () => {
+describe("kodor init, the rule that requires the review's verdict", () => {
   const RULE_ROW =
-    '  rules         Require "Review verdict" before a merge to the default branch, as the rule "Software factory"';
+    '  rules         Require "Review verdict" before a merge to the default branch, as the rule "kodor"';
   const LEFT =
-    'Once it merges, an admin of acme/site runs factory init, to require "Review verdict"';
+    'Once it merges, an admin of acme/site runs kodor init, to require "Review verdict"';
   const review = (over: Partial<Setup> = {}) =>
     init({
       answers: { checkbox: [["review"]], confirm: [true], secret: [AGENT] },
       ...over,
     });
 
-  it("makes the rule, posted by the runner, when the default branch has the factory's workflow", async () => {
-    const r = review({ workflows: { "factory.yml": "active" } });
+  it("makes the rule, posted by the runner, when the default branch has kodor's workflow", async () => {
+    const r = review({ workflows: { "kodor.yml": "active" } });
     expect(await r.run()).toBe(0);
     expect(r.out).toContain(RULE_ROW);
     expect(r.host.settings.rules).toEqual([
-      { name: "Software factory", check: "Review verdict", source: "runner" },
+      { name: "kodor", check: "Review verdict", source: "runner" },
     ]);
     expect(r.out.join("\n")).not.toContain("Once it merges");
   });
@@ -681,7 +672,7 @@ describe("factory init, the rule that requires the review's verdict", () => {
     const policy =
       "approval-policies:\n  - name: licenses\n    run: node check.mjs\n    files: [package-lock.json]\n";
     const r = review({
-      workflows: { "factory.yml": "active" },
+      workflows: { "kodor.yml": "active" },
       settings: `${GATED}${policy}`,
     });
     expect(await r.run()).toBe(0);
@@ -725,7 +716,7 @@ describe("factory init, the rule that requires the review's verdict", () => {
       // What the sync writes for the coding agent, which doctor looks for.
       files: {
         "CLAUDE.md": `${IMPORT_LINE}\n`,
-        ".claude/settings.json": withHooks(null, "bin/factory.js"),
+        ".claude/settings.json": withHooks(null, "bin/kodor.js"),
       },
     });
     expect(await r.run()).toBe(0);
@@ -760,7 +751,7 @@ describe("factory init, the rule that requires the review's verdict", () => {
     it("leaves it to an admin, since that account may not be one", async () => {
       const r = cloud();
       expect(await r.run()).toBe(0);
-      expect(r.runner.secrets.get("FACTORY_BUILD_TOKEN")).toBe(BUILDS);
+      expect(r.runner.secrets.get("KODOR_BUILD_TOKEN")).toBe(BUILDS);
       expect(r.out).toContain(`  2. ${LEFT}`);
     });
 
@@ -773,7 +764,7 @@ describe("factory init, the rule that requires the review's verdict", () => {
         },
       });
       await r.run();
-      expect(r.runner.secrets.get("FACTORY_BUILD_TOKEN")).toBe(GOOD);
+      expect(r.runner.secrets.get("KODOR_BUILD_TOKEN")).toBe(GOOD);
       expect(r.out.join("\n")).not.toContain("Once it merges");
     });
 
@@ -793,12 +784,12 @@ describe("factory init, the rule that requires the review's verdict", () => {
         });
       expect(await r.run()).toBe(0);
       expect(r.asked.filter((q) => q.startsWith("secret:"))).toEqual([]);
-      expect(r.runner.secrets.get("FACTORY_BUILD_TOKEN")).toBe(BUILDS);
+      expect(r.runner.secrets.get("KODOR_BUILD_TOKEN")).toBe(BUILDS);
       expect(r.out).toContain(`  2. ${LEFT}`);
     });
 
     it("leaves no such step when init makes the rule itself, the workflow being on the default branch", async () => {
-      const r = cloud({ workflows: { "factory.yml": "active" } });
+      const r = cloud({ workflows: { "kodor.yml": "active" } });
       await r.run();
       expect(r.host.settings.rules).toHaveLength(1);
       expect(r.out.join("\n")).not.toContain("Once it merges");
@@ -825,14 +816,11 @@ describe("factory init, the rule that requires the review's verdict", () => {
     expect(r.out.join("\n")).toContain(LEFT);
   });
 
-  it("leaves it to an admin in an organization's repository with no software-factory property", async () => {
+  it("leaves it to an admin in an organization's repository with no kodor property", async () => {
     const r = init({
       organization: true,
-      organizationVariables: ["FACTORY_APP_CLIENT_ID"],
-      organizationSecrets: [
-        "CLAUDE_CODE_OAUTH_TOKEN",
-        "FACTORY_APP_PRIVATE_KEY",
-      ],
+      organizationVariables: ["KODOR_APP_CLIENT_ID"],
+      organizationSecrets: ["CLAUDE_CODE_OAUTH_TOKEN", "KODOR_APP_PRIVATE_KEY"],
       answers: { checkbox: [["review"]], confirm: [true] },
     });
     await r.run();
@@ -853,7 +841,7 @@ describe("factory init, the rule that requires the review's verdict", () => {
     it("tries to make none, even with the workflow on the default branch", async () => {
       const r = review({
         noRules: NO_RULES,
-        workflows: { "factory.yml": "active" },
+        workflows: { "kodor.yml": "active" },
       });
       await r.run();
       expect(r.host.log.filter((l) => l.startsWith("requireCheck"))).toEqual(
@@ -876,17 +864,17 @@ describe("factory init, the rule that requires the review's verdict", () => {
     const organization = (over: Partial<Setup> = {}) =>
       init({
         organization: true,
-        organizationVariables: ["FACTORY_APP_CLIENT_ID"],
+        organizationVariables: ["KODOR_APP_CLIENT_ID"],
         organizationSecrets: [
           "CLAUDE_CODE_OAUTH_TOKEN",
-          "FACTORY_APP_PRIVATE_KEY",
+          "KODOR_APP_PRIVATE_KEY",
         ],
         answers: { checkbox: [["review"]], confirm: [true] },
         ...over,
       });
 
     it("plans no rule of the repository's own, and leaves no step to an admin, where the organization defines the property, though the repository has no value for it yet", async () => {
-      const r = organization({ definedProperties: ["software-factory"] });
+      const r = organization({ definedProperties: ["kodor"] });
       await r.run();
       expect(await r.host.codeHost.properties()).toEqual({});
       expect(r.out.join("\n")).not.toMatch(/^ {2}rules /m);
@@ -895,8 +883,8 @@ describe("factory init, the rule that requires the review's verdict", () => {
 
     it("makes no rule of the repository's own there, even with the workflow on the default branch", async () => {
       const r = organization({
-        definedProperties: ["software-factory"],
-        workflows: { "factory.yml": "active" },
+        definedProperties: ["kodor"],
+        workflows: { "kodor.yml": "active" },
       });
       await r.run();
       expect(r.out.join("\n")).not.toMatch(/^ {2}rules /m);
@@ -912,7 +900,7 @@ describe("factory init, the rule that requires the review's verdict", () => {
 
     it("takes the property as not defined when the organization will not say, which leaves the step to an admin", async () => {
       const r = organization({
-        definedProperties: ["software-factory"],
+        definedProperties: ["kodor"],
         codeHostFails: {
           ownerDefines: new Error("gh api: Forbidden (HTTP 403)"),
         },
@@ -924,7 +912,7 @@ describe("factory init, the rule that requires the review's verdict", () => {
   });
 });
 
-describe("factory init, the policy-override label", () => {
+describe("kodor init, the policy-override label", () => {
   const setUp = (over: Partial<Setup> = {}) =>
     init({
       answers: { checkbox: [["review"]], confirm: [true], secret: [AGENT] },

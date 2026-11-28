@@ -1,7 +1,7 @@
 // A value that is not valid is refused in the same words by everything that
 // reads a settings file or a preset. Each reader is run whole, as its
 // command runs, on the same value.
-import { rmSync } from "node:fs";
+import { renameSync, rmSync } from "node:fs";
 import { load } from "js-yaml";
 import { afterEach, describe, expect, it } from "vitest";
 import { main as initOrg, type InitOrgDeps } from "../src/init-org.mts";
@@ -35,8 +35,8 @@ import {
 import { into } from "./printed";
 import { CODE_HOST_YAML } from "./settings-fixture";
 
-const OWN = ".claude/factory.yaml";
-const PRESET = "factory-preset.yaml";
+const OWN = ".claude/kodor.yaml";
+const PRESET = "kodor-preset.yaml";
 
 let root = "";
 afterEach(() => {
@@ -52,7 +52,7 @@ type Reader = {
 /** A settings file with `lines`, and a preset whose `lines` are on the same
  * line numbers, which a message about YAML gives. */
 const HEAD = [
-  "version: 2",
+  "version: 1",
   "repository: acme/site",
   ...CODE_HOST_YAML.split("\n"),
 ];
@@ -89,7 +89,7 @@ const presetDepsAt = (cwd: string, said: string[]) => ({
 });
 
 const OWN_READERS: Record<string, Reader> = {
-  "factory sync": {
+  "kodor sync": {
     named: OWN,
     read: async (file) => {
       root = repo(file);
@@ -107,7 +107,7 @@ const OWN_READERS: Record<string, Reader> = {
       return { code, said };
     },
   },
-  "factory config check": {
+  "kodor config check": {
     named: OWN,
     read: async (file) => {
       root = repo(file);
@@ -116,7 +116,7 @@ const OWN_READERS: Record<string, Reader> = {
       return { code, said: r.err };
     },
   },
-  "factory init": {
+  "kodor init": {
     named: OWN,
     read: async (file) => {
       root = repo(own([]));
@@ -127,7 +127,7 @@ const OWN_READERS: Record<string, Reader> = {
 };
 
 const PRESET_READERS: Record<string, Reader> = {
-  "factory preset check": {
+  "kodor preset check": {
     named: PRESET,
     read: async (file) => {
       root = repo(own([]));
@@ -140,7 +140,7 @@ const PRESET_READERS: Record<string, Reader> = {
       return { code, said };
     },
   },
-  "factory preset add": {
+  "kodor preset add": {
     named: ACME,
     read: async (file) => {
       root = repo(own([]));
@@ -150,7 +150,7 @@ const PRESET_READERS: Record<string, Reader> = {
       return { code, said };
     },
   },
-  "factory update": {
+  "kodor update": {
     named: ACME,
     read: async (file) => {
       root = repo(own([]));
@@ -174,7 +174,7 @@ const PRESET_READERS: Record<string, Reader> = {
       return { code, said };
     },
   },
-  "factory init --org": {
+  "kodor init --org": {
     named: PRESET,
     read: async (file) => {
       root = repo(own([]));
@@ -226,7 +226,7 @@ const PRESET_READERS: Record<string, Reader> = {
           fetch: async () => {
             throw new Error("read the board");
           },
-          env: { GITHUB_REPOSITORY: "acme/factory-config" },
+          env: { GITHUB_REPOSITORY: "acme/kodor-config" },
           now: () => 0,
           log: (line) => said.push(line),
           marker: () => "st_0123456789ab",
@@ -288,12 +288,12 @@ describe.each(Object.entries({ ...OWN_READERS, ...PRESET_READERS }))(
     );
 
     it("refuses a file that is a list in the shared words", () =>
-      readIt("- version: 2\n", "must be a block of settings"));
+      readIt("- version: 1\n", "must be a block of settings"));
 
     it("refuses an older version in the shared words", () =>
       readIt(
-        file([]).replace("version: 2", "version: 1"),
-        "version: must be 2: this file is version 1, see https://github.com/davidbyoung/software-factory/blob/main/docs/maintain/upgrade-notes.md#moving-to-settings-version-2",
+        file([]).replace("version: 1", "version: 2"),
+        "version: must be 1: this file is version 2, see https://github.com/kodor-ai/kodor/blob/main/docs/maintain/upgrade-notes.md#moving-to-kodor",
       ));
 
     it("refuses a file YAML cannot read in YAML's own words", async () => {
@@ -314,12 +314,22 @@ describe.each(Object.entries({ ...OWN_READERS, ...PRESET_READERS }))(
   },
 );
 
-it("factory config check names the settings file when there is none to read", async () => {
+it("kodor config check reads no settings from the old settings file", async () => {
+  root = repo(own([]));
+  renameSync(`${root}/${OWN}`, `${root}/.claude/factory.yaml`);
+  const r = deps(root);
+  expect(await config(["check"], r.d)).toBe(1);
+  expect(r.err).toEqual([
+    expect.stringMatching(/^\.claude\/kodor\.yaml: ENOENT: /),
+  ]);
+});
+
+it("kodor config check names the settings file when there is none to read", async () => {
   root = repo(own([]));
   rmSync(`${root}/${OWN}`);
   const r = deps(root);
   expect(await config(["check"], r.d)).toBe(1);
   expect(r.err).toEqual([
-    expect.stringMatching(/^\.claude\/factory\.yaml: ENOENT: /),
+    expect.stringMatching(/^\.claude\/kodor\.yaml: ENOENT: /),
   ]);
 });

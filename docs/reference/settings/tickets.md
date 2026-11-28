@@ -18,24 +18,24 @@ tickets:
 - **`type`** is the ticket system. Only `github` is built, and it is the
   default.
 - **`board`** is your board's number. On
-  [GitHub Projects](../../integrations/github-projects.md#what-the-factory-uses-it-for)
+  [GitHub Projects](../../integrations/github-projects.md#what-kodor-uses-it-for)
   it is the last part of its address, such as `1` in
   `github.com/users/your-name/projects/1`. The
   default, `none`, means no board.
 - **`columns`** says which of the board's columns shows each state, and a
   board needs it: see [`tickets.columns`](#ticketscolumns).
-- **`labels`** renames the labels the factory puts on tickets: see
+- **`labels`** renames the labels kodor puts on tickets: see
   [`tickets.labels`](#ticketslabels). Most repositories leave it out.
 
-Without a board, `factory status` still shows every ticket's state, which
-the factory records on the ticket. Builds then start only when
-you run `/factory-build N` in a session.
+Without a board, `kodor status` still shows every ticket's state, which
+kodor records on the ticket. Builds then start only when
+you run `/kodor-build N` in a session.
 
 One board can show tickets from several repositories. Give each
 repository the same `board`. Each repository's board sync,
-`factory status`, and poller only touch that repository's own tickets.
+`kodor status`, and poller only touch that repository's own tickets.
 
-`factory board check` reads your board and says what the factory will do
+`kodor board check` reads your board and says what kodor will do
 with it.
 
 ## `tickets.columns`
@@ -43,10 +43,9 @@ with it.
 The board has one column for each of the six
 [states](../../workflow/README.md#the-six-states) a ticket goes through. This block
 says which of your board's columns shows each state, and it names all
-six. `factory init` writes it for you, from the board you choose: see
+six. `kodor init` writes it for you, from the board you choose: see
 [You already have a board](../../features/board.md#you-already-have-a-board).
-There is no default: your board's column names may not be the
-factory's, and a guess would put tickets in the wrong column without
+There is no default: your board's column names may not be kodor's, and a guess would put tickets in the wrong column without
 telling you.
 
 A new board on [GitHub Projects](../../integrations/github-projects.md#a-board)
@@ -66,8 +65,7 @@ builds:
   trigger: manual
 ```
 
-When init creates your board, or adds columns to one, it gives them the
-factory's own names:
+When init creates your board, or adds columns to one, it gives them kodor's own names:
 
 | Key        | Name of the column init creates |
 | ---------- | ------------------------------- |
@@ -85,7 +83,7 @@ factory's own names:
   Progress. Every state can be `none` except `backlog`.
 - **A state can take a list of columns,** when more than one of yours
   means it. Init never writes a list, so add one to the block yourself.
-  A ticket in any of the columns is in that state. When the factory
+  A ticket in any of the columns is in that state. When kodor
   moves a ticket into the state, it uses the first, and a ticket already
   in any of them stays where it is:
 
@@ -106,7 +104,7 @@ factory's own names:
   `ready` takes one column, since only a ticket you approved goes there.
 
   A list for `done` keeps the columns that come after the merge, which
-  are your team's: the factory moves a merged ticket to the first column
+  are your team's: kodor moves a merged ticket to the first column
   in the list, here Done, and never moves one out of any of them.
 
   ```yaml
@@ -115,15 +113,14 @@ factory's own names:
 
 - **A ticket never stays in the ready column unless you approved it.**
   With `building: none`, a ticket being built would stay in ready's
-  column, so it stays in refining's column instead. On a board with the
-  factory's columns and `building: none`, it shows in In refinement.
+  column, so it stays in refining's column instead. On a board with kodor's columns and `building: none`, it shows in In refinement.
 - **With `ready: none`, nothing on the board approves a build,** so you
   need `builds.trigger: manual`, and you start each build by asking a
   session.
 - **A ticket in a column no state uses is left alone.** The board sync
   doesn't move it or fill in its fields, and nothing builds it.
 
-`factory config check` stops, naming the key, when `columns` has:
+`kodor config check` stops, naming the key, when `columns` has:
 
 - no `board` beside it, or a `board` with no `columns`;
 - a state left out, naming each one;
@@ -137,19 +134,19 @@ factory's own names:
 Such as:
 
 ```text
-.claude/factory.yaml: tickets.columns: building and done have no column: give each a column, a list of columns, or none, or run factory init to choose them
+.claude/kodor.yaml: tickets.columns: building and done have no column: give each a column, a list of columns, or none, or run kodor init to choose them
 ```
 
-`factory config check` doesn't read your board. `factory board check`
+`kodor config check` doesn't read your board. `kodor board check`
 does, and says which of the columns you named the board lacks.
 
 ## `tickets.fields`
 
-The factory fills in fields of its own in two places: on your board,
+kodor fills in fields of its own in two places: on your board,
 to show what is happening to a ticket, and on the ticket itself, to hold
-the result of refining it. This block maps each of these factory fields
+the result of refining it. This block maps each of these kodor fields
 to the field of yours that holds it: a board field, or a ticket field
-set on the ticket itself. `factory init` sets up both the board fields
+set on the ticket itself. `kodor init` sets up both the board fields
 and the ticket fields, so most repositories write nothing here by
 hand.
 
@@ -157,10 +154,10 @@ hand.
 tickets:
   board: 7
   fields:
-    # Factory fields on the board
+    # kodor fields on the board
     session: Agent # fill in your existing "Agent" field instead
     cost: none # never fill in a cost
-    # Factory fields on the ticket
+    # kodor fields on the ticket
     decisions: none
     spec: Acceptance criteria
     acceptance-criteria: Acceptance criteria
@@ -168,7 +165,7 @@ tickets:
 ```
 
 **On the board,** besides moving a ticket between columns, the
-[board sync](../../features/board.md) fills in three factory fields so you
+[board sync](../../features/board.md) fills in three kodor fields so you
 can see at a glance what is happening to a ticket:
 
 - **`session`:** which session is working on the ticket, or "Waiting on
@@ -178,7 +175,7 @@ can see at a glance what is happening to a ticket:
 - **`cost`:** roughly what refining and building the ticket has cost so
   far.
 
-`factory init` adds board fields called Session, Runs in, and Cost. Name
+`kodor init` adds board fields called Session, Runs in, and Cost. Name
 a board field here only when your board already has one you want used
 instead, or write `none` to stop the board sync filling one in.
 
@@ -197,14 +194,14 @@ instead, or write `none` to stop the board sync filling one in.
   a single select with an option for each column in
   [`tickets.columns`](#ticketscolumns).
 
-**On the ticket,** refining a ticket writes four factory fields into its
+**On the ticket,** refining a ticket writes four kodor fields into its
 description, each under its own heading. Each can go instead in a ticket
 field that holds text, which on
 [GitHub Issues](../../integrations/github-issues.md) is an issue field: see
 [Your tickets already have fields](../../features/board.md#your-tickets-already-have-fields),
 which also says why a board field can't hold one.
 
-| Key                   | What the factory field holds                                                                                                                             |
+| Key                   | What kodor field holds                                                                                                                                   |
 | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `decisions`           | Decisions: the questions refinement settled, and what was chosen                                                                                         |
 | `spec`                | Spec: what a change your users will notice must do, line by line                                                                                         |
@@ -212,34 +209,34 @@ which also says why a board field can't hold one.
 | `for-the-builder`     | For the builder: how to build it, as a design and a list of tasks                                                                                        |
 | `repositories`        | Repositories: which repositories a ticket changes, and the order they merge in, when it names [more than its own](../../workflow/across-repositories.md) |
 
-`factory init` asks your coding agent to suggest the ticket fields, and
+`kodor init` asks your coding agent to suggest the ticket fields, and
 you confirm them.
 
-- **`none` keeps the factory field in the description,** and so does
-  leaving its key out. Unlike the board's three, a factory field never
+- **`none` keeps kodor field in the description,** and so does
+  leaving its key out. Unlike the board's three, a kodor field never
   goes in a ticket field just because the names match.
 - **A ticket field is named as the ticket system shows it,** capitals
   included.
 - **These keys don't need a board,** since the ticket field belongs to
   the ticket.
 - **The ticket field must exist and hold text.** One that doesn't, such
-  as a single select, fails the checks [`factory doctor`](../cli.md#setting-up)
+  as a single select, fails the checks [`kodor doctor`](../cli.md#setting-up)
   and init print, and refining a ticket stops, naming it, and writes
   nothing.
-- **Two factory fields can't name the same ticket field,** except `spec`
+- **Two kodor fields can't name the same ticket field,** except `spec`
   and `acceptance-criteria`, since a ticket has only one of them.
-  `factory config check` stops on any other pair.
+  `kodor config check` stops on any other pair.
 - **A heading of your own,** such as one
   [a refiner of your own](../../customize/plugins.md#refiner) writes, can go in a ticket
   field too: write it in lowercase, with hyphens for spaces, so
   `## Proposed docs` is `proposed-docs`.
 - **Changing a line** affects tickets refined afterwards. A ticket
-  refined before keeps its factory fields where they were written.
+  refined before keeps its kodor fields where they were written.
 
 ## `tickets.labels`
 
-The names of the three labels the factory puts on tickets. Most
-repositories never set them: leave the block out, and the factory uses
+The names of the three labels kodor puts on tickets. Most
+repositories never set them: leave the block out, and kodor uses
 the default names. To rename a label on pull requests instead, see
 [`code-host.labels`](code-host.md#code-hostlabels).
 
@@ -253,20 +250,20 @@ tickets:
     spec: needs-spec # refinement adds needs-spec, not spec
 ```
 
-| Key       | Default name | What the label marks                                                                                                              |
-| --------- | ------------ | --------------------------------------------------------------------------------------------------------------------------------- |
-| `spec`    | `spec`       | A change your users will see, so [refinement writes a Spec](../../features/specs.md#a-change-your-users-will-see) into the ticket |
-| `factory` | `factory`    | A ticket the factory works on: [Which tickets are the factory's](../../workflow/tickets.md#which-tickets-are-the-factorys)        |
+| Key     | Default name | What the label marks                                                                                                              |
+| ------- | ------------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| `spec`  | `spec`       | A change your users will see, so [refinement writes a Spec](../../features/specs.md#a-change-your-users-will-see) into the ticket |
+| `kodor` | `kodor`      | A ticket kodor works on: [Which tickets are kodor's](../../workflow/tickets.md#which-tickets-are-kodors)                          |
 
 - **Write only the keys you change.** A key you leave out keeps its
-  default name. `factory init` doesn't ask about labels, and doesn't write
+  default name. `kodor init` doesn't ask about labels, and doesn't write
   this block.
-- **You don't create the label.** The factory creates it in the ticket
+- **You don't create the label.** kodor creates it in the ticket
   system the first time it adds it to a ticket.
 - **Two labels can't share a name,** and capitals don't make two names
   different, so `Spec` and `spec` are one label. Where the ticket system
   keeps its labels with the code host's, as
-  [GitHub Issues](../../integrations/github-issues.md#what-the-factory-can-and-cannot-do-there)
+  [GitHub Issues](../../integrations/github-issues.md#what-kodor-can-and-cannot-do-there)
   does, a name here can't match one under `code-host.labels` either,
   since one repository's labels serve its tickets and its pull requests.
 - **Quote a name with `: ` in it,** such as `spec: "kind: spec"`.
@@ -274,34 +271,34 @@ tickets:
 
 To rename a label:
 
-1. Write the new name under `tickets.labels` in `.claude/factory.yaml`.
+1. Write the new name under `tickets.labels` in `.claude/kodor.yaml`.
 2. If tickets already carry the label, rename it in the ticket system to
    the same name
    ([GitHub Issues](../../integrations/github-issues.md#by-hand) says
-   where). That moves every ticket that has it. The factory finds tickets only by the name in your settings and
+   where). That moves every ticket that has it. kodor finds tickets only by the name in your settings and
    never renames a label, so until you do, it doesn't see them: a
-   ticket still labeled `spec` is built without its Spec. Renaming `factory`
+   ticket still labeled `spec` is built without its Spec. Renaming `kodor`
    hides every ticket that carries the old name until you rename the label in
    the ticket system too.
 3. Check the file and sync, as for every setting:
 
    ```console
-   $ factory config check
+   $ kodor config check
    ✓ The settings are valid.
-   $ factory sync
-   wrote .claude/factory.lock
+   $ kodor sync
+   wrote .claude/kodor.lock
    ```
 
-4. Commit `.claude/factory.yaml` and `.claude/factory.lock`.
+4. Commit `.claude/kodor.yaml` and `.claude/kodor.lock`.
 
-`factory config check` names a label it refuses, and why:
+`kodor config check` names a label it refuses, and why:
 
 ```text
-.claude/factory.yaml: tickets.labels.spec: must not be empty
-.claude/factory.yaml: tickets.labels.spec: "factory" is already tickets.labels.factory. Give each label its own name
+.claude/kodor.yaml: tickets.labels.spec: must not be empty
+.claude/kodor.yaml: tickets.labels.spec: "kodor" is already tickets.labels.kodor. Give each label its own name
 ```
 
-**It worked when** `factory config explain` shows your names under
+**It worked when** `kodor config explain` shows your names under
 `tickets.labels`, without `# default` after them, and
-`factory ticket view N` on a ticket with the label shows it with its
+`kodor ticket view N` on a ticket with the label shows it with its
 key, such as `labels: needs-spec (spec)`.

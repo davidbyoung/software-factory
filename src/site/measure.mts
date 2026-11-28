@@ -59,7 +59,7 @@ export type Finding = {
 
 export type View = { page: string; width: number; scheme: Scheme };
 
-/** The line a finding prints, as `factory site compare` gives it. */
+/** The line a finding prints, as `kodor site compare` gives it. */
 export function formatFinding(f: Finding): string {
   const at = `${f.page} ${f.width} ${f.scheme}`;
   if (f.kind === "accessibility")

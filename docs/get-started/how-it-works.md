@@ -1,6 +1,6 @@
 # How it works
 
-For someone deciding whether to try the factory. At the end you know what
+For someone deciding whether to try kodor. At the end you know what
 it does with a ticket, which steps are yours, and what it needs from you.
 Read this before installing anything.
 
@@ -10,7 +10,7 @@ Read this before installing anything.
 flowchart LR
     A[You write a ticket] --> B[Refine: a session asks your decisions and writes the spec]
     B --> C{You approve}
-    C -->|"run /factory-build N in a session"| D[Build: on your machine]
+    C -->|"run /kodor-build N in a session"| D[Build: on your machine]
     C -->|move its card to Ready| E[Build: in the cloud]
     D --> F[A pull request, with tests and a review]
     E --> F
@@ -26,8 +26,8 @@ each step.
 ## What runs where
 
 - **On your machine,** while you watch: refining a ticket, building it
-  with `/factory-build 12`, and answering its review. This needs only the
-  `factory` command: no board, no secrets, and nothing to host.
+  with `/kodor-build 12`, and answering its review. This needs only the
+  `kodor` command: no board, no secrets, and nothing to host.
 - **In the cloud,** with nobody at the keyboard, once you turn it on: the
   [automated review](../features/automated-review.md),
   [the board](../features/board.md), and
@@ -37,7 +37,7 @@ each step.
 ## What changes for you
 
 - **You write tickets, not prompts.** A few sentences of what you want and
-  why. The factory asks the rest.
+  why. kodor asks the rest.
 - **Every change is built the same way.** A test first, the change, your
   own checks, a review, and a pull request that says how it was verified.
 - **You are asked only what is yours to decide,** each question with a
@@ -51,7 +51,7 @@ each step.
 
 ## The tools it works through
 
-The factory works through five kinds of tool: a code host for your
+kodor works through five kinds of tool: a code host for your
 repository and its pull requests, a ticket system, a board, a cloud runner
 for the work with nobody at the keyboard, and a coding agent. A board and a
 cloud runner are optional. [Integrations](../integrations/README.md) says

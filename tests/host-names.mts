@@ -1,4 +1,4 @@
-// The words that name the repository the factory was drawn out of: its
+// The words that name the repository kodor was drawn out of: its
 // name, its owner's sites, its paths, its own plugins, and its subject.
 // Nothing the package ships, and none of its tests, may use them, so the
 // factory tells no story from that repository's private issues. The

@@ -52,8 +52,8 @@ function deps(
     now: () => now,
     clock,
     readFile: (path) =>
-      path === "agents/factory-test-reviewer.md"
-        ? "---\nname: factory-test-reviewer\nmodel: sonnet\ntools: Read\n---\n\nBody."
+      path === "agents/kodor-test-reviewer.md"
+        ? "---\nname: kodor-test-reviewer\nmodel: sonnet\ntools: Read\n---\n\nBody."
         : path === "t.jsonl"
           ? TRANSCRIPT
           : null,
@@ -76,7 +76,7 @@ function deps(
 const input = (over: object = {}) => ({
   session_id: SESSION,
   agent_id: "a1",
-  agent_type: "factory-test-reviewer",
+  agent_type: "kodor-test-reviewer",
   ...over,
 });
 const runsIn = (body: string) => {
@@ -93,13 +93,13 @@ describe("reviewer runs", () => {
 
     const [body] = t.bodies();
     expect(body).toContain(
-      "| factory-test-reviewer | Sonnet | 2026-11-11 19:40 UTC | running |  |  |",
+      "| kodor-test-reviewer | Sonnet | 2026-11-11 19:40 UTC | running |  |  |",
     );
     expect(body).toContain(`<!-- reviewer-runs session=${SESSION} -->`);
     expect(runsIn(body)).toEqual([
       {
         id: "a1",
-        reviewer: "factory-test-reviewer",
+        reviewer: "kodor-test-reviewer",
         model: "Sonnet",
         start: START.toISOString(),
         result: "running",
@@ -128,7 +128,7 @@ describe("reviewer runs", () => {
     const comments = t.mem.comments(224);
     expect(comments.map((c) => c.id)).toEqual(["77"]);
     expect(comments[0].body).toContain(
-      "| factory-test-reviewer | Sonnet | 2026-11-11 19:40 UTC | passed | 3 min | $0.03 ($0.84) |",
+      "| kodor-test-reviewer | Sonnet | 2026-11-11 19:40 UTC | passed | 3 min | $0.03 ($0.84) |",
     );
     expect(comments[0].body).not.toContain("<!-- cost:");
   });
@@ -287,7 +287,7 @@ describe("reviewer runs", () => {
     expect(out.map((line) => JSON.parse(line))).toEqual([
       {
         systemMessage:
-          "The factory-test-reviewer run was not recorded on ticket 224: gh api -X POST: connection refused",
+          "The kodor-test-reviewer run was not recorded on ticket 224: gh api -X POST: connection refused",
       },
     ]);
   });
@@ -299,7 +299,7 @@ describe("reviewer runs", () => {
 
     expect(await main("start", input(), "agents", d)).toBe(0);
     expect(JSON.parse(out[0]).systemMessage).toBe(
-      "The factory-test-reviewer run was not recorded: not a git repository",
+      "The kodor-test-reviewer run was not recorded: not a git repository",
     );
   });
 });
@@ -381,7 +381,7 @@ describe("commentFor", () => {
 describe("the reviewer runs' state file", () => {
   const RUN = {
     agent: "a1",
-    reviewer: "factory-test-reviewer",
+    reviewer: "kodor-test-reviewer",
     model: "sonnet",
     start: "2026-11-22T12:00:00Z",
     result: "running",

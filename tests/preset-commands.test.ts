@@ -1,4 +1,4 @@
-// The `factory preset` commands, run against a repository that follows
+// The `kodor preset` commands, run against a repository that follows
 // presets, the presets' repositories as local git repositories, and the
 // real sync.
 import { mkdtempSync, rmSync } from "node:fs";
@@ -49,7 +49,7 @@ afterEach(() => {
 
 /** The docs' organization preset: it does not set review-rounds. */
 const ACME_BASE = [
-  "version: 2",
+  "version: 1",
   "rules:",
   "  small-change-lines: 40",
   "plugins:",
@@ -60,11 +60,11 @@ const ACME_BASE = [
   "",
 ].join("\n");
 
-const REPO = "acme/factory-config";
+const REPO = "acme/kodor-config";
 const BAR = "foo/presets//bar";
 /** A preset a test commits its own settings to. */
 const OTHER = "acme/web";
-const LOCK = ".claude/factory.lock";
+const LOCK = ".claude/kodor.lock";
 const DEPS = ".claude/agents/node-deps-reviewer.md";
 
 const REPOS: Record<string, Record<string, PresetFiles>> = {
@@ -79,13 +79,13 @@ const REPOS: Record<string, Record<string, PresetFiles>> = {
     },
   },
   "acme/web": {
-    "": { settings: "version: 2\nrules:\n  review-rounds: 4\n" },
+    "": { settings: "version: 1\nrules:\n  review-rounds: 4\n" },
   },
-  "acme/empty": { other: { settings: "version: 2\n" } },
+  "acme/empty": { other: { settings: "version: 1\n" } },
   "foo/presets": {
     bar: {
       settings: [
-        "version: 2",
+        "version: 1",
         "rules:",
         "  review-rounds: 3",
         "plugins:",
@@ -118,7 +118,7 @@ let commits: Record<string, string> = {};
 const short = (repository = REPO) => commits[repository]!.slice(0, 7);
 
 /** A repository already following `presets`, each pinned at its
- * repository's newest commit and synced, with `.claude/factory.yaml` also
+ * repository's newest commit and synced, with `.claude/kodor.yaml` also
  * holding `body`. `also` are further repositories that exist. */
 async function setUp(
   presets: string[],
@@ -195,8 +195,8 @@ async function preset(
 
 /** Everything a preset command may change in the repository. */
 const state = () =>
-  [".claude/factory.yaml", LOCK, ".claude/factory.choices.yaml", DEPS].map(
-    (path) => read(root, path),
+  [".claude/kodor.yaml", LOCK, ".claude/kodor.choices.yaml", DEPS].map((path) =>
+    read(root, path),
   );
 
 const addSummary = () => [
@@ -209,7 +209,7 @@ const addSummary = () => [
   "    rules.review-rounds        2 → 3",
   `  disagrees with ${ACME}`,
   `    rules.small-change-lines   ${ACME}: 40   this preset: 30`,
-  "  replaced by your .claude/factory.yaml",
+  "  replaced by your .claude/kodor.yaml",
   "    commands.gate              yours: npm run check   this preset's: npm test",
   "",
   "  writes .claude/agents/node-deps-reviewer.md",
@@ -217,11 +217,11 @@ const addSummary = () => [
 
 const GATE = ["commands:", "  gate: [npm run check]"];
 
-describe("factory preset add", () => {
+describe("kodor preset add", () => {
   it("refuses a value that is not valid, though your own file replaces it, and changes nothing", async () => {
     await setUp([], ["rules:", "  review-rounds: 3"], [OTHER]);
     publish(OTHER, {
-      "": { settings: "version: 2\nrules:\n  review-rounds: zero\n" },
+      "": { settings: "version: 1\nrules:\n  review-rounds: zero\n" },
     });
     const before = state();
     const r = await preset(["add", OTHER]);
@@ -244,13 +244,13 @@ describe("factory preset add", () => {
       "  commands.gate: keep yours, or drop it and use this preset's? [keep/drop] keep",
       "",
       "Apply? [y/N] y",
-      `✓ Added ${NODE} to .claude/factory.yaml, pinned at ${short()} in .claude/factory.lock.`,
-      "✓ Wrote .claude/factory.choices.yaml.",
+      `✓ Added ${NODE} to .claude/kodor.yaml, pinned at ${short()} in .claude/kodor.lock.`,
+      "✓ Wrote .claude/kodor.choices.yaml.",
       "✓ Wrote .claude/agents/node-deps-reviewer.md.",
     ]);
     expect(r.code).toBe(0);
-    expect(read(root, ".claude/factory.yaml")).toBe(own([ACME, NODE], GATE));
-    expect(read(root, ".claude/factory.choices.yaml")).toContain(
+    expect(read(root, ".claude/kodor.yaml")).toBe(own([ACME, NODE], GATE));
+    expect(read(root, ".claude/kodor.choices.yaml")).toContain(
       `rules.small-change-lines: ${NODE}`,
     );
     expect(read(root, DEPS)).toBe("deps\n");
@@ -261,7 +261,7 @@ describe("factory preset add", () => {
     const newest = publish(REPO, {
       ...REPOS[REPO],
       node: {
-        settings: "version: 2\nrules:\n  review-rounds: 5\n",
+        settings: "version: 1\nrules:\n  review-rounds: 5\n",
         agents: { "node-deps-reviewer": `${Math.random()}\n` },
       },
     });
@@ -292,7 +292,7 @@ describe("factory preset add", () => {
   it("adds the name to presets as YAML writes it plain, after repository when it is the first", async () => {
     await setUp([]);
     await preset(["add", ACME], ["y"]);
-    expect(read(root, ".claude/factory.yaml")).toBe(
+    expect(read(root, ".claude/kodor.yaml")).toBe(
       own([]).replace(
         "repository: acme/billing\n",
         `repository: acme/billing\npresets:\n  - ${ACME}\n`,
@@ -303,7 +303,7 @@ describe("factory preset add", () => {
   it("records the earlier preset when its value is the answer", async () => {
     await setUp([ACME], GATE);
     await preset(["add", NODE], ["40", "keep", "y"]);
-    expect(read(root, ".claude/factory.choices.yaml")).toContain(
+    expect(read(root, ".claude/kodor.choices.yaml")).toContain(
       `rules.small-change-lines: ${ACME}`,
     );
   });
@@ -311,7 +311,7 @@ describe("factory preset add", () => {
   it("deletes your own value on drop", async () => {
     await setUp([ACME], GATE);
     await preset(["add", NODE], ["30", "drop", "y"]);
-    expect(read(root, ".claude/factory.yaml")).not.toContain("gate");
+    expect(read(root, ".claude/kodor.yaml")).not.toContain("gate");
   });
 
   it("asks again on an empty or unrecognized answer", async () => {
@@ -354,14 +354,14 @@ describe("factory preset add", () => {
     expect(r.code).toBe(0);
     expect(r.asked).toEqual([]);
     expect(r.out.slice(-2)).toEqual([
-      `✓ Added ${NODE} to .claude/factory.yaml, pinned at ${short()} in .claude/factory.lock.`,
+      `✓ Added ${NODE} to .claude/kodor.yaml, pinned at ${short()} in .claude/kodor.lock.`,
       "✓ Wrote .claude/agents/node-deps-reviewer.md.",
     ]);
-    expect(read(root, ".claude/factory.choices.yaml")).toBeNull();
+    expect(read(root, ".claude/kodor.choices.yaml")).toBeNull();
     expect(read(root, LOCK)).toMatch(
-      /small-change-lines: 30 +# acme\/factory-config\/\/node, not chosen yet/,
+      /small-change-lines: 30 +# acme\/kodor-config\/\/node, not chosen yet/,
     );
-    expect(read(root, ".claude/factory.yaml")).toMatch(
+    expect(read(root, ".claude/kodor.yaml")).toMatch(
       /gate: \[ ?npm run check ?\]/,
     );
   });
@@ -388,7 +388,7 @@ describe("factory preset add", () => {
       "    {name:rules.review-rounds}        {skip:2} → {name:3}",
       `  {heading:disagrees with ${ACME}}`,
       `    {name:rules.small-change-lines}   ${ACME}: 40   this preset: 30`,
-      "  {heading:replaced by your .claude/factory.yaml}",
+      "  {heading:replaced by your .claude/kodor.yaml}",
       "    {name:commands.gate}              yours: npm run check   this preset's: npm test",
       "",
       "  {name:writes} .claude/agents/node-deps-reviewer.md",
@@ -411,16 +411,14 @@ describe("factory preset add", () => {
     expect(read(root, LOCK)).not.toContain("\x1B");
   });
 
-  it("says to run factory init when there are no settings", async () => {
+  it("says to run kodor init when there are no settings", async () => {
     await setUp([ACME]);
-    rmSync(join(root, ".claude/factory.yaml"));
+    rmSync(join(root, ".claude/kodor.yaml"));
 
     const r = await preset(["add", NODE]);
 
     expect(r.code).toBe(1);
-    expect(r.err).toEqual([
-      ".claude/factory.yaml is missing. Run: factory init",
-    ]);
+    expect(r.err).toEqual([".claude/kodor.yaml is missing. Run: kodor init"]);
   });
 
   it("refuses a preset already listed", async () => {
@@ -433,11 +431,11 @@ describe("factory preset add", () => {
   it.each([
     [
       "@acme/factory-preset",
-      '✗ presets: "@acme/factory-preset" is an npm package, and a preset now comes from a repository. Name the repository, such as acme/factory-config.',
+      '✗ presets: "@acme/factory-preset" is an npm package, and a preset now comes from a repository. Name the repository, such as acme/kodor-config.',
     ],
     [
-      "factory-config",
-      '✗ presets: "factory-config" is not a preset\'s name. Write its repository, as OWNER/NAME or OWNER/NAME//FOLDER',
+      "kodor-config",
+      '✗ presets: "kodor-config" is not a preset\'s name. Write its repository, as OWNER/NAME or OWNER/NAME//FOLDER',
     ],
   ])("refuses the name %s, reading nothing", async (name, message) => {
     await setUp([ACME]);
@@ -448,10 +446,10 @@ describe("factory preset add", () => {
   });
 
   it.each([
-    ["acme/empty", "acme/empty: no factory-preset.yaml in acme/empty"],
+    ["acme/empty", "acme/empty: no kodor-preset.yaml in acme/empty"],
     [
       "acme/empty//node",
-      "acme/empty//node: no node/factory-preset.yaml in acme/empty",
+      "acme/empty//node: no node/kodor-preset.yaml in acme/empty",
     ],
   ])(
     "refuses %s, whose repository has no preset file there",
@@ -481,7 +479,7 @@ describe("factory preset add", () => {
   it("stops on a preset whose file a preset can't be, naming the key", async () => {
     await setUp([ACME]);
     publish("acme/newer", {
-      "": { settings: "version: 2\nrules:\n  from-a-newer-factory: 1\n" },
+      "": { settings: "version: 1\nrules:\n  from-a-newer-factory: 1\n" },
     });
     const r = await preset(["add", "acme/newer"]);
     expect(r).toMatchObject({
@@ -491,7 +489,7 @@ describe("factory preset add", () => {
   });
 });
 
-describe("the heading of factory preset add's summary", () => {
+describe("the heading of kodor preset add's summary", () => {
   it.each([
     ["2026-11-20T12:00:00Z", "November 20"],
     ["2025-11-20T12:00:00Z", "November 20, 2025"],
@@ -518,9 +516,9 @@ describe("the heading of factory preset add's summary", () => {
   });
 });
 
-describe("the runs lines of factory preset add's summary", () => {
+describe("the runs lines of kodor preset add's summary", () => {
   const COMMANDS = [
-    "version: 2",
+    "version: 1",
     "commands:",
     "  build-setup: [npm ci]",
     "  before-commit: [npm run format]",
@@ -535,7 +533,7 @@ describe("the runs lines of factory preset add's summary", () => {
     return r.out.filter((l) => l.trimStart().startsWith("runs"));
   };
 
-  it("say each command the preset has the factory run, and when", async () => {
+  it("say each command the preset has kodor run, and when", async () => {
     expect(await add()).toEqual([
       "  runs   npm run check, at the gate",
       "  runs   npm run lint, at the gate",
@@ -569,7 +567,7 @@ describe("the runs lines of factory preset add's summary", () => {
   });
 });
 
-describe("factory preset add for a preset of another owner", () => {
+describe("kodor preset add for a preset of another owner", () => {
   const SUMMARY = () => [
     `${BAR} is public, and foo is not this repository's owner.`,
     `${BAR} at ${short("foo/presets")}, from November 20, would change these settings here:`,
@@ -590,7 +588,7 @@ describe("factory preset add for a preset of another owner", () => {
       ...SUMMARY(),
       "",
       "Apply? [y/N] y",
-      `✓ Added ${BAR} to .claude/factory.yaml, pinned at ${short("foo/presets")} in .claude/factory.lock.`,
+      `✓ Added ${BAR} to .claude/kodor.yaml, pinned at ${short("foo/presets")} in .claude/kodor.lock.`,
       "✓ Wrote .claude/agents/bar-reviewer.md.",
     ]);
     expect(r.code).toBe(0);
@@ -619,7 +617,7 @@ describe("factory preset add for a preset of another owner", () => {
         "credential.helper",
         "",
       ]);
-      expect(env.FACTORY_PRESET_TOKEN).toBeUndefined();
+      expect(env.KODOR_PRESET_TOKEN).toBeUndefined();
     }
   });
 
@@ -636,7 +634,7 @@ describe("factory preset add for a preset of another owner", () => {
       }),
     });
     expect(envs.length).toBeGreaterThan(0);
-    for (const env of envs) expect(env.FACTORY_PRESET_TOKEN).toBe("s3cret");
+    for (const env of envs) expect(env.KODOR_PRESET_TOKEN).toBe("s3cret");
   });
 
   it("is refused with --yes, before anything is read", async () => {
@@ -682,13 +680,13 @@ describe("factory preset add for a preset of another owner", () => {
   });
 });
 
-describe("factory preset remove", () => {
+describe("kodor preset remove", () => {
   /** The docs' repository: both presets, 30 chosen over 40. */
   const both = async () => {
     await setUp([ACME, NODE]);
     put(
       root,
-      ".claude/factory.choices.yaml",
+      ".claude/kodor.choices.yaml",
       `rules.small-change-lines: ${NODE}\n`,
     );
     await sync();
@@ -715,15 +713,15 @@ describe("factory preset remove", () => {
       ...SUMMARY,
       "",
       "Choose:",
-      `  rules.small-change-lines: use 40 from ${ACME}, or keep 30 in your .claude/factory.yaml? [40/30] 40`,
+      `  rules.small-change-lines: use 40 from ${ACME}, or keep 30 in your .claude/kodor.yaml? [40/30] 40`,
       "",
       "Apply? [y/N] y",
-      `✓ Removed ${NODE} from .claude/factory.yaml and .claude/factory.lock.`,
-      "✓ Removed 1 choice from .claude/factory.choices.yaml.",
+      `✓ Removed ${NODE} from .claude/kodor.yaml and .claude/kodor.lock.`,
+      "✓ Removed 1 choice from .claude/kodor.choices.yaml.",
       "✓ Deleted .claude/agents/node-deps-reviewer.md.",
     ]);
-    expect(read(root, ".claude/factory.yaml")).toBe(own([ACME]));
-    expect(read(root, ".claude/factory.choices.yaml")).toBeNull();
+    expect(read(root, ".claude/kodor.yaml")).toBe(own([ACME]));
+    expect(read(root, ".claude/kodor.choices.yaml")).toBeNull();
     expect(read(root, DEPS)).toBeNull();
     expect(pinsOf(read(root, LOCK), load).map((p) => p.name)).toEqual([ACME]);
   });
@@ -735,8 +733,8 @@ describe("factory preset remove", () => {
     const r = await preset(["remove", NODE, "--yes"]);
     expect(r).toMatchObject({ code: 0, err: [], git: [] });
     expect(r.out.slice(-3)).toEqual([
-      `✓ Removed ${NODE} from .claude/factory.yaml and .claude/factory.lock.`,
-      "✓ Removed 1 choice from .claude/factory.choices.yaml.",
+      `✓ Removed ${NODE} from .claude/kodor.yaml and .claude/kodor.lock.`,
+      "✓ Removed 1 choice from .claude/kodor.choices.yaml.",
       "✓ Deleted .claude/agents/node-deps-reviewer.md.",
     ]);
   });
@@ -745,31 +743,31 @@ describe("factory preset remove", () => {
     await setUp([ACME, NODE]);
     put(
       root,
-      ".claude/factory.choices.yaml",
+      ".claude/kodor.choices.yaml",
       `rules.small-change-lines: ${NODE}\nplugins.build.reviewers.x: ${NODE}\n`,
     );
     let r = await preset(["remove", NODE, "--yes"]);
     expect(r.out).toContain(
-      "✓ Removed 2 choices from .claude/factory.choices.yaml.",
+      "✓ Removed 2 choices from .claude/kodor.choices.yaml.",
     );
     r = await preset(["remove", ACME, "--yes"]);
     expect(r.out.filter((l) => l.startsWith("✓"))).toEqual([
-      `✓ Removed ${ACME} from .claude/factory.yaml and .claude/factory.lock.`,
+      `✓ Removed ${ACME} from .claude/kodor.yaml and .claude/kodor.lock.`,
       "✓ Deleted .claude/agents/acme-security-reviewer.md.",
     ]);
   });
 
   it("takes out a name the lock never pinned, whatever its shape, changing no setting", async () => {
     await setUp([ACME]);
-    put(root, ".claude/factory.yaml", own([ACME, '"@acme/factory-preset"']));
+    put(root, ".claude/kodor.yaml", own([ACME, '"@acme/factory-preset"']));
     const r = await preset(["remove", "@acme/factory-preset", "--yes"]);
     expect(r).toMatchObject({ code: 0, err: [] });
     expect(r.out).toEqual([
       "Removing @acme/factory-preset would change these settings here:",
       "",
-      "✓ Removed @acme/factory-preset from .claude/factory.yaml and .claude/factory.lock.",
+      "✓ Removed @acme/factory-preset from .claude/kodor.yaml and .claude/kodor.lock.",
     ]);
-    expect(read(root, ".claude/factory.yaml")).toBe(own([ACME]));
+    expect(read(root, ".claude/kodor.yaml")).toBe(own([ACME]));
   });
 
   it("has red signs, dim old values, and bold new ones in its summary", async () => {
@@ -791,23 +789,21 @@ describe("factory preset remove", () => {
     ]);
   });
 
-  it("writes the kept value into .claude/factory.yaml", async () => {
+  it("writes the kept value into .claude/kodor.yaml", async () => {
     await both();
     await preset(["remove", NODE], ["30", "y"]);
-    expect(read(root, ".claude/factory.yaml")).toMatch(
-      /small-change-lines: 30/,
-    );
+    expect(read(root, ".claude/kodor.yaml")).toMatch(/small-change-lines: 30/);
   });
 
-  it("takes the remaining preset's value with --yes, writing nothing into .claude/factory.yaml", async () => {
+  it("takes the remaining preset's value with --yes, writing nothing into .claude/kodor.yaml", async () => {
     await both();
     const r = await preset(["remove", NODE, "--yes"], [], { terminal: false });
     expect(r.code).toBe(0);
-    expect(read(root, ".claude/factory.yaml")).not.toContain(
+    expect(read(root, ".claude/kodor.yaml")).not.toContain(
       "small-change-lines",
     );
     expect(read(root, LOCK)).toMatch(
-      /small-change-lines: 40 +# acme\/factory-config\n/,
+      /small-change-lines: 40 +# acme\/kodor-config\n/,
     );
   });
 
@@ -835,9 +831,9 @@ describe("factory preset remove", () => {
   });
 });
 
-describe("factory preset choices and choose", () => {
+describe("kodor preset choices and choose", () => {
   const LISTED = [
-    "rules.review-rounds                    not chosen yet",
+    "rules.review-rounds                  not chosen yet",
     `  1) 2   ${ACME}`,
     `  2) 3   ${NODE}     ← applies now`,
   ];
@@ -856,7 +852,7 @@ describe("factory preset choices and choose", () => {
     for (const name of [ACME, NODE]) pin(root, name, commit);
     put(
       root,
-      ".claude/factory.choices.yaml",
+      ".claude/kodor.choices.yaml",
       `rules.small-change-lines: ${NODE}\n`,
     );
     await sync();
@@ -869,15 +865,15 @@ describe("factory preset choices and choose", () => {
       ...LISTED,
       "  choose [1/2, Enter keeps it]: 2",
       "",
-      "rules.small-change-lines               chosen",
+      "rules.small-change-lines             chosen",
       `  1) 40  ${ACME}`,
       `  2) 30  ${NODE}     ← applies now`,
       "  choose [1/2, Enter keeps it]: ",
       "",
-      "wrote .claude/factory.choices.yaml",
-      "wrote .claude/factory.lock",
+      "wrote .claude/kodor.choices.yaml",
+      "wrote .claude/kodor.lock",
     ]);
-    expect(read(root, ".claude/factory.choices.yaml")).toContain(
+    expect(read(root, ".claude/kodor.choices.yaml")).toContain(
       `rules.review-rounds: ${NODE}`,
     );
   });
@@ -905,10 +901,10 @@ describe("factory preset choices and choose", () => {
   it("lists a file two presets both ship by its path in each one's repository", async () => {
     await setUp([]);
     const commit = publish("acme/two", {
-      "": { settings: "version: 2\n", agents: { shared: "root\n" } },
-      node: { settings: "version: 2\n", agents: { shared: "node\n" } },
+      "": { settings: "version: 1\n", agents: { shared: "root\n" } },
+      node: { settings: "version: 1\n", agents: { shared: "node\n" } },
     });
-    put(root, ".claude/factory.yaml", own(["acme/two", "acme/two//node"]));
+    put(root, ".claude/kodor.yaml", own(["acme/two", "acme/two//node"]));
     for (const name of ["acme/two", "acme/two//node"]) pin(root, name, commit);
     await sync();
     const r = await preset(["choices"], [], { terminal: false });
@@ -925,7 +921,7 @@ describe("factory preset choices and choose", () => {
     const r = await preset(["choose", "rules.review-rounds", ACME]);
     expect(r.code).toBe(0);
     expect(read(root, LOCK)).toMatch(
-      /review-rounds: 2 +# acme\/factory-config, chosen over acme\/factory-config\/\/node/,
+      /review-rounds: 2 +# acme\/kodor-config, chosen over acme\/kodor-config\/\/node/,
     );
   });
 
@@ -942,11 +938,11 @@ describe("factory preset choices and choose", () => {
   it("writes the choices file as one line a choice, under its comment", async () => {
     await disagree();
     await preset(["choose", "rules.review-rounds", ACME]);
-    expect(read(root, ".claude/factory.choices.yaml")).toBe(
+    expect(read(root, ".claude/kodor.choices.yaml")).toBe(
       [
-        "# Written by `factory preset add`, `remove`, and `choices`: which preset",
+        "# Written by `kodor preset add`, `remove`, and `choices`: which preset",
         "# wins where two presets set the same thing. Change it with",
-        "# `factory preset choices`.",
+        "# `kodor preset choices`.",
         `rules.small-change-lines: ${NODE}`,
         `rules.review-rounds: ${ACME}`,
         "",
@@ -955,7 +951,7 @@ describe("factory preset choices and choose", () => {
   });
 });
 
-describe("factory preset check", () => {
+describe("kodor preset check", () => {
   /** The command run in a checkout of a preset's repository. */
   const checkIn = async (presets: Record<string, PresetFiles>) => {
     root = repo(own([]));
@@ -970,58 +966,56 @@ describe("factory preset check", () => {
         agents: { "acme-security-reviewer": "s\n" },
         skills: { "acme-refine": "r\n" },
       },
-      node: { settings: "version: 2\n" },
+      node: { settings: "version: 1\n" },
     });
     expect(r.code).toBe(0);
     expect(r.out).toEqual([
-      "factory-preset.yaml        1 agent, 1 skill",
-      "node/factory-preset.yaml   no agents or skills",
+      "kodor-preset.yaml        1 agent, 1 skill",
+      "node/kodor-preset.yaml   no agents or skills",
     ]);
     expect(read(remoteOf("acme/checked"), "package.json")).toBeNull();
   });
 
   it("finds a preset in a folder below the one it runs in, when that folder has none", async () => {
     const r = await checkIn({
-      "stacks/go": { settings: "version: 2\n", agents: { g: "go\n" } },
+      "stacks/go": { settings: "version: 1\n", agents: { g: "go\n" } },
     });
     expect(r.code).toBe(0);
-    expect(r.out).toEqual([
-      "stacks/go/factory-preset.yaml   1 agent, 0 skills",
-    ]);
+    expect(r.out).toEqual(["stacks/go/kodor-preset.yaml   1 agent, 0 skills"]);
   });
 
   it("names each problem with what to change, and fails", async () => {
     const r = await checkIn({
-      "": { settings: "version: 2\n", agents: {} },
+      "": { settings: "version: 1\n", agents: {} },
       node: {
-        settings: "version: 2\nauto-merge:\n  allow: [src/**]\npresets: [x]\n",
+        settings: "version: 1\nauto-merge:\n  allow: [src/**]\npresets: [x]\n",
       },
     });
     expect(r.code).toBe(1);
     expect(r.out).toEqual([
-      "node/factory-preset.yaml: auto-merge.allow: a preset can't set this. Remove it, and set it in each repository that wants it",
-      "node/factory-preset.yaml: presets: a preset can't name another preset. Remove it, and list each preset in the repositories that use this one",
+      "node/kodor-preset.yaml: auto-merge.allow: a preset can't set this. Remove it, and set it in each repository that wants it",
+      "node/kodor-preset.yaml: presets: a preset can't name another preset. Remove it, and list each preset in the repositories that use this one",
     ]);
   });
 
-  it("notes a plugin the repository doesn't ship without failing, and says nothing of the factory's own", async () => {
+  it("notes a plugin the repository doesn't ship without failing, and says nothing of kodor's own", async () => {
     const r = await checkIn({
       "": {
         settings:
-          "version: 2\nplugins:\n  build:\n    reviewers:\n      - agent: acme-docs-reader\n        files: [docs/**]\n  test:\n    reviewers:\n      - agent: factory-test-reviewer\n",
+          "version: 1\nplugins:\n  build:\n    reviewers:\n      - agent: acme-docs-reader\n        files: [docs/**]\n  test:\n    reviewers:\n      - agent: kodor-test-reviewer\n",
       },
     });
     expect(r.code).toBe(0);
     expect(r.out.at(-1)).toBe(
-      "factory-preset.yaml: plugins.build.reviewers: acme-docs-reader: not shipped here, so each repository that uses this preset must provide it",
+      "kodor-preset.yaml: plugins.build.reviewers: acme-docs-reader: not shipped here, so each repository that uses this preset must provide it",
     );
-    expect(r.out.join("\n")).not.toContain("factory-test-reviewer");
+    expect(r.out.join("\n")).not.toContain("kodor-test-reviewer");
   });
 
   describe("the values", () => {
     const checking = async (...lines: string[]) =>
-      checkIn({ "": { settings: ["version: 2", ...lines, ""].join("\n") } });
-    const FINE = "factory-preset.yaml   no agents or skills";
+      checkIn({ "": { settings: ["version: 1", ...lines, ""].join("\n") } });
+    const FINE = "kodor-preset.yaml   no agents or skills";
 
     it.each<[string, string[]]>([
       [
@@ -1043,7 +1037,7 @@ describe("factory preset check", () => {
       ],
     ])("fails with %s", async (said, lines) => {
       const r = await checking(...lines);
-      expect(r.out).toEqual([`factory-preset.yaml: ${said}`]);
+      expect(r.out).toEqual([`kodor-preset.yaml: ${said}`]);
       expect(r.code).toBe(1);
     });
 
@@ -1056,17 +1050,17 @@ describe("factory preset check", () => {
         "plugins:",
         "  build:",
         "    reviewers:",
-        "      - agent: factory-ui-reviewer",
+        "      - agent: kodor-ui-reviewer",
         "        off: yes please",
         "session-minutes:",
         "  build: none",
       );
       expect(r.out).toEqual([
-        "factory-preset.yaml: repository: a preset can't set this. Remove it, and set it in each repository that wants it",
-        "factory-preset.yaml: auto-merge.allow: a preset can't set this. Remove it, and set it in each repository that wants it",
-        "factory-preset.yaml: presets: a preset can't name another preset. Remove it, and list each preset in the repositories that use this one",
-        "factory-preset.yaml: plugins.build.reviewers[0]: off: only .claude/factory.yaml can leave a plugin out. Remove it: only a repository can leave a plugin out",
-        "factory-preset.yaml: session-minutes.build: must be a whole number above zero",
+        "kodor-preset.yaml: repository: a preset can't set this. Remove it, and set it in each repository that wants it",
+        "kodor-preset.yaml: auto-merge.allow: a preset can't set this. Remove it, and set it in each repository that wants it",
+        "kodor-preset.yaml: presets: a preset can't name another preset. Remove it, and list each preset in the repositories that use this one",
+        "kodor-preset.yaml: plugins.build.reviewers[0]: off: only .claude/kodor.yaml can leave a plugin out. Remove it: only a repository can leave a plugin out",
+        "kodor-preset.yaml: session-minutes.build: must be a whole number above zero",
       ]);
       expect(r.code).toBe(1);
     });
@@ -1075,13 +1069,13 @@ describe("factory preset check", () => {
       const r = await checkIn({
         "": {
           settings:
-            "version: 2\nrules:\n  review-rounds: zero\nsession-minutes:\n  build: none\n",
+            "version: 1\nrules:\n  review-rounds: zero\nsession-minutes:\n  build: none\n",
         },
-        node: { settings: "version: 2\nbuilds:\n  max-per-hour: 0\n" },
+        node: { settings: "version: 1\nbuilds:\n  max-per-hour: 0\n" },
       });
       expect(r.out).toEqual([
-        "factory-preset.yaml: session-minutes.build: must be a whole number above zero",
-        "node/factory-preset.yaml: builds.max-per-hour: must be a whole number, 1 or more",
+        "kodor-preset.yaml: session-minutes.build: must be a whole number above zero",
+        "node/kodor-preset.yaml: builds.max-per-hour: must be a whole number, 1 or more",
       ]);
       expect(r.code).toBe(1);
     });
@@ -1107,7 +1101,7 @@ describe("factory preset check", () => {
           "plugins:",
           "  build:",
           "    reviewers:",
-          "      - agent: factory-ui-reviewer",
+          "      - agent: kodor-ui-reviewer",
           "        files: [src/**]",
         ],
       ],
@@ -1117,7 +1111,7 @@ describe("factory preset check", () => {
           "plugins:",
           "  test:",
           "    reviewers:",
-          "      - agent: factory-e2e-reviewer",
+          "      - agent: kodor-e2e-reviewer",
           "        files: [e2e/**]",
         ],
       ],
@@ -1180,7 +1174,7 @@ describe("factory preset check", () => {
       ],
     ])("still fails with %s", async (said, lines) => {
       const r = await checking(...lines);
-      expect(r.out).toEqual([`factory-preset.yaml: ${said}`]);
+      expect(r.out).toEqual([`kodor-preset.yaml: ${said}`]);
       expect(r.code).toBe(1);
     });
   });
@@ -1189,7 +1183,7 @@ describe("factory preset check", () => {
     const withPoller = (builds: string[], pollMinutes: number) =>
       checkIn({
         "": {
-          settings: ["version: 2", ...builds, ""].join("\n"),
+          settings: ["version: 1", ...builds, ""].join("\n"),
           others: {
             [POLLER_FILE]: pollerWorkflow({
               owner: "acme",
@@ -1208,7 +1202,7 @@ describe("factory preset check", () => {
     it("fails when the file's first cron line is not the one builds.poll-minutes gives, saying what to write", async () => {
       const r = await withPoller(EVERY_30, 5);
       expect(r.out).toEqual([
-        '✗ .github/workflows/factory-poller.yml runs on "*/5 * * * *", and builds.poll-minutes is 30. Write "*/30 * * * *" there.',
+        '✗ .github/workflows/kodor-poller.yml runs on "*/5 * * * *", and builds.poll-minutes is 30. Write "*/30 * * * *" there.',
       ]);
       expect(r.code).toBe(1);
     });
@@ -1216,7 +1210,7 @@ describe("factory preset check", () => {
     it("reads a preset that sets no interval as every 5 minutes", async () => {
       const r = await withPoller([], 30);
       expect(r.out).toEqual([
-        '✗ .github/workflows/factory-poller.yml runs on "*/30 * * * *", and builds.poll-minutes is 5. Write "*/5 * * * *" there.',
+        '✗ .github/workflows/kodor-poller.yml runs on "*/30 * * * *", and builds.poll-minutes is 5. Write "*/5 * * * *" there.',
       ]);
       expect(r.code).toBe(1);
     });
@@ -1233,7 +1227,7 @@ describe("factory preset check", () => {
       "passes when the file runs on %s, whatever its later cron lines",
       async (_, builds, minutes) => {
         const r = await withPoller(builds, minutes);
-        expect(r.out).toEqual(["factory-preset.yaml   no agents or skills"]);
+        expect(r.out).toEqual(["kodor-preset.yaml   no agents or skills"]);
         expect(r.code).toBe(0);
       },
     );
@@ -1244,7 +1238,7 @@ describe("factory preset check", () => {
         5,
       );
       expect(r.out).toEqual([
-        "factory-preset.yaml: builds.poll-minutes: must be one of 5, 10, 15, 30, 60",
+        "kodor-preset.yaml: builds.poll-minutes: must be one of 5, 10, 15, 30, 60",
       ]);
       expect(r.code).toBe(1);
     });
@@ -1252,14 +1246,14 @@ describe("factory preset check", () => {
     it("fails for a file with no cron line", async () => {
       const r = await checkIn({
         "": {
-          settings: "version: 2\n",
+          settings: "version: 1\n",
           others: {
             [POLLER_FILE]: "name: Factory poller\non:\n  workflow_dispatch:\n",
           },
         },
       });
       expect(r.out).toEqual([
-        '✗ .github/workflows/factory-poller.yml has no cron line, and builds.poll-minutes is 5. Write - cron: "*/5 * * * *" under schedule there.',
+        '✗ .github/workflows/kodor-poller.yml has no cron line, and builds.poll-minutes is 5. Write - cron: "*/5 * * * *" under schedule there.',
       ]);
       expect(r.code).toBe(1);
     });
@@ -1270,13 +1264,13 @@ describe("factory preset check", () => {
     put(root, "docs/readme.md", "nothing\n");
     const r = await preset(["check"]);
     expect(r.err).toEqual([
-      "No preset here: no factory-preset.yaml in this folder or below it",
+      "No preset here: no kodor-preset.yaml in this folder or below it",
     ]);
     expect(r.code).toBe(1);
   });
 });
 
-describe("factory preset changes", () => {
+describe("kodor preset changes", () => {
   let before = "";
   /** The lock at REF, then the working tree's after ACME's pin moved to a
    * newer commit of its repository. NODE's stays where it was. */
@@ -1290,7 +1284,7 @@ describe("factory preset changes", () => {
     await setUp([ACME, NODE], GATE);
     put(
       root,
-      ".claude/factory.choices.yaml",
+      ".claude/kodor.choices.yaml",
       `rules.small-change-lines: ${NODE}\n`,
     );
     await sync();
@@ -1310,7 +1304,7 @@ describe("factory preset changes", () => {
   it("heads its text with each preset whose commit moved, then says what changed here, what needs a choice, and what doesn't apply", async () => {
     const { r, heading } = await update(
       [
-        "version: 2",
+        "version: 1",
         "rules:",
         "  small-change-lines: 35",
         "  review-rounds: 2",
@@ -1338,16 +1332,16 @@ describe("factory preset changes", () => {
       "",
       "Doesn't apply here:",
       `- rules.small-change-lines: 40 → 35, but you chose ${NODE}'s 30`,
-      "- commands.gate, which your .claude/factory.yaml sets",
+      "- commands.gate, which your .claude/kodor.yaml sets",
       "",
       "To choose, on this branch:",
-      "  factory preset choices",
+      "  kodor preset choices",
     ]);
-    expect(heading).toMatch(/^acme\/factory-config [0-9a-f]{7} → [0-9a-f]{7}$/);
+    expect(heading).toMatch(/^acme\/kodor-config [0-9a-f]{7} → [0-9a-f]{7}$/);
   });
 
   it("says which of builds.hosts an update adds and takes away", async () => {
-    const hosts = (list: string) => `version: 2\nbuilds:\n  hosts: [${list}]\n`;
+    const hosts = (list: string) => `version: 1\nbuilds:\n  hosts: [${list}]\n`;
     const move = async (settings: string) => {
       pin(root, ACME, publish(REPO, { ...REPOS[REPO], "": { settings } }));
       await sync();
@@ -1390,10 +1384,10 @@ describe("factory preset changes", () => {
   });
 });
 
-describe("factory doctor's preset lines", () => {
+describe("kodor doctor's preset lines", () => {
   it("says the commit each preset is pinned at, and nothing of Dependabot or an installed version", async () => {
     await setUp([ACME, NODE]);
-    put(root, ".github/dependabot.yml", "version: 2\nupdates: []\n");
+    put(root, ".github/dependabot.yml", "version: 1\nupdates: []\n");
     expect(await presetChecks(root, null)).toEqual([
       { state: "pass", text: `${ACME} is pinned at ${short()}` },
       { state: "pass", text: `${NODE} is pinned at ${short()}` },
@@ -1404,7 +1398,7 @@ describe("factory doctor's preset lines", () => {
     await setUp([ACME]);
     put(
       root,
-      ".claude/factory.yaml",
+      ".claude/kodor.yaml",
       own([ACME], ["rules:", "  review-rounds: 4"]),
     );
     expect(
@@ -1412,7 +1406,7 @@ describe("factory doctor's preset lines", () => {
     ).toEqual([
       {
         state: "fail",
-        text: ".claude/factory.yaml changed since the last sync. Run: factory sync",
+        text: ".claude/kodor.yaml changed since the last sync. Run: kodor sync",
       },
       { state: "pass", text: `${ACME} is pinned at ${short()}` },
     ]);
@@ -1424,18 +1418,18 @@ describe("factory doctor's preset lines", () => {
   });
 });
 
-describe("factory preset add --in", () => {
+describe("kodor preset add --in", () => {
   it("writes the preset with its folders, and names them on each command it runs", async () => {
     await setUp([]);
     publish(OTHER, {
-      "": { settings: "version: 2\ncommands:\n  gate: [pytest]\n" },
+      "": { settings: "version: 1\ncommands:\n  gate: [pytest]\n" },
     });
     const r = await preset(["add", OTHER, "--in", "services/*"], ["y"]);
     expect(r.code).toBe(0);
     expect(r.out).toContainEqual(
       expect.stringContaining("pytest, at the gate, in services/*"),
     );
-    expect(read(root, ".claude/factory.yaml")).toContain(
+    expect(read(root, ".claude/kodor.yaml")).toContain(
       `  - name: ${OTHER}\n    in: services/*`,
     );
   });
@@ -1443,7 +1437,7 @@ describe("factory preset add --in", () => {
   it("refuses one already listed with the same folders", async () => {
     await setUp([]);
     publish(OTHER, {
-      "": { settings: "version: 2\ncommands:\n  gate: [pytest]\n" },
+      "": { settings: "version: 1\ncommands:\n  gate: [pytest]\n" },
     });
     const first = await preset(["add", OTHER, "--in", "services/*"], ["y"]);
     expect(first.code).toBe(0);

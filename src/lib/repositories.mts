@@ -7,7 +7,7 @@ import { fencedLines } from "./fences.mts";
 
 /** Where the clones of a ticket's other repositories go on a machine, as
  * `.claude/settings.json` names it. */
-export const WORK = "~/.local/share/software-factory/work";
+export const WORK = "~/.local/share/kodor/work";
 
 /** One repository of a ticket's, and those it merges after. */
 export type Listed = { name: string; after: string[] };
@@ -16,7 +16,7 @@ const HEADING = "## Repositories";
 const NAME = String.raw`[\w.-]+(?:/[\w.-]+)+`;
 const LINE = new RegExp(`^- (${NAME})((?:, after ${NAME})*)$`);
 
-/** A line of the section that is not one the factory writes. */
+/** A line of the section that is not one kodor writes. */
 export class SectionError extends Error {
   readonly line: string;
   constructor(line: string) {
@@ -260,7 +260,7 @@ export function unconfirmed(
   const pairs = list.flatMap((r) =>
     r.after.map((name) => ` --after ${r.name}=${name}`),
   );
-  return `${ref}'s repositories were not confirmed by someone who can write to ${c.at}: run factory ticket repositories ${key} --set ${list.map((r) => r.name).join(" ")}${pairs.join("")}`;
+  return `${ref}'s repositories were not confirmed by someone who can write to ${c.at}: run kodor ticket repositories ${key} --set ${list.map((r) => r.name).join(" ")}${pairs.join("")}`;
 }
 
 // ------------------------------------------------ How far each one is

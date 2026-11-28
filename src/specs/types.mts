@@ -1,5 +1,5 @@
-// What a spec tool gives the factory. Each tool is one adapter in this
-// folder; `factory specs`, `factory init`, the settings check, and the merge
+// What a spec tool gives kodor. Each tool is one adapter in this
+// folder; `kodor specs`, `kodor init`, the settings check, and the merge
 // policy reach a tool only through this type.
 
 /** Runs a command from `cwd` with `env` added to the environment, and

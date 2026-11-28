@@ -97,7 +97,7 @@ export function publish(
   }
   for (const [folder, p] of Object.entries(presets)) {
     const at = folder ? `${folder}/` : "";
-    put(dir, `${at}factory-preset.yaml`, p.settings);
+    put(dir, `${at}kodor-preset.yaml`, p.settings);
     for (const [name, text] of Object.entries(p.agents ?? {}))
       put(dir, `${at}agents/${name}.md`, text);
     for (const [name, text] of Object.entries(p.skills ?? {}))
@@ -139,7 +139,7 @@ export function lockPin(root: string, pinned: Pinned): Pinned {
 }
 
 /** The lock at `root` with the preset NAME pinned at `commit`, as
- * `factory preset add` leaves it before it syncs. */
+ * `kodor preset add` leaves it before it syncs. */
 export const pin = (root: string, name: string, commit: string) =>
   lockPin(root, pinAt(fetching(), name, commit, load));
 
@@ -157,11 +157,11 @@ export function install(
   return commit;
 }
 
-export const ACME = "acme/factory-config";
-export const NODE = "acme/factory-config//node";
+export const ACME = "acme/kodor-config";
+export const NODE = "acme/kodor-config//node";
 
 export const ACME_SETTINGS = [
-  "version: 2",
+  "version: 1",
   "rules:",
   "  small-change-lines: 40",
   "  review-rounds: 2",
@@ -174,7 +174,7 @@ export const ACME_SETTINGS = [
 ].join("\n");
 
 export const NODE_SETTINGS = [
-  "version: 2",
+  "version: 1",
   "rules:",
   "  small-change-lines: 30",
   "  review-rounds: 3",
@@ -207,10 +207,10 @@ export const installAcme = (
     },
   });
 
-/** `.claude/factory.yaml` naming `presets`, with the rest of `body`. */
+/** `.claude/kodor.yaml` naming `presets`, with the rest of `body`. */
 export const own = (presets: string[], body: string[] = []) =>
   [
-    "version: 2",
+    "version: 1",
     "repository: acme/billing",
     CODE_HOST_YAML,
     ...(presets.length ? ["presets:", ...presets.map((p) => `  - ${p}`)] : []),
@@ -218,13 +218,13 @@ export const own = (presets: string[], body: string[] = []) =>
     "",
   ].join("\n");
 
-/** An empty repository: a `.git` folder and `.claude/factory.yaml`. No
+/** An empty repository: a `.git` folder and `.claude/kodor.yaml`. No
  * preset's repository an earlier test committed to is left. */
 export function repo(settings: string): string {
   rmSync(REMOTES, { recursive: true, force: true });
   const root = mkdtempSync(join(tmpdir(), "factory-preset-"));
   mkdirSync(join(root, ".git"));
-  put(root, ".claude/factory.yaml", settings);
+  put(root, ".claude/kodor.yaml", settings);
   return root;
 }
 

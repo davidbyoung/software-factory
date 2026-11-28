@@ -6,6 +6,183 @@ these only when it does. A repository coming from an old release takes
 them oldest first, from the bottom of the page up, as
 [Updating](updating.md) says.
 
+## Moving to kodor
+
+For a repository that uses the software factory, `@davidbyoung/software-factory`,
+whose owner wants it on kodor, the same product under its new name. At the
+end the repository runs `kodor`, its files and checks carry the new name,
+and its updates come again.
+
+The old package gets no more releases, and nothing moves a repository
+over by itself. Until you take these steps, the job that opens your
+update pull requests fails on every run. You see it on your repository's
+Actions tab, in the job "Open the updates' pull requests":
+
+```text
+✗ This repository names the factory 0.2.0, and it could not be downloaded: npm error 404 Not Found
+```
+
+Take the steps once in each repository, starting on your default branch
+with nothing uncommitted. Take them in a terminal, not in a session with
+your coding agent: the session's hooks run the old command, and step 4
+deletes them.
+
+1. Install the new command:
+
+   ```bash
+   npm install -g @kodor-ai/kodor
+   ```
+
+   **It worked when** `kodor`, run in any folder, prints the list of its
+   commands.
+
+2. Make a branch, and rename the two settings files kodor reads: your
+   settings, and the lock, which names the version your repository runs.
+
+   ```bash
+   git switch -c move-to-kodor
+   git mv .claude/factory.yaml .claude/kodor.yaml
+   git mv .claude/factory.lock .claude/kodor.lock
+   ```
+
+   If `.claude/factory.choices.yaml` is there too, which holds your
+   answers to a [preset's](../customize/presets.md) questions, rename it the same way:
+
+   ```bash
+   git mv .claude/factory.choices.yaml .claude/kodor.choices.yaml
+   ```
+
+   **It worked when** `git status` lists each file as renamed.
+
+3. In `.claude/kodor.yaml`, change the first line, `version: 2`, to
+   `version: 1`: kodor counts its settings versions from 1 again, and the
+   shape is the same. Until you do, every `kodor` command that reads the
+   settings stops with:
+
+   ```text
+   .claude/kodor.yaml: version: must be 1: this file is version 2, see https://github.com/kodor-ai/kodor/blob/v0.2.0/docs/maintain/upgrade-notes.md#moving-to-kodor
+   ```
+
+   If it names your ticket label under
+   [`tickets.labels`](../reference/settings/tickets.md#ticketslabels), rename the key
+   `factory` to `kodor`, and leave its value as it is:
+
+   ```yaml
+   tickets:
+     labels:
+       kodor: factory # was `factory: factory`
+   ```
+
+4. In `.claude/settings.json`, delete what the old command wrote, since
+   kodor does not recognize it as its own, and keep every entry of your
+   own. The update in the next step writes the new ones.
+   - Under `hooks`, each entry whose `command` runs `factory`, such as
+     `factory session-start`, `factory guard`, or
+     `factory reviewers start`.
+   - Under `permissions`, `~/.local/share/software-factory/work` in
+     `additionalDirectories`.
+
+   Left in place, an old guard stops every command a session runs once
+   the old command is uninstalled, with
+   `The factory is not installed on this machine.`
+
+   **It worked when** no line of `.claude/settings.json` names `factory`
+   or `software-factory`.
+
+5. Run the update. It runs the version installed on your machine, so it
+   works while the lock still names the old one:
+
+   ```bash
+   kodor update
+   ```
+
+   ```text
+   kodor 0.1.21 → 0.2.0
+   ✓ Wrote 24 files. Commit them on a branch and open a pull request.
+   ```
+
+   It deletes every file the old version wrote, such as
+   `.claude/skills/factory-build/` and `.github/workflows/factory.yml`,
+   and writes the new ones, such as `.claude/skills/kodor-build/` and
+   `.github/workflows/kodor.yml`.
+
+6. In `CLAUDE.md`, delete the line `@.claude/factory/rules.md`. The update
+   added `@.claude/kodor/rules.md` beside it. Then commit, push, and open
+   the pull request:
+
+   ```bash
+   git add -A
+   git commit -m "Move to kodor"
+   git push -u origin move-to-kodor
+   gh pr create --fill
+   ```
+
+7. Before you merge it, on GitHub:
+   - **The label.** If your settings name it under `tickets.labels`,
+     which step 3 kept, leave the label alone. Otherwise kodor now looks
+     for the label `kodor`, so rename yours, which keeps it on every
+     ticket: `gh label edit factory --name kodor`.
+   - **Secrets and variables.** List the ones you have:
+     `gh secret list` and `gh variable list`. Create each one whose name
+     starts `FACTORY_` again with `KODOR_` in its place, such as
+     `gh secret set KODOR_BOARD_TOKEN`, which asks for the value. GitHub
+     cannot rename a secret or show its value, so you paste each one again,
+     from wherever you keep it. `CLAUDE_CODE_OAUTH_TOKEN` and
+     `ANTHROPIC_API_KEY` keep their names.
+   - **A rule you made yourself.** The ruleset kodor makes requires
+     "Review verdict", whose name stays the same. A rule of your own may
+     require one of the old checks by name. Under Settings, Rules,
+     change `review / Factory files in step` to
+     `review / kodor files in step`, and a name that starts `factory /`,
+     such as `factory / Pull request / Record the verdict`, to the same
+     name starting `kodor /`.
+   - **A poller you host.** If you [host the poller](../features/hosting-the-poller.md#hosting-the-poller-own-server),
+     run the image `ghcr.io/kodor-ai/kodor-poller` of the version in
+     `.claude/kodor.lock`, and rename its `FACTORY_REPOSITORY` and
+     `FACTORY_BOARD_TOKEN` to `KODOR_REPOSITORY` and `KODOR_BOARD_TOKEN`.
+
+8. Merge the pull request. Then delete each `FACTORY_` secret and
+   variable, such as with `gh secret delete FACTORY_BOARD_TOKEN`, and
+   uninstall the old command:
+
+   ```bash
+   npm uninstall -g @davidbyoung/software-factory
+   ```
+
+9. On each machine you used it on, move its folders. If you keep a Jira
+   token or other credentials in its credentials file, move the file:
+
+   ```bash
+   mkdir -p ~/.config/kodor
+   mv ~/.config/software-factory/credentials.yaml ~/.config/kodor/
+   ```
+
+   The two other folders hold nothing you keep: downloaded versions, and
+   copies of other repositories a session clones to read. Once no session
+   is running on the machine, delete them, and the old folder:
+
+   ```bash
+   rm -rf ~/.cache/software-factory ~/.local/share/software-factory ~/.config/software-factory
+   ```
+
+   Where `XDG_CONFIG_HOME` is set, the credentials file and
+   `software-factory` folder are under it in place of `~/.config`, and
+   where `XDG_CACHE_HOME` is set, the downloaded versions are under it in
+   place of `~/.cache`.
+
+Your own instructions may also name the old skills, such as
+`/factory-build` in your `CLAUDE.md` or in a [plugin](../customize/plugins.md) of
+yours: change each to its new name, such as `/kodor-build`.
+
+This covers a repository. No organization was set up with the old
+package's `factory init --org`, so there is nothing of an organization's
+to move: set one up with `kodor init --org`, as
+[Setting up an organization](../setup/organization.md) says.
+
+**It worked when** [`kodor doctor`](../reference/cli.md), which checks the whole
+setup, passes in the repository, and each pull request opened after the merge
+lists the new checks, such as `review / kodor files in step`.
+
 ## Grouped checks
 
 From this release on, a pull request's list of checks shows most of the
@@ -214,7 +391,7 @@ this release, and do these steps in the repository's checkout.
 ## Labeling your open tickets
 
 From this release the factory works only on tickets with its label
-([Which tickets are the factory's](../workflow/tickets.md#which-tickets-are-the-factorys)).
+([Which tickets are the factory's](../workflow/tickets.md#which-tickets-are-kodors)).
 Before it, every open ticket was the factory's, so you label each open
 ticket once, before you merge the update, and no card changes column.
 Run this on the update's branch, after `factory update` or the

@@ -1,4 +1,4 @@
-// What the tests of `factory init` share: a checkout in a temporary folder,
+// What the tests of `kodor init` share: a checkout in a temporary folder,
 // the in-memory code host, runner, and ticket system, scripted answers, and
 // stand-ins for git, the gate, and the presets' repositories. No test
 // reaches GitHub or runs git.
@@ -171,7 +171,7 @@ export function scripted(
 }
 
 /** A preset a test's world holds: the settings its file gives, the files
- * it ships, the lines `factory preset add` would print for it, and why it
+ * it ships, the lines `kodor preset add` would print for it, and why it
  * is refused, when it is. */
 export type FakePreset = {
   about?: string;
@@ -186,7 +186,7 @@ export const TODAY = new Date("2026-11-27T12:00:00Z");
 
 export type Setup = {
   answers: Answers;
-  /** What `factory init` is given after its name. */
+  /** What `kodor init` is given after its name. */
   argv?: string[];
   settings?: string;
   secrets?: Record<string, string>;
@@ -209,7 +209,7 @@ export type Setup = {
   gate?: Record<string, { status: number; output: string }>;
   /** The presets that exist, by name. */
   presets?: Record<string, FakePreset>;
-  /** The presets the owner's `factory-config` holds, by name; there is no
+  /** The presets the owner's `kodor-config` holds, by name; there is no
    * such repository unless given. */
   config?: string[];
   /** The paths a sync would write. */
@@ -313,7 +313,7 @@ export function init(setup: Setup) {
     writeFileSync(join(root, "package.json"), '{"name":"site"}\n');
   if (setup.settings !== undefined) {
     mkdirSync(join(root, ".claude"), { recursive: true });
-    writeFileSync(join(root, ".claude/factory.yaml"), setup.settings);
+    writeFileSync(join(root, ".claude/kodor.yaml"), setup.settings);
   }
   for (const [path, text] of Object.entries(setup.files ?? {})) {
     mkdirSync(join(root, path, ".."), { recursive: true });
@@ -501,7 +501,7 @@ export function init(setup: Setup) {
     presets: {
       held: async (repository) => {
         looked.push(repository);
-        return setup.config && repository.endsWith("/factory-config")
+        return setup.config && repository.endsWith("/kodor-config")
           ? setup.config.map((name) => ({
               name,
               about: setup.presets?.[name]?.about ?? "",
@@ -563,7 +563,7 @@ export function init(setup: Setup) {
           "Could not tell the default branch. Run: git remote set-head origin --auto",
         );
       branchAsked.push(await askHost());
-      return setup.syncs ?? [".claude/skills/factory-build/SKILL.md"];
+      return setup.syncs ?? [".claude/skills/kodor-build/SKILL.md"];
     },
     interactive: async (argv) => {
       ran.push(argv);
@@ -581,7 +581,7 @@ export function init(setup: Setup) {
         ? doctorChecks({
             settings: async () =>
               parseSettings(
-                load(read(".claude/factory.yaml") ?? ""),
+                load(read(".claude/kodor.yaml") ?? ""),
                 () => true,
                 builtOf(d.tools),
               ),
@@ -599,7 +599,7 @@ export function init(setup: Setup) {
             now: () => TODAY,
           })
         : (setup.checks ?? [{ state: "pass", text: "Every check passed" }]),
-    packageName: "@davidbyoung/software-factory",
+    packageName: "@kodor-ai/kodor",
     packageVersion: "0.2.0",
     install: async (argv) => {
       const at = (path: string) =>
@@ -610,7 +610,7 @@ export function init(setup: Setup) {
         argv,
         syncedBefore: synced,
         packageJson: at("package.json"),
-        settings: at(".claude/factory.yaml"),
+        settings: at(".claude/kodor.yaml"),
       });
       return setup.install ?? { status: 0, stderr: "" };
     },
@@ -649,11 +649,11 @@ export function init(setup: Setup) {
     branchAsked,
     read,
     yaml: () =>
-      load(read(".claude/factory.yaml") ?? "") as Record<string, unknown>,
+      load(read(".claude/kodor.yaml") ?? "") as Record<string, unknown>,
     /** `tickets.columns` as the settings file stands. */
     columns: () =>
       (
-        load(read(".claude/factory.yaml") ?? "") as {
+        load(read(".claude/kodor.yaml") ?? "") as {
           tickets?: { columns?: unknown };
         }
       ).tickets?.columns,

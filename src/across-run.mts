@@ -1,7 +1,7 @@
 // What a pull request of a ticket across repositories tells the others,
 // from a run in its own repository:
 //
-//   factory across --event FILE
+//   kodor across --event FILE
 //
 // FILE is the event that a pull request was opened, reopened, or closed. One
 // closed without merging is noted on its ticket. The last to merge finishes
@@ -179,11 +179,11 @@ export async function main(event: Event, d: Deps): Promise<number> {
   return code;
 }
 
-/** `factory across --event FILE`. */
+/** `kodor across --event FILE`. */
 export async function run(argv: string[]): Promise<number> {
   const { out, err } = say.printersFor("across");
   if (argv[0] !== "--event" || !argv[1]) {
-    err(say.text("Usage: factory across --event FILE"));
+    err(say.text("Usage: kodor across --event FILE"));
     return 2;
   }
   try {

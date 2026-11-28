@@ -29,8 +29,8 @@ import {
   partsOn,
   plan,
 } from "../src/sync.mts";
-import { FACTORY_FILE, REVIEW_FILE } from "../src/workflow-files.mts";
-import { FACTORY_COLUMNS } from "./factory-columns";
+import { KODOR_FILE, REVIEW_FILE } from "../src/workflow-files.mts";
+import { KODOR_COLUMNS } from "./kodor-columns";
 import { CODE_HOST, withoutCredentials } from "./settings-fixture";
 import { TOOLS } from "../src/tools.mts";
 import { fakeCredential } from "./fake-tools";
@@ -49,7 +49,7 @@ const read = (path: string) =>
   existsSync(join(root, path)) ? readFileSync(join(root, path), "utf8") : null;
 
 const settings = (raw: Record<string, unknown> = {}) => ({
-  version: 2,
+  version: 1,
   repository: "o/r",
   "code-host": CODE_HOST,
   ...raw,
@@ -58,7 +58,7 @@ const settings = (raw: Record<string, unknown> = {}) => ({
   ),
 });
 
-/** The settings `raw` writes, resolved as `factory sync` resolves them. */
+/** The settings `raw` writes, resolved as `kodor sync` resolves them. */
 const resolved = (raw: Record<string, unknown>): Promise<Resolved> =>
   resolveFiles({
     readFile: () => JSON.stringify(raw),
@@ -71,12 +71,12 @@ const resolved = (raw: Record<string, unknown>): Promise<Resolved> =>
     root,
   });
 const FULL = {
-  tickets: { board: 3, columns: FACTORY_COLUMNS },
+  tickets: { board: 3, columns: KODOR_COLUMNS },
   "auto-merge": { allow: ["docs/**"] },
 };
 
 const NO_REMOTE =
-  "✗ repository: .claude/factory.yaml says o/r, and no remote here is o/r. Add the remote, or change the line and run factory sync.";
+  "✗ repository: .claude/kodor.yaml says o/r, and no remote here is o/r. Add the remote, or change the line and run kodor sync.";
 
 /** A sync of the made-up package into the repository, whose default branch
  * is `branch`, or cannot be told when that is null, for the reason the
@@ -111,16 +111,16 @@ beforeEach(() => {
   root = join(dir, "repo");
   mkdirSync(root);
   put(pkg, "package.json", '{"name": "@o/factory", "version": "1.2.3"}');
-  put(pkg, "bin/factory.js", "");
-  put(pkg, "skills/factory-build/SKILL.md", "work\n");
-  put(pkg, "agents/factory-reader.md", "reader\n");
+  put(pkg, "bin/kodor.js", "");
+  put(pkg, "skills/kodor-build/SKILL.md", "work\n");
+  put(pkg, "agents/kodor-reader.md", "reader\n");
   put(pkg, "rules.md", "rules\n");
   put(pkg, "review.md", "review\n");
-  put(pkg, "skills/factory-design/SKILL.md", "design\n");
-  put(pkg, "agents/factory-ui-reviewer.md", "ui\n");
-  put(pkg, "agents/factory-e2e-reviewer.md", "e2e\n");
-  put(pkg, "skills/factory-deps/SKILL.md", "deps\n");
-  put(pkg, "agents/factory-credentials-reader.md", "credentials\n");
+  put(pkg, "skills/kodor-design/SKILL.md", "design\n");
+  put(pkg, "agents/kodor-ui-reviewer.md", "ui\n");
+  put(pkg, "agents/kodor-e2e-reviewer.md", "e2e\n");
+  put(pkg, "skills/kodor-deps/SKILL.md", "deps\n");
+  put(pkg, "agents/kodor-credentials-reader.md", "credentials\n");
   put(pkg, "approval-policies/credentials/find.mts", "find\n");
 });
 
@@ -133,7 +133,7 @@ type FactoryFile = {
   "run-name": string;
   on: { push: { branches: string[] }; schedule: { cron: string }[] };
   permissions: Record<string, string>;
-  jobs: { factory: Called };
+  jobs: { kodor: Called };
 };
 type ReviewFile = {
   permissions: Record<string, string>;
@@ -141,41 +141,41 @@ type ReviewFile = {
 };
 
 /** The two workflow files a sync wrote, read as YAML. */
-const factoryFile = (text = read(FACTORY_FILE)) => parse(text!) as FactoryFile;
+const factoryFile = (text = read(KODOR_FILE)) => parse(text!) as FactoryFile;
 const reviewFile = (text = read(REVIEW_FILE)) => parse(text!) as ReviewFile;
-/** The parts that are on, as factory.yml passes them. */
+/** The parts that are on, as kodor.yml passes them. */
 const partsIn = () =>
-  String(factoryFile().jobs.factory.with.parts).split(" ").filter(Boolean);
-/** What factory.yml passes that sets a session's minutes or its job's
+  String(factoryFile().jobs.kodor.with.parts).split(" ").filter(Boolean);
+/** What kodor.yml passes that sets a session's minutes or its job's
  * limit. */
 const minutesIn = () =>
   Object.fromEntries(
-    Object.entries(factoryFile().jobs.factory.with).filter(([key]) =>
+    Object.entries(factoryFile().jobs.kodor.with).filter(([key]) =>
       /-(minutes|limit)$/.test(key),
     ),
   );
-const HOME = "davidbyoung/software-factory/.github/workflows";
+const HOME = "kodor-ai/kodor/.github/workflows";
 
 const SITE = { site: { start: "npm start", url: "http://localhost:$PORT" } };
-const DESIGN = ".claude/skills/factory-design/SKILL.md";
-const UI = ".claude/agents/factory-ui-reviewer.md";
-const E2E = ".claude/agents/factory-e2e-reviewer.md";
+const DESIGN = ".claude/skills/kodor-design/SKILL.md";
+const UI = ".claude/agents/kodor-ui-reviewer.md";
+const E2E = ".claude/agents/kodor-e2e-reviewer.md";
 const END_TO_END = { commands: { "end-to-end": "npx e2e $FILE" } };
 const DEPENDABOT = ".github/dependabot.yml";
-const DEPS = ".claude/skills/factory-deps/SKILL.md";
-const BOARD = { tickets: { board: 3, columns: FACTORY_COLUMNS } };
+const DEPS = ".claude/skills/kodor-deps/SKILL.md";
+const BOARD = { tickets: { board: 3, columns: KODOR_COLUMNS } };
 
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
-describe("factory sync", () => {
+describe("kodor sync", () => {
   it("writes the copies, the hook entries, the import line, and the lock", async () => {
     expect((await sync()).code).toBe(0);
 
-    expect(read(".claude/skills/factory-build/SKILL.md")).toBe("work\n");
-    expect(read(".claude/agents/factory-reader.md")).toBe("reader\n");
-    expect(read(".claude/factory/rules.md")).toBe("rules\n");
-    expect(read(".github/factory-review.md")).toBe("review\n");
-    expect(read("CLAUDE.md")).toBe("@.claude/factory/rules.md\n");
+    expect(read(".claude/skills/kodor-build/SKILL.md")).toBe("work\n");
+    expect(read(".claude/agents/kodor-reader.md")).toBe("reader\n");
+    expect(read(".claude/kodor/rules.md")).toBe("rules\n");
+    expect(read(".github/kodor-review.md")).toBe("review\n");
+    expect(read("CLAUDE.md")).toBe("@.claude/kodor/rules.md\n");
 
     const hooks = JSON.parse(read(".claude/settings.json")!).hooks;
     expect(Object.keys(hooks)).toEqual([
@@ -190,7 +190,7 @@ describe("factory sync", () => {
         matcher: "Bash",
         hooks: [
           expect.objectContaining({
-            command: `command -v factory >/dev/null 2>&1 || { echo "The factory is not installed on this machine. Install it once: npm install -g @o/factory" >&2; exit 2; }; factory guard`,
+            command: `command -v kodor >/dev/null 2>&1 || { echo "kodor is not installed on this machine. Install it once: npm install -g @o/factory" >&2; exit 2; }; kodor guard`,
           }),
         ],
       }),
@@ -202,15 +202,15 @@ describe("factory sync", () => {
         matcher: "Write|Edit|MultiEdit",
         hooks: [
           expect.objectContaining({
-            command: `command -v factory >/dev/null 2>&1 || exit 0; factory guard permission`,
+            command: `command -v kodor >/dev/null 2>&1 || exit 0; kodor guard permission`,
           }),
         ],
       }),
     ]);
 
-    const lock = read(".claude/factory.lock")!;
+    const lock = read(".claude/kodor.lock")!;
     expect(lock).toContain("version: 1.2.3");
-    expect(lock).toContain("  - .claude/skills/factory-build/SKILL.md");
+    expect(lock).toContain("  - .claude/skills/kodor-build/SKILL.md");
   });
 
   it.each([
@@ -223,33 +223,33 @@ describe("factory sync", () => {
     const r = await sync([], settings(raw));
 
     expect(r.code).toBe(0);
-    expect(r.out).toContain(`wrote ${FACTORY_FILE}`);
+    expect(r.out).toContain(`wrote ${KODOR_FILE}`);
     expect(r.out).toContain(`wrote ${REVIEW_FILE}`);
-    expect(Object.keys(factoryFile().jobs)).toEqual(["factory"]);
+    expect(Object.keys(factoryFile().jobs)).toEqual(["kodor"]);
     expect(Object.keys(reviewFile().jobs)).toEqual(["review"]);
-    const lock = read(".claude/factory.lock")!;
-    expect(lock).toContain(`  - ${FACTORY_FILE}`);
+    const lock = read(".claude/kodor.lock")!;
+    expect(lock).toContain(`  - ${KODOR_FILE}`);
     expect(lock).toContain(`  - ${REVIEW_FILE}`);
   });
 
   it("writes nothing else under .github/ but the review's instructions", async () => {
     await sync([], settings());
 
-    const { files } = parse(read(".claude/factory.lock")!) as {
+    const { files } = parse(read(".claude/kodor.lock")!) as {
       files: string[];
     };
     expect(files.filter((path) => path.startsWith(".github/"))).toEqual([
-      ".github/factory-review.md",
-      FACTORY_FILE,
+      ".github/kodor-review.md",
+      KODOR_FILE,
       REVIEW_FILE,
     ]);
     expect(existsSync(join(root, ".github/actions"))).toBe(false);
   });
 
-  it("calls the factory's workflows at the package's version", async () => {
+  it("calls kodor's workflows at the package's version", async () => {
     await sync();
 
-    expect(factoryFile().jobs.factory.uses).toBe(`${HOME}/run.yml@v1.2.3`);
+    expect(factoryFile().jobs.kodor.uses).toBe(`${HOME}/run.yml@v1.2.3`);
     expect(reviewFile().jobs.review.uses).toBe(`${HOME}/review.yml@v1.2.3`);
   });
 
@@ -257,7 +257,7 @@ describe("factory sync", () => {
     root = pkg;
     await sync();
 
-    expect(factoryFile().jobs.factory.uses).toBe("./.github/workflows/run.yml");
+    expect(factoryFile().jobs.kodor.uses).toBe("./.github/workflows/run.yml");
     expect(reviewFile().jobs.review.uses).toBe(
       "./.github/workflows/review.yml",
     );
@@ -266,30 +266,30 @@ describe("factory sync", () => {
   it("writes the design skill, and locks it, only where there is a site", async () => {
     expect((await sync([], settings())).code).toBe(0);
     expect(read(DESIGN)).toBeNull();
-    expect(read(".claude/factory.lock")).not.toContain(DESIGN);
+    expect(read(".claude/kodor.lock")).not.toContain(DESIGN);
 
     expect((await sync([], settings(SITE))).code).toBe(0);
     expect(read(DESIGN)).toBe("design\n");
-    expect(read(".claude/factory.lock")).toContain(`  - ${DESIGN}`);
+    expect(read(".claude/kodor.lock")).toContain(`  - ${DESIGN}`);
   });
 
   it("writes the UI reviewer, and locks it, only where there is a site", async () => {
     expect((await sync([], settings())).code).toBe(0);
     expect(read(UI)).toBeNull();
-    expect(read(".claude/factory.lock")).not.toContain(UI);
+    expect(read(".claude/kodor.lock")).not.toContain(UI);
 
     expect((await sync([], settings(SITE))).code).toBe(0);
     expect(read(UI)).toBe("ui\n");
-    expect(read(".claude/factory.lock")).toContain(`  - ${UI}`);
+    expect(read(".claude/kodor.lock")).toContain(`  - ${UI}`);
   });
 
   it("writes the credentials policy's rule and reader only while the policy is on", async () => {
     const RULE = ".claude/approval-policies/credentials/find.mts";
-    const READER = ".claude/agents/factory-credentials-reader.md";
+    const READER = ".claude/agents/kodor-credentials-reader.md";
     const { "approval-policies": _, ...on } = settings();
     expect((await sync([], on)).code).toBe(0);
     expect([read(RULE), read(READER)]).toEqual(["find\n", "credentials\n"]);
-    expect(read(".claude/factory.lock")).toContain(`  - ${RULE}`);
+    expect(read(".claude/kodor.lock")).toContain(`  - ${RULE}`);
 
     expect((await sync([], settings())).code).toBe(0);
     expect([read(RULE), read(READER)]).toEqual([null, null]);
@@ -298,11 +298,11 @@ describe("factory sync", () => {
   it("writes the end-to-end reviewer, and locks it, only where commands.end-to-end is set", async () => {
     expect((await sync([], settings())).code).toBe(0);
     expect(read(E2E)).toBeNull();
-    expect(read(".claude/factory.lock")).not.toContain(E2E);
+    expect(read(".claude/kodor.lock")).not.toContain(E2E);
 
     expect((await sync([], settings(END_TO_END))).code).toBe(0);
     expect(read(E2E)).toBe("e2e\n");
-    expect(read(".claude/factory.lock")).toContain(`  - ${E2E}`);
+    expect(read(".claude/kodor.lock")).toContain(`  - ${E2E}`);
   });
 
   it("removes the end-to-end reviewer when commands.end-to-end is taken out, and the check then passes", async () => {
@@ -341,15 +341,15 @@ describe("factory sync", () => {
     expect(read(DEPS)).toBeNull();
     expect(partsIn()).toEqual([]);
 
-    put(root, DEPENDABOT, "version: 2\n");
+    put(root, DEPENDABOT, "version: 1\n");
     expect((await sync([], settings())).code).toBe(0);
     expect(read(DEPS)).toBe("deps\n");
-    expect(read(".claude/factory.lock")).toContain(`  - ${DEPS}`);
+    expect(read(".claude/kodor.lock")).toContain(`  - ${DEPS}`);
     expect(partsIn()).toEqual(["dependabot"]);
   });
 
   it("removes the deps skill, and turns the part off, when Dependabot is taken out, and the check then passes", async () => {
-    put(root, DEPENDABOT, "version: 2\n");
+    put(root, DEPENDABOT, "version: 1\n");
     await sync([], settings());
     rmSync(join(root, DEPENDABOT));
 
@@ -372,24 +372,24 @@ describe("factory sync", () => {
   describe("in a repository a release that copied the workflows synced", () => {
     const COPIED = [
       ".github/workflows/factory-board-sync.yml",
-      ".github/workflows/factory-build.yml",
-      ".github/workflows/factory-check.yml",
+      ".github/workflows/kodor-build.yml",
+      ".github/workflows/kodor-check.yml",
       ".github/workflows/factory-claude-review.yml",
       ".github/workflows/factory-conflicts.yml",
-      ".github/workflows/factory-deps-auto-merge.yml",
-      ".github/workflows/factory-deps.yml",
+      ".github/workflows/kodor-deps-auto-merge.yml",
+      ".github/workflows/kodor-deps.yml",
       ".github/workflows/factory-merge-policy.yml",
-      ".github/workflows/factory-poller.yml",
+      ".github/workflows/kodor-poller.yml",
       ".github/workflows/factory-review-verdict.yml",
       ".github/actions/factory-agent/action.yml",
     ];
-    // That release wrote a file at factory-review.yml's path too.
+    // That release wrote a file at kodor-review.yml's path too.
     beforeEach(() => {
       const locked = [...COPIED, REVIEW_FILE];
       for (const path of locked) put(root, path, "copied\n");
       put(
         root,
-        ".claude/factory.lock",
+        ".claude/kodor.lock",
         ["version: 1.0.0", "files:", ...locked.map((p) => `  - ${p}`), ""].join(
           "\n",
         ),
@@ -406,7 +406,7 @@ describe("factory sync", () => {
       expect((await sync(["--check"])).code).toBe(0);
     });
 
-    it("overwrites factory-review.yml, which that lock also lists", async () => {
+    it("overwrites kodor-review.yml, which that lock also lists", async () => {
       const r = await sync();
 
       expect(r.out).toContain(`wrote ${REVIEW_FILE}`);
@@ -443,7 +443,7 @@ describe("factory sync", () => {
     expect(JSON.parse(read(".claude/settings.json")!).attribution).toEqual(own);
   });
 
-  it("keeps an entry in .claude/settings.json that is not the factory's, in place", async () => {
+  it("keeps an entry in .claude/settings.json that is not kodor's, in place", async () => {
     const own = { type: "command", command: "echo own", timeout: 5 };
     put(
       root,
@@ -458,7 +458,7 @@ describe("factory sync", () => {
               hooks: [
                 {
                   type: "command",
-                  command: "node old/bin/factory.js guard",
+                  command: "node old/bin/kodor.js guard",
                 },
               ],
             },
@@ -477,7 +477,7 @@ describe("factory sync", () => {
       hooks: [own],
     });
     expect(written.hooks.PreToolUse[1].hooks[0].command).toMatch(
-      /; factory guard$/,
+      /; kodor guard$/,
     );
   });
 
@@ -487,21 +487,21 @@ describe("factory sync", () => {
     await sync();
 
     expect(read("CLAUDE.md")).toBe(
-      "# Ours\n\nSome rules.\n\n@.claude/factory/rules.md\n",
+      "# Ours\n\nSome rules.\n\n@.claude/kodor/rules.md\n",
     );
   });
 
   it("deletes a file the lock lists that the package no longer has", async () => {
-    put(pkg, "agents/factory-gone.md", "gone\n");
+    put(pkg, "agents/kodor-gone.md", "gone\n");
     await sync();
-    expect(read(".claude/agents/factory-gone.md")).toBe("gone\n");
+    expect(read(".claude/agents/kodor-gone.md")).toBe("gone\n");
     put(root, "keep.md", "mine\n");
 
-    rmSync(join(pkg, "agents/factory-gone.md"));
+    rmSync(join(pkg, "agents/kodor-gone.md"));
     const r = await sync();
 
-    expect(r.out).toContain("deleted .claude/agents/factory-gone.md");
-    expect(read(".claude/agents/factory-gone.md")).toBeNull();
+    expect(r.out).toContain("deleted .claude/agents/kodor-gone.md");
+    expect(read(".claude/agents/kodor-gone.md")).toBeNull();
     expect(read("keep.md")).toBe("mine\n");
   });
 
@@ -519,7 +519,7 @@ describe("factory sync", () => {
       { ...BOARD, builds: { trigger: "github-action" } },
     ],
   ])(
-    "turns the %s part on only while %s, and changes nothing in factory-review.yml",
+    "turns the %s part on only while %s, and changes nothing in kodor-review.yml",
     async (part, _, raw) => {
       await sync([], settings());
       expect(partsIn()).not.toContain(part);
@@ -534,8 +534,8 @@ describe("factory sync", () => {
     },
   );
 
-  it("passes every part that is on, in the order the factory's workflows list them", async () => {
-    put(root, DEPENDABOT, "version: 2\n");
+  it("passes every part that is on, in the order kodor's workflows list them", async () => {
+    put(root, DEPENDABOT, "version: 1\n");
     await sync(
       [],
       settings({
@@ -591,7 +591,7 @@ describe("factory sync", () => {
     },
   );
 
-  describe("the override's name in factory.yml", () => {
+  describe("the override's name in kodor.yml", () => {
     const named = (name: string) =>
       settings({
         "code-host": { ...CODE_HOST, labels: { "verdict-override": name } },
@@ -600,15 +600,15 @@ describe("factory sync", () => {
     it("passes the name code-host.labels gives it", async () => {
       await sync([], named("owner's pass"));
 
-      expect(factoryFile().jobs.factory.with["override-label"]).toBe(
+      expect(factoryFile().jobs.kodor.with["override-label"]).toBe(
         "owner's pass",
       );
     });
 
-    it("passes none with the default, which the factory's workflow has", async () => {
+    it("passes none with the default, which kodor's workflow has", async () => {
       await sync([], settings());
 
-      expect(factoryFile().jobs.factory.with).not.toHaveProperty(
+      expect(factoryFile().jobs.kodor.with).not.toHaveProperty(
         "override-label",
       );
     });
@@ -619,26 +619,26 @@ describe("factory sync", () => {
       const r = await sync(["--check"], named("owner-pass"));
 
       expect(r.code).toBe(1);
-      expect(r.err).toContain(`  ${FACTORY_FILE}`);
+      expect(r.err).toContain(`  ${KODOR_FILE}`);
       expect(r.err).not.toContain(`  ${REVIEW_FILE}`);
     });
   });
 });
 
-describe("the factory's core", () => {
-  // What the factory's own steps call is written to every repository,
+describe("kodor's core", () => {
+  // What kodor's own steps call is written to every repository,
   // whatever its settings and files. Anything else is written only when a
   // setting or a file turns it on.
   const CORE = [
-    ".claude/skills/factory-refine/SKILL.md",
-    ".claude/skills/factory-build/SKILL.md",
-    ".claude/skills/factory-address-review/SKILL.md",
-    ".claude/skills/factory-resolve-conflicts/SKILL.md",
-    ".claude/skills/factory-diagnose/SKILL.md",
-    ".claude/skills/factory-mutate/SKILL.md",
-    ".claude/skills/factory-trace/SKILL.md",
-    ".claude/agents/factory-ticket-readiness.md",
-    ".claude/agents/factory-test-reviewer.md",
+    ".claude/skills/kodor-refine/SKILL.md",
+    ".claude/skills/kodor-build/SKILL.md",
+    ".claude/skills/kodor-address-review/SKILL.md",
+    ".claude/skills/kodor-resolve-conflicts/SKILL.md",
+    ".claude/skills/kodor-diagnose/SKILL.md",
+    ".claude/skills/kodor-mutate/SKILL.md",
+    ".claude/skills/kodor-trace/SKILL.md",
+    ".claude/agents/kodor-ticket-readiness.md",
+    ".claude/agents/kodor-test-reviewer.md",
   ];
 
   it("is written from the real package to a repository with no settings and no files", async () => {
@@ -652,19 +652,19 @@ describe("the factory's core", () => {
   it("gives the trace skill the change types to read and the pull request to post on", async () => {
     const trace = (
       await plan(PACKAGE, root, await resolved(settings()), "main")
-    ).write.get(".claude/skills/factory-trace/SKILL.md");
+    ).write.get(".claude/skills/kodor-trace/SKILL.md");
     expect(trace).toContain(".claude/change-types.md");
-    expect(trace).toContain("factory pr comment");
+    expect(trace).toContain("kodor pr comment");
     expect(
       (await plan(PACKAGE, root, await resolved(settings()), "main")).write.get(
-        ".claude/factory/rules.md",
+        ".claude/kodor/rules.md",
       ),
-    ).toContain("`factory-trace` skill");
+    ).toContain("`kodor-trace` skill");
   });
 });
 
-describe("factory sync: how long each session may run", () => {
-  it("passes no minutes with the defaults, which the factory's workflow has", async () => {
+describe("kodor sync: how long each session may run", () => {
+  it("passes no minutes with the defaults, which kodor's workflow has", async () => {
     await sync([], settings());
 
     expect(minutesIn()).toEqual({});
@@ -691,12 +691,12 @@ describe("factory sync: how long each session may run", () => {
     );
 
     expect(r.code).toBe(1);
-    expect(r.err).toContain(`  ${FACTORY_FILE}`);
+    expect(r.err).toContain(`  ${KODOR_FILE}`);
     expect(r.err).not.toContain(`  ${REVIEW_FILE}`);
   });
 });
 
-describe("factory sync: the numbers the rules use", () => {
+describe("kodor sync: the numbers the rules use", () => {
   const RULES = [
     "A change is small when it changes under about 30 lines outside tests.",
     "After two rounds, whatever is still in dispute goes to the user.",
@@ -709,11 +709,11 @@ describe("factory sync: the numbers the rules use", () => {
     "rounds**. When the third review arrives:",
     "",
   ].join("\n");
-  const RULES_COPY = ".claude/factory/rules.md";
-  const REVIEW_COPY = ".claude/skills/factory-address-review/SKILL.md";
+  const RULES_COPY = ".claude/kodor/rules.md";
+  const REVIEW_COPY = ".claude/skills/kodor-address-review/SKILL.md";
   beforeEach(() => {
     put(pkg, "rules.md", RULES);
-    put(pkg, "skills/factory-address-review/SKILL.md", REVIEW);
+    put(pkg, "skills/kodor-address-review/SKILL.md", REVIEW);
   });
 
   it("writes the copies word for word with the defaults", async () => {
@@ -754,11 +754,11 @@ describe("factory sync: the numbers the rules use", () => {
   });
 
   it("stops, naming the review skill, when the rounds are set and its heading is gone", async () => {
-    put(pkg, "skills/factory-address-review/SKILL.md", "review\n");
+    put(pkg, "skills/kodor-address-review/SKILL.md", "review\n");
     await expect(
       sync([], settings({ rules: { "review-rounds": 3 } })),
     ).rejects.toThrow(
-      "skills/factory-address-review/SKILL.md: expected one match",
+      "skills/kodor-address-review/SKILL.md: expected one match",
     );
   });
 
@@ -800,10 +800,10 @@ describe("factory sync: the numbers the rules use", () => {
   });
 });
 
-describe("factory sync: the default branch in the push trigger", () => {
+describe("kodor sync: the default branch in the push trigger", () => {
   const pushBranches = () => factoryFile().on.push.branches;
 
-  it("writes the default branch's name into factory.yml's push trigger", async () => {
+  it("writes the default branch's name into kodor.yml's push trigger", async () => {
     expect((await sync([], settings(), "develop")).code).toBe(0);
 
     expect(pushBranches()).toEqual(["develop"]);
@@ -816,9 +816,9 @@ describe("factory sync: the default branch in the push trigger", () => {
 
     expect(r.code).toBe(1);
     expect(r.err).toEqual([
-      "✗ 1 of the factory's files doesn't match the settings:",
-      `  ${FACTORY_FILE}`,
-      "Run factory sync and commit what it writes.",
+      "✗ 1 of kodor's files doesn't match the settings:",
+      `  ${KODOR_FILE}`,
+      "Run kodor sync and commit what it writes.",
     ]);
   });
 
@@ -828,7 +828,7 @@ describe("factory sync: the default branch in the push trigger", () => {
     expect(r.code).toBe(1);
     expect(r.err).toEqual([NO_REMOTE]);
     expect(r.out).toEqual([]);
-    expect(read(FACTORY_FILE)).toBeNull();
+    expect(read(KODOR_FILE)).toBeNull();
     expect(read("CLAUDE.md")).toBeNull();
   });
 
@@ -850,24 +850,24 @@ describe("factory sync: the default branch in the push trigger", () => {
   it("writes a name with a slash in it as it is", async () => {
     await sync([], settings(), "release/2.x");
 
-    expect(read(FACTORY_FILE)).toContain("    branches: [release/2.x]\n");
+    expect(read(KODOR_FILE)).toContain("    branches: [release/2.x]\n");
   });
 });
 
-describe("factory sync --check", () => {
+describe("kodor sync --check", () => {
   it("exits 1 naming the copy that differs by one character, and writes nothing", async () => {
     await sync();
-    put(root, ".claude/factory/rules.md", "rulez\n");
+    put(root, ".claude/kodor/rules.md", "rulez\n");
 
     const r = await sync(["--check"]);
 
     expect(r.code).toBe(1);
     expect(r.err).toEqual([
-      "✗ 1 of the factory's files doesn't match the settings:",
-      "  .claude/factory/rules.md",
-      "Run factory sync and commit what it writes.",
+      "✗ 1 of kodor's files doesn't match the settings:",
+      "  .claude/kodor/rules.md",
+      "Run kodor sync and commit what it writes.",
     ]);
-    expect(read(".claude/factory/rules.md")).toBe("rulez\n");
+    expect(read(".claude/kodor/rules.md")).toBe("rulez\n");
   });
 
   it("says the files match when the check passes", async () => {
@@ -876,7 +876,7 @@ describe("factory sync --check", () => {
     const r = await sync(["--check"]);
 
     expect(r.code).toBe(0);
-    expect(r.out).toEqual(["✓ The factory's files match the settings."]);
+    expect(r.out).toEqual(["✓ kodor's files match the settings."]);
   });
 
   it("says nothing changed when a person's sync writes nothing", async () => {
@@ -885,7 +885,7 @@ describe("factory sync --check", () => {
     const again = await sync([], settings(FULL), "main", { announce: true });
 
     expect(again.out.at(-1)).toBe(
-      "The factory's files already match the settings. Nothing changed.",
+      "kodor's files already match the settings. Nothing changed.",
     );
   });
 
@@ -893,38 +893,38 @@ describe("factory sync --check", () => {
     await sync();
 
     expect((await sync()).out).not.toContain(
-      "The factory's files already match the settings. Nothing changed.",
+      "kodor's files already match the settings. Nothing changed.",
     );
   });
 
   it("exits 1 naming each workflow file that differs from what the settings write", async () => {
     await sync();
-    put(root, FACTORY_FILE, "changed\n");
+    put(root, KODOR_FILE, "changed\n");
     put(root, REVIEW_FILE, "changed\n");
 
     const r = await sync(["--check"]);
 
     expect(r.code).toBe(1);
     expect(r.err).toEqual([
-      "✗ 2 of the factory's files don't match the settings:",
-      `  ${FACTORY_FILE}`,
+      "✗ 2 of kodor's files don't match the settings:",
+      `  ${KODOR_FILE}`,
       `  ${REVIEW_FILE}`,
-      "Run factory sync and commit what it writes.",
+      "Run kodor sync and commit what it writes.",
     ]);
   });
 
-  it("exits 1 naming factory.yml, and not factory-review.yml, when a part was turned on and sync did not run", async () => {
+  it("exits 1 naming kodor.yml, and not kodor-review.yml, when a part was turned on and sync did not run", async () => {
     await sync();
-    put(root, DEPENDABOT, "version: 2\n");
+    put(root, DEPENDABOT, "version: 1\n");
 
     const r = await sync(["--check"]);
 
     expect(r.code).toBe(1);
-    expect(r.err).toContain(`  ${FACTORY_FILE}`);
+    expect(r.err).toContain(`  ${KODOR_FILE}`);
     expect(r.err).not.toContain(`  ${REVIEW_FILE}`);
   });
 
-  it("exits 1 naming both workflow files when the factory's version changed and sync did not run", async () => {
+  it("exits 1 naming both workflow files when kodor's version changed and sync did not run", async () => {
     await sync();
     put(pkg, "package.json", '{"name": "@o/factory", "version": "1.3.0"}');
 
@@ -932,11 +932,11 @@ describe("factory sync --check", () => {
 
     expect(r.code).toBe(1);
     expect(r.err).toEqual([
-      "✗ 3 of the factory's files don't match the settings:",
-      `  ${FACTORY_FILE}`,
+      "✗ 3 of kodor's files don't match the settings:",
+      `  ${KODOR_FILE}`,
       `  ${REVIEW_FILE}`,
-      "  .claude/factory.lock",
-      "Run factory sync and commit what it writes.",
+      "  .claude/kodor.lock",
+      "Run kodor sync and commit what it writes.",
     ]);
   });
 
@@ -957,12 +957,12 @@ describe("launcherPath", () => {
   it("points at the package's own folder when it sits inside the repository", () => {
     mkdirSync(join(dir, "packages/factory"), { recursive: true });
     expect(launcherPath(join(dir, "packages/factory"), dir)).toBe(
-      "packages/factory/bin/factory.js",
+      "packages/factory/bin/kodor.js",
     );
   });
 
   it("points at the root's own launcher when the repository is the package itself", () => {
-    expect(launcherPath(dir, dir)).toBe("bin/factory.js");
+    expect(launcherPath(dir, dir)).toBe("bin/kodor.js");
   });
 
   it("follows a workspace link to the package's folder inside the repository", () => {
@@ -973,7 +973,7 @@ describe("launcherPath", () => {
       join(dir, "node_modules/@o/factory"),
     );
     expect(launcherPath(join(dir, "node_modules/@o/factory"), dir)).toBe(
-      "packages/factory/bin/factory.js",
+      "packages/factory/bin/kodor.js",
     );
   });
 
@@ -989,7 +989,7 @@ describe("launcherPath", () => {
 
 describe("factoryHooks", () => {
   const MISSING =
-    "The factory is not installed on this machine. Install it once: npm install -g @o/factory";
+    "kodor is not installed on this machine. Install it once: npm install -g @o/factory";
   const commands = (launcher: string | null) =>
     factoryHooks(launcher, "@o/factory").map(
       ([event, group]) => `${event}: ${group.hooks[0].command}`,
@@ -997,28 +997,28 @@ describe("factoryHooks", () => {
   /** What the hook on the credentials file runs before the guard: nothing
    * more is started for a call whose input does not name the file. */
   const NAMED =
-    'input=$(cat); case "$input" in *software-factory/credentials*) ;; *) exit 0 ;; esac; printf \'%s\' "$input" |';
+    'input=$(cat); case "$input" in *kodor/credentials*) ;; *) exit 0 ;; esac; printf \'%s\' "$input" |';
 
   it("runs the machine's factory, and stops a command or a file read where there is none", () => {
-    const installed = `command -v factory >/dev/null 2>&1 || { echo "${MISSING}" >&2; exit 2; };`;
+    const installed = `command -v kodor >/dev/null 2>&1 || { echo "${MISSING}" >&2; exit 2; };`;
     expect(commands(null)).toEqual([
-      `SessionStart: command -v factory >/dev/null 2>&1 || { echo "${MISSING}"; exit 0; }; factory session-start`,
-      `PreToolUse: ${installed} factory guard`,
-      `PreToolUse: ${installed} ${NAMED} factory guard credentials`,
-      "PermissionRequest: command -v factory >/dev/null 2>&1 || exit 0; factory guard permission",
-      "SubagentStart: factory reviewers start 2>/dev/null || true",
-      "SubagentStop: factory reviewers stop 2>/dev/null || true",
+      `SessionStart: command -v kodor >/dev/null 2>&1 || { echo "${MISSING}"; exit 0; }; kodor session-start`,
+      `PreToolUse: ${installed} kodor guard`,
+      `PreToolUse: ${installed} ${NAMED} kodor guard credentials`,
+      "PermissionRequest: command -v kodor >/dev/null 2>&1 || exit 0; kodor guard permission",
+      "SubagentStart: kodor reviewers start 2>/dev/null || true",
+      "SubagentStop: kodor reviewers stop 2>/dev/null || true",
     ]);
   });
 
   it("runs the launcher by its path where the package is in the repository", () => {
-    expect(commands("bin/factory.js")).toEqual([
-      'SessionStart: node "$CLAUDE_PROJECT_DIR"/bin/factory.js session-start',
-      'PreToolUse: node "$CLAUDE_PROJECT_DIR"/bin/factory.js guard',
-      `PreToolUse: ${NAMED} node "$CLAUDE_PROJECT_DIR"/bin/factory.js guard credentials`,
-      'PermissionRequest: node "$CLAUDE_PROJECT_DIR"/bin/factory.js guard permission',
-      'SubagentStart: node "$CLAUDE_PROJECT_DIR"/bin/factory.js reviewers start 2>/dev/null || true',
-      'SubagentStop: node "$CLAUDE_PROJECT_DIR"/bin/factory.js reviewers stop 2>/dev/null || true',
+    expect(commands("bin/kodor.js")).toEqual([
+      'SessionStart: node "$CLAUDE_PROJECT_DIR"/bin/kodor.js session-start',
+      'PreToolUse: node "$CLAUDE_PROJECT_DIR"/bin/kodor.js guard',
+      `PreToolUse: ${NAMED} node "$CLAUDE_PROJECT_DIR"/bin/kodor.js guard credentials`,
+      'PermissionRequest: node "$CLAUDE_PROJECT_DIR"/bin/kodor.js guard permission',
+      'SubagentStart: node "$CLAUDE_PROJECT_DIR"/bin/kodor.js reviewers start 2>/dev/null || true',
+      'SubagentStop: node "$CLAUDE_PROJECT_DIR"/bin/kodor.js reviewers stop 2>/dev/null || true',
     ]);
   });
 
@@ -1026,11 +1026,11 @@ describe("factoryHooks", () => {
     const [, group] = factoryHooks(null, "@o/factory").find(
       ([, g]) => g.matcher === "Read|Grep|Glob",
     ) ?? [null, { hooks: [{ command: "exit 99" }] }];
-    const FILE = "/home/dana/.config/software-factory/credentials.yaml";
+    const FILE = "/home/dana/.config/kodor/credentials.yaml";
     let box = "";
     afterEach(() => rmSync(box, { recursive: true, force: true }));
 
-    /** The command run on a hook's input. With `installed`, the `factory`
+    /** The command run on a hook's input. With `installed`, the `kodor`
      * on the PATH notes that it was started, then runs the real one. */
     const run = (
       tool_name: string,
@@ -1041,8 +1041,8 @@ describe("factoryHooks", () => {
       const started = join(box, "started");
       if (installed)
         writeFileSync(
-          join(box, "factory"),
-          `#!/bin/sh\necho "$*" >> "${started}"\nexec "${process.execPath}" "${join(import.meta.dirname, "..", "bin", "factory.js")}" "$@"\n`,
+          join(box, "kodor"),
+          `#!/bin/sh\necho "$*" >> "${started}"\nexec "${process.execPath}" "${join(import.meta.dirname, "..", "bin", "kodor.js")}" "$@"\n`,
           { mode: 0o755 },
         );
       const r = spawnSync("/bin/sh", ["-c", group.hooks[0]!.command], {
@@ -1063,7 +1063,7 @@ describe("factoryHooks", () => {
       expect(run("Read", { file_path: FILE })).toEqual({
         status: 2,
         stderr:
-          "The factory's credentials file is not for sessions to read. Its commands read it themselves: run the factory command you need, such as factory ticket view.",
+          "kodor's credentials file is not for sessions to read. Its commands read it themselves: run the kodor command you need, such as kodor ticket view.",
         started: ["guard credentials"],
       });
     });
@@ -1084,7 +1084,7 @@ describe("factoryHooks", () => {
       });
     });
 
-    it("stops every call, saying how to install the factory, on a machine without it", () => {
+    it("stops every call, saying how to install kodor, on a machine without it", () => {
       expect(
         run("Read", { file_path: "/home/dana/site/README.md" }, false),
       ).toEqual({ status: 2, stderr: MISSING, started: [] });
@@ -1092,12 +1092,10 @@ describe("factoryHooks", () => {
   });
 
   it("replaces an entry an earlier release wrote, which ran a copy in node_modules", () => {
-    const old = withHooks(null, "node_modules/@o/factory/bin/factory.js");
+    const old = withHooks(null, "node_modules/@o/factory/bin/kodor.js");
     const now = JSON.parse(withHooks(old, null, "@o/factory"));
     expect(now.hooks.PreToolUse).toHaveLength(2);
-    expect(now.hooks.PreToolUse[0].hooks[0].command).toMatch(
-      /; factory guard$/,
-    );
+    expect(now.hooks.PreToolUse[0].hooks[0].command).toMatch(/; kodor guard$/);
     expect(hasFactoryHooks(JSON.stringify(now))).toBe(true);
     expect(withoutHooks(JSON.stringify(now))).toBe(
       `${JSON.stringify({ attribution: now.attribution }, null, 2)}\n`,
@@ -1110,7 +1108,7 @@ describe("factoryHooks", () => {
       hooks: [
         {
           type: "command",
-          command: `command -v factory >/dev/null 2>&1 || { echo "${MISSING}" >&2; exit 2; }; factory guard credentials`,
+          command: `command -v kodor >/dev/null 2>&1 || { echo "${MISSING}" >&2; exit 2; }; kodor guard credentials`,
         },
       ],
     };
@@ -1124,13 +1122,13 @@ describe("factoryHooks", () => {
         .filter((g) => g.matcher === "Read|Grep|Glob")
         .map((g) => g.hooks[0]!.command);
     expect(guards(once)).toEqual([
-      expect.stringMatching(/\| factory guard credentials$/),
+      expect.stringMatching(/\| kodor guard credentials$/),
     ]);
     expect(withHooks(once, null, "@o/factory")).toBe(once);
   });
 
   describe("the folder other repositories are cloned into", () => {
-    const WORK = "~/.local/share/software-factory/work";
+    const WORK = "~/.local/share/kodor/work";
     const permissions = (text: string) => JSON.parse(text).permissions;
 
     it("may be edited by a session, beside any other folder, listed once", () => {
@@ -1172,13 +1170,13 @@ describe("factoryHooks", () => {
   });
 
   it("leaves a hook of the repository's own that only mentions a factory", () => {
-    const own = { type: "command", command: "my-factory guard --all" };
+    const own = { type: "command", command: "my-kodor guard --all" };
     const text = JSON.stringify({ hooks: { PreToolUse: [{ hooks: [own] }] } });
     expect(hasAnyFactoryHook(text)).toBe(false);
   });
 });
 
-describe("factory sync: the ticket system in the workflow files", () => {
+describe("kodor sync: the ticket system in the workflow files", () => {
   const NAMES = ["FAKE_TICKETS_EMAIL", "FAKE_TICKETS_TOKEN"];
   /** The registry with a ticket system that reads a credential, under
    * GitHub's name so the settings take it as they stand. */
@@ -1197,7 +1195,7 @@ describe("factory sync: the ticket system in the workflow files", () => {
   const workflows = async (systems?: typeof withCredential) => {
     const p = await plan(PACKAGE, root, await resolved(EVERY), "main", systems);
     return new Map(
-      [FACTORY_FILE, REVIEW_FILE].map((path) => [path, p.write.get(path)!]),
+      [KODOR_FILE, REVIEW_FILE].map((path) => [path, p.write.get(path)!]),
     );
   };
   /** The one secret that carries the repository's own, by name. */
@@ -1212,12 +1210,12 @@ describe("factory sync: the ticket system in the workflow files", () => {
     );
   });
 
-  it("passes each of the ticket system's secrets, by name, from factory.yml alone", async () => {
+  it("passes each of the ticket system's secrets, by name, from kodor.yml alone", async () => {
     const written = await workflows(withCredential);
 
-    expect(
-      factoryFile(written.get(FACTORY_FILE)).jobs.factory.secrets.extra,
-    ).toBe(extra(NAMES));
+    expect(factoryFile(written.get(KODOR_FILE)).jobs.kodor.secrets.extra).toBe(
+      extra(NAMES),
+    );
     for (const name of NAMES)
       expect(written.get(REVIEW_FILE)).not.toContain(name);
   });
@@ -1226,17 +1224,17 @@ describe("factory sync: the ticket system in the workflow files", () => {
     const written = await workflows();
 
     expect(
-      factoryFile(written.get(FACTORY_FILE)).jobs.factory.secrets,
+      factoryFile(written.get(KODOR_FILE)).jobs.kodor.secrets,
     ).not.toHaveProperty("extra");
   });
 
-  it("adds one line to factory.yml, and changes no other", async () => {
+  it("adds one line to kodor.yml, and changes no other", async () => {
     const before = await workflows();
     for (const [path, text] of await workflows(withCredential)) {
       const was = before.get(path)!.split("\n");
       const added = text.split("\n").filter((line) => !was.includes(line));
       expect(added, path).toEqual(
-        path === FACTORY_FILE ? [`      extra: ${extra(NAMES)}`] : [],
+        path === KODOR_FILE ? [`      extra: ${extra(NAMES)}`] : [],
       );
       expect(text.split("\n").filter((line) => !added.includes(line))).toEqual(
         was,
@@ -1248,9 +1246,9 @@ describe("factory sync: the ticket system in the workflow files", () => {
     put(root, ".npmrc", "//npm.example/:_authToken=${FAKE_TICKETS_TOKEN}\n");
     const written = await workflows(withCredential);
 
-    expect(
-      factoryFile(written.get(FACTORY_FILE)).jobs.factory.secrets.extra,
-    ).toBe(extra(["FAKE_TICKETS_TOKEN", "FAKE_TICKETS_EMAIL"]));
+    expect(factoryFile(written.get(KODOR_FILE)).jobs.kodor.secrets.extra).toBe(
+      extra(["FAKE_TICKETS_TOKEN", "FAKE_TICKETS_EMAIL"]),
+    );
   });
 
   const settingsJson = async (systems?: typeof withCredential) =>
@@ -1312,9 +1310,9 @@ describe("the approval policies part", () => {
   });
 });
 
-describe("factory sync --check: the repository line", () => {
+describe("kodor sync --check: the repository line", () => {
   const STALE =
-    "✗ repository: .claude/factory.yaml says o/r, and this pull request is in o/renamed. Change the line and run factory sync.";
+    "✗ repository: .claude/kodor.yaml says o/r, and this pull request is in o/renamed. Change the line and run kodor sync.";
 
   it("fails on a pull request in a repository of another name, before anything else is asked", async () => {
     const r = await sync(["--check"], settings(FULL), null, {

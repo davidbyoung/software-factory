@@ -1,5 +1,5 @@
 // `init`'s column step: the coding agent suggests which of a board's
-// columns shows each of the factory's six states, and you accept, change,
+// columns shows each of kodor's six states, and you accept, change,
 // or refuse the suggestion. It names no agent and no ticket system: the
 // agent is the registry's, by its label, and the board's columns are given.
 import type { Agent } from "./agent/types.mts";
@@ -15,7 +15,7 @@ import {
 import * as say from "./lib/output.mts";
 
 /** A state's column: one of the board's, by the board's spelling; the
- * factory's own name, which init adds; or none. */
+ * kodor's own name, which init adds; or none. */
 export type Choice = { column: string } | "add" | "none";
 export type Mapping = Record<StateKey, Choice>;
 
@@ -150,7 +150,7 @@ function shown(key: StateKey, mapping: Mapping): string {
   return `none, shows in ${columnFor(STATE_KEYS[key], toColumns(mapping))}`;
 }
 
-/** The table of each state's column, as `factory board check` words it. */
+/** The table of each state's column, as `kodor board check` words it. */
 export function table(mapping: Mapping): say.Line[] {
   return [
     say.heads(
@@ -173,9 +173,9 @@ export function written(mapping: Mapping): [StateKey, string][] {
   });
 }
 
-/** Every state written with the factory's own name: a board init creates,
+/** Every state written with kodor's own name: a board init creates,
  * one with no columns, and the answer No. */
-export const FACTORY_LINES: [StateKey, string][] = KEYS.map((k) => [
+export const KODOR_LINES: [StateKey, string][] = KEYS.map((k) => [
   k,
   STATE_KEYS[k],
 ]);
@@ -188,8 +188,7 @@ export type SuggestDeps = {
   label: string;
 };
 
-const AGAIN_OR_WRITE =
-  "write tickets.columns in .claude/factory.yaml yourself.";
+const AGAIN_OR_WRITE = "write tickets.columns in .claude/kodor.yaml yourself.";
 
 /** The board's columns, as init's first line about them says. */
 export const boardLine = (board: number, columns: readonly string[]) =>
@@ -374,7 +373,7 @@ export async function suggestColumns(
   d.out(say.text(boardLine(o.board, o.columns)));
   d.out(
     say.note(
-      `Asking ${d.label} which of them shows each of the factory's six states...`,
+      `Asking ${d.label} which of them shows each of kodor's six states...`,
     ),
   );
   const got = await d.agent.answer({
@@ -401,7 +400,7 @@ export async function suggestColumns(
       d.out(say.text("Choose the column for each state yourself."));
       return chooseColumns(d, o);
     }
-    d.out(say.text(`Run factory init again, or ${AGAIN_OR_WRITE}`));
+    d.out(say.text(`Run kodor init again, or ${AGAIN_OR_WRITE}`));
     d.out(say.text("Nothing changed."));
     return 1;
   }
@@ -415,12 +414,12 @@ export async function suggestColumns(
       [
         { name: "Yes", value: "yes" },
         { name: "Change some", value: "change" },
-        { name: "No: add the factory's columns instead", value: "no" },
+        { name: "No: add kodor's columns instead", value: "no" },
       ],
       "yes",
     );
     if (use === "yes") return written(mapping);
-    if (use === "no") return FACTORY_LINES;
+    if (use === "no") return KODOR_LINES;
     mapping = await changeSome(d, mapping, o.columns, o.fromBoard);
   }
 }
@@ -457,7 +456,7 @@ export async function askReady(
   }
 }
 
-/** A board with a column of each of the factory's names: init says so,
+/** A board with a column of each of kodor's names: init says so,
  * shows them as the board spells them, and writes them. */
 export function everyColumn(
   d: Pick<SuggestDeps, "out">,
@@ -468,9 +467,7 @@ export function everyColumn(
   ) as Mapping;
   d.out(say.BLANK);
   d.out(
-    say.text(
-      `Board ${o.board} has a column for each of the factory's six states:`,
-    ),
+    say.text(`Board ${o.board} has a column for each of kodor's six states:`),
   );
   d.out(say.BLANK);
   for (const line of table(mapping)) d.out(line);
@@ -479,7 +476,7 @@ export function everyColumn(
 
 /** A re-run's column step for a block that leaves states out. Each state
  * left out takes the board's column of its factory name, when the board
- * has one no written state names, since that is the column the factory
+ * has one no written state names, since that is the column kodor
  * read for it; any other is asked for. The lines to write for the states
  * left out. */
 export async function fillColumns(
@@ -525,9 +522,7 @@ export async function fillColumns(
     d.out(
       say.text(`Your settings give no column to ${listed(missing, "or")}.`),
     );
-    d.out(
-      say.text(`Board ${o.board} has a column of the factory's name for each:`),
-    );
+    d.out(say.text(`Board ${o.board} has a column of kodor's name for each:`));
     d.out(say.BLANK);
     for (const line of table(mapping)) d.out(line);
     return lines(mapping);

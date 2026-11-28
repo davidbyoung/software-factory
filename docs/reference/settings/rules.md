@@ -1,7 +1,7 @@
 # `rules`
 
-Two numbers the factory's rules use, for a repository that wants
-different ones. Run `factory sync` after changing one, since it writes the
+Two numbers kodor's rules use, for a repository that wants
+different ones. Run `kodor sync` after changing one, since it writes the
 number into the rules and skills that use it.
 
 ```yaml
@@ -17,4 +17,4 @@ rules:
 
 Each must be a whole number above zero. Any rule that isn't a number, you
 change by saying so in your own instructions for the coding agent, such as
-`CLAUDE.md`, which win over the factory's rules.
+`CLAUDE.md`, which win over kodor's rules.

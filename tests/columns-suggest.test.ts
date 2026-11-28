@@ -176,7 +176,7 @@ describe("the table", () => {
 });
 
 describe("what Yes writes", () => {
-  it("writes every state, a column init adds by the factory's name", () => {
+  it("writes every state, a column init adds by kodor's name", () => {
     const m = check(SHOP, BOARD, false, 3) as { mapping: Mapping };
     expect(written(m.mapping)).toEqual([
       ["backlog", "Todo"],
@@ -299,7 +299,7 @@ describe("choosing each state's column by hand", () => {
     ]);
   });
 
-  it("offers the board's columns, the factory's own column where the board lacks it, and no column where a state may have none", async () => {
+  it("offers the board's columns, kodor's own column where the board lacks it, and no column where a state may have none", async () => {
     const a = asking([...BY_HAND, "yes"]);
     await chooseColumns(a.d, { columns: BOARD, fromBoard: true });
     const [backlog, refining, ready, building, , done] = a.selects;
@@ -391,11 +391,11 @@ describe("a suggestion that cannot be used", () => {
       );
       expect(got).toBe(1);
       expect(a.looks).toContain(
-        "{skip:Asking Claude Code which of them shows each of the factory's six states...}",
+        "{skip:Asking Claude Code which of them shows each of kodor's six states...}",
       );
       expect(a.out.slice(-3)).toEqual([
         `Claude Code's answer could not be used: ${reason}.`,
-        "Run factory init again, or write tickets.columns in .claude/factory.yaml yourself.",
+        "Run kodor init again, or write tickets.columns in .claude/kodor.yaml yourself.",
         "Nothing changed.",
       ]);
     },
@@ -420,12 +420,12 @@ describe("a suggestion that cannot be used", () => {
       expect(a.out.slice(0, 4)).toEqual([
         "",
         "Board 3 has the columns Todo, In Progress, Code review, and Done.",
-        "Asking Claude Code which of them shows each of the factory's six states...",
+        "Asking Claude Code which of them shows each of kodor's six states...",
         `Claude Code's answer could not be used: ${reason}.`,
       ]);
       expect(a.out[4]).toBe("Choose the column for each state yourself.");
       expect(a.out.join("\n")).not.toMatch(
-        /factory init|factory\.yaml|Nothing changed/,
+        /kodor init|kodor\.yaml|Nothing changed/,
       );
       expect(got).toEqual([
         ["backlog", "Todo"],

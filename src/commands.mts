@@ -1,19 +1,19 @@
 // The commands that run what the settings name, so a skill says what to
 // run and the repository's settings say how:
 //
-//   factory gate [--dry-run | --all]      # commands.gate, in order
-//   factory test-one FILE [NAME]          # commands.test-one, one test alone
-//   factory end-to-end FILE [--times K]   # commands.end-to-end, K times in a row
-//   factory coverage [--dry-run]          # commands.coverage, then the lines no test covers
-//   factory relock [--dry-run | --all]    # commands.relock
-//   factory build-setup [--dry-run]       # commands.build-setup
-//   factory specs check                   # specs.check
+//   kodor gate [--dry-run | --all]      # commands.gate, in order
+//   kodor test-one FILE [NAME]          # commands.test-one, one test alone
+//   kodor end-to-end FILE [--times K]   # commands.end-to-end, K times in a row
+//   kodor coverage [--dry-run]          # commands.coverage, then the lines no test covers
+//   kodor relock [--dry-run | --all]    # commands.relock
+//   kodor build-setup [--dry-run]       # commands.build-setup
+//   kodor specs check                   # specs.check
 //
 // and the commands that reach the spec tool `specs` names:
 //
-//   factory specs list                    # each spec it keeps
-//   factory specs new N                   # start ticket N's spec
-//   factory specs finish N                # fold ticket N's spec in
+//   kodor specs list                    # each spec it keeps
+//   kodor specs new N                   # start ticket N's spec
+//   kodor specs finish N                # fold ticket N's spec in
 //
 // Each command runs with bash, text from the repository's root and an item
 // in each of its folders, with its output passed through and no standard
@@ -76,16 +76,16 @@ export type Deps = {
 };
 
 const USAGE = {
-  gate: "Usage: factory gate [--dry-run | --all]",
-  "test-one": "Usage: factory test-one FILE [NAME]",
-  "end-to-end": "Usage: factory end-to-end FILE [--times K]",
-  coverage: "Usage: factory coverage [--dry-run]",
-  relock: "Usage: factory relock [--dry-run | --all]",
-  "build-setup": "Usage: factory build-setup [--dry-run]",
-  "specs-check": "Usage: factory specs check",
-  "specs-list": "Usage: factory specs list",
-  "specs-new": "Usage: factory specs new N",
-  "specs-finish": "Usage: factory specs finish N",
+  gate: "Usage: kodor gate [--dry-run | --all]",
+  "test-one": "Usage: kodor test-one FILE [NAME]",
+  "end-to-end": "Usage: kodor end-to-end FILE [--times K]",
+  coverage: "Usage: kodor coverage [--dry-run]",
+  relock: "Usage: kodor relock [--dry-run | --all]",
+  "build-setup": "Usage: kodor build-setup [--dry-run]",
+  "specs-check": "Usage: kodor specs check",
+  "specs-list": "Usage: kodor specs list",
+  "specs-new": "Usage: kodor specs new N",
+  "specs-finish": "Usage: kodor specs finish N",
 } as const;
 
 type Name = keyof typeof USAGE;
@@ -98,7 +98,7 @@ const FLAGS: Partial<Record<Name, string[]>> = {
   "build-setup": ["--dry-run"],
 };
 
-/** What `factory end-to-end` was asked: the file, and how many runs when
+/** What `kodor end-to-end` was asked: the file, and how many runs when
  * `--times` is given; null when the arguments are not ones it knows. */
 function endToEndArgs(
   args: string[],
@@ -207,7 +207,7 @@ function printPlan(
       d.out(
         say.text(
           `  and ${e.files.length - shown.length} more: `,
-          say.copy(`factory ${w.command} --dry-run`),
+          say.copy(`kodor ${w.command} --dry-run`),
           " lists each",
         ),
       );
@@ -258,7 +258,7 @@ function printPlan(
             ? `${left} left out, since commands.ignore lists every changed file`
             : [
                 `${left} left out, since this change touches none of their files: `,
-                say.copy(`factory ${w.command} --dry-run`),
+                say.copy(`kodor ${w.command} --dry-run`),
                 " lists each",
               ],
         ),
@@ -306,7 +306,7 @@ function failure(d: Deps, failed: Run[], ran: Run[], w: PlanWords) {
   }
 }
 
-/** `factory gate`, `relock`, and `build-setup`: plan, print, run, close. */
+/** `kodor gate`, `relock`, and `build-setup`: plan, print, run, close. */
 async function plannedRun(
   d: Deps,
   s: Settings,
@@ -387,7 +387,7 @@ async function plannedRun(
   return 0;
 }
 
-/** `factory coverage`: runs the coverage commands a change sets off, then
+/** `kodor coverage`: runs the coverage commands a change sets off, then
  * prints the lines the branch changed that no test covers. */
 async function coverage(
   d: Deps,
@@ -711,7 +711,7 @@ export async function main(argv: string[], d: Deps): Promise<number> {
         return 0;
       }
       return failed(
-        `Ticket ${id} has no spec started: run factory specs new ${id} first.`,
+        `Ticket ${id} has no spec started: run kodor specs new ${id} first.`,
       );
     }
     if (tool.finish(d.root, id) !== 0)
@@ -730,7 +730,7 @@ export async function main(argv: string[], d: Deps): Promise<number> {
   }
   if (!tool.runs(d.root))
     return failed(
-      `${tool.name} is not installed: run factory init, which installs it.`,
+      `${tool.name} is not installed: run kodor init, which installs it.`,
     );
   const folder = tool.folder(id);
   if (tool.started(d.root, id))
@@ -758,8 +758,8 @@ export async function main(argv: string[], d: Deps): Promise<number> {
 export const NO_SPEC_TOOL =
   "No spec tool (specs: none): each ticket holds its own spec.";
 
-/** `factory gate`, `factory test-one`, `factory end-to-end`,
- * and `factory specs check`, `list`, `new`, and `finish`, as `specs-check`
+/** `kodor gate`, `kodor test-one`, `kodor end-to-end`,
+ * and `kodor specs check`, `list`, `new`, and `finish`, as `specs-check`
  * and the rest. */
 export async function run(argv: string[]): Promise<number> {
   const root = repoRoot();

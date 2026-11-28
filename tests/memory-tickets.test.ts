@@ -1,4 +1,4 @@
-// The strict in-memory adapter holds the factory to what Jira and Linear
+// The strict in-memory adapter holds kodor to what Jira and Linear
 // allow, so a command that passes on it does not lean on GitHub's model.
 import { describe, expect, it } from "vitest";
 import { memoryTickets } from "./memory-tickets";
@@ -50,12 +50,12 @@ describe("the strict in-memory adapter", () => {
   it("refuses a label until it is created", async () => {
     const m = memoryTickets([{ key: "PROJ-1" }], { strict: true });
 
-    await expect(m.tickets.addLabel("PROJ-1", "factory")).rejects.toThrow(
+    await expect(m.tickets.addLabel("PROJ-1", "kodor")).rejects.toThrow(
       "create it first",
     );
-    await m.tickets.ensureLabel("factory");
-    await m.tickets.addLabel("PROJ-1", "factory");
-    expect(m.state.get("PROJ-1")!.labels).toEqual(["factory"]);
+    await m.tickets.ensureLabel("kodor");
+    await m.tickets.addLabel("PROJ-1", "kodor");
+    expect(m.state.get("PROJ-1")!.labels).toEqual(["kodor"]);
   });
 
   it("has statuses, and never finishes a ticket on its own", async () => {

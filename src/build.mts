@@ -1,7 +1,7 @@
 // Starts a build of a ticket on the runner, on the default branch, and
 // prints the run's link.
 //
-//   factory build N
+//   kodor build N
 //
 // The runner may answer the start with no run, so the command looks for it.
 // When none appears within 15 seconds it prints the link to the page that
@@ -14,7 +14,7 @@ import { keyOf, refOf } from "./tickets/index.mts";
 import type { Key } from "./tickets/types.mts";
 import * as say from "./lib/output.mts";
 
-const USAGE = "Usage: factory build N";
+const USAGE = "Usage: kodor build N";
 /** How long to look for the run, and how often. */
 const FIND_FOR_MS = 15_000;
 const EVERY_MS = 3_000;
@@ -67,7 +67,7 @@ export async function main(argv: string[], d: Deps): Promise<number> {
   }
 }
 
-/** `factory build N`. */
+/** `kodor build N`. */
 export async function run(argv: string[]): Promise<number> {
   return main(argv, {
     settings: () => loadSettings(),

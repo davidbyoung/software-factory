@@ -153,7 +153,7 @@ export function runAgent(
       failed: `.claude/agents/${name}.md can't be read`,
     });
   }
-  const dir = mkdtempSync(join(tmpdir(), "factory-approval-agent-"));
+  const dir = mkdtempSync(join(tmpdir(), "kodor-approval-agent-"));
   const settingsFile = join(dir, "settings.json");
   writeFileSync(settingsFile, JSON.stringify(AGENT_SETTINGS));
   const spawn = o.spawn ?? (nodeSpawn as unknown as Spawn);

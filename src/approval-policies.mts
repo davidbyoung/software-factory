@@ -1,7 +1,7 @@
 // Approval policies: which of them a change sets off, what each check is
 // handed and how it runs, what it answered, and what the "Approval
 // policies" status says of all of them. Nothing here reads GitHub: the
-// job and `factory approval-policies check` hand it the change.
+// job and `kodor approval-policies check` hand it the change.
 import { spawn } from "node:child_process";
 import type { ApprovalPolicy, Command } from "./config.mts";
 import { matchesAny } from "./lib/glob.mts";
@@ -11,7 +11,7 @@ import type { ChangedFile } from "./merge-policy.mts";
 /** The status's name on a pull request. */
 export const CONTEXT = "Approval policies";
 
-/** How `policy-override` looks where the factory makes it. */
+/** How `policy-override` looks where kodor makes it. */
 export const LABEL_LOOK = {
   color: "b60205",
   description:

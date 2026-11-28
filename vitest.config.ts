@@ -3,7 +3,7 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     // A session in the cloud runs these with its own set.
-    env: { FACTORY_HANDOFF: "" },
+    env: { KODOR_HANDOFF: "" },
     include: ["tests/**/*.test.ts"],
     environment: "node",
     unstubGlobals: true,

@@ -12,7 +12,7 @@ export const LOCK =
   "version: 0.6.0\nsettings:\n  tickets:\n    fields:\n      repositories: none\n";
 export const OLD_LOCK =
   "version: 0.5.0\nsettings:\n  tickets:\n    fields:\n      spec: none\n";
-export const LOCK_FILE = ".claude/factory.lock";
+export const LOCK_FILE = ".claude/kodor.lock";
 
 export type Place = Omit<MemoryCodeHostOptions, "contents"> & {
   pulls?: PullSeed[];

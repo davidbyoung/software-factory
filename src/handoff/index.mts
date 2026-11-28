@@ -1,12 +1,12 @@
 // A session in the cloud works from files: what it may read was read ahead
-// for it, and what it would write is asked for. `FACTORY_HANDOFF` names the
-// folder, and every `factory` command looks for it, so a skill runs the same
+// for it, and what it would write is asked for. `KODOR_HANDOFF` names the
+// folder, and every `kodor` command looks for it, so a skill runs the same
 // commands in the cloud as on a person's machine.
 //
-//   FACTORY_HANDOFF/in/run.json       the run, as `RunFile` says
-//   FACTORY_HANDOFF/in/snapshot.json  each read made ahead, as `Call`s
-//   FACTORY_HANDOFF/out/request.json  each write asked for, as `Asked`s
-//   FACTORY_HANDOFF/out/build.bundle  the commits, from `factory pr push`
+//   KODOR_HANDOFF/in/run.json       the run, as `RunFile` says
+//   KODOR_HANDOFF/in/snapshot.json  each read made ahead, as `Call`s
+//   KODOR_HANDOFF/out/request.json  each write asked for, as `Asked`s
+//   KODOR_HANDOFF/out/build.bundle  the commits, from `kodor pr push`
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { refuseBareTags } from "../guard-ticket-text.mts";
@@ -20,7 +20,7 @@ import {
   type Kind,
 } from "./requests.mts";
 
-export const HANDOFF = "FACTORY_HANDOFF";
+export const HANDOFF = "KODOR_HANDOFF";
 
 export type RunFile = {
   version: 1;
@@ -167,7 +167,7 @@ function textRefused(
     name === "pr open" || follows
       ? fault(wordsOf(may).join("\n\n"))
       : undefined;
-  return found ? `factory ${name}: it ${found}` : null;
+  return found ? `kodor ${name}: it ${found}` : null;
 }
 
 /** What a session's command does in place of reaching anything: the exit
@@ -197,7 +197,7 @@ export function intercept(
   if (!isWrite(argv)) return null;
   // Publish does these itself, whatever the session asks.
   if (command === "cost" || (group === "pr" && command === "ready")) {
-    out(`Asked: factory ${argv.slice(0, 2).join(" ")}`);
+    out(`Asked: kodor ${argv.slice(0, 2).join(" ")}`);
     return 0;
   }
   const asked = ask(argv, readFile);
@@ -211,6 +211,6 @@ export function intercept(
     return 1;
   }
   h.add(asked);
-  out(`Asked: factory ${argv.slice(0, 3).join(" ")}`);
+  out(`Asked: kodor ${argv.slice(0, 3).join(" ")}`);
   return 0;
 }

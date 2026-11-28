@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-// `factory site compare` and `factory site stop`: pictures of a website's
+// `kodor site compare` and `kodor site stop`: pictures of a website's
 // pages before and after a change, and which pixels differ.
 //
-//   factory site compare [--before URL --after URL] [--base REF] [--keep]
-//   factory site stop
+//   kodor site compare [--before URL --after URL] [--base REF] [--keep]
+//   kodor site stop
 //
 // With no addresses it starts the working tree and a worktree of the base with
 // `site.start` and stops both when it ends. It exits 0 whether or not anything
@@ -399,7 +399,7 @@ export function sitesToCompare(o: {
     const run = every.find((r) => r.folder === named.replace(/\/+$/, ""));
     if (!run)
       throw new SiteError(
-        `--site ${named}: no site is in that folder. factory config get site lists them`,
+        `--site ${named}: no site is in that folder. kodor config get site lists them`,
       );
     return [{ site: asCommand.get(run.command)!, folder: run.folder }];
   }
@@ -484,7 +484,7 @@ async function compare(argv: string[], out: say.Out): Promise<number> {
   const root = repoRoot();
   const settings = await loadSettings();
   if (settings.sites.length === 0)
-    throw new SiteError(".claude/factory.yaml: site: not written");
+    throw new SiteError(".claude/kodor.yaml: site: not written");
   const keepRunning = argv.includes("--keep");
   const given = givenUrls(argv);
   const git = gitIn(root);
@@ -516,7 +516,7 @@ async function compare(argv: string[], out: say.Out): Promise<number> {
   let started: { after: number; before: number | null } | null = null;
   let browser: PwBrowser | null = null;
   // What `--keep` leaves is only what a finished comparison recorded for
-  // `factory site stop`; a failed one stops what it started.
+  // `kodor site stop`; a failed one stops what it started.
   let kept = false;
   const cleanup = () => {
     if (kept) return;
@@ -531,7 +531,7 @@ async function compare(argv: string[], out: say.Out): Promise<number> {
     });
   const stamp = join(
     root,
-    "node_modules/.cache/factory/site",
+    "node_modules/.cache/kodor/site",
     new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19),
   );
   try {
@@ -626,7 +626,7 @@ async function compare(argv: string[], out: say.Out): Promise<number> {
         });
         out(
           say.text(
-            `Left running: ${after} (this branch) and ${before} (base). \`factory site stop\` ends them.`,
+            `Left running: ${after} (this branch) and ${before} (base). \`kodor site stop\` ends them.`,
           ),
         );
       }
@@ -642,7 +642,7 @@ async function compare(argv: string[], out: say.Out): Promise<number> {
   }
 }
 
-/** What `factory site stop` says: a kept comparison is always two sites,
+/** What `kodor site stop` says: a kept comparison is always two sites,
  * this branch's and the base's. */
 export function stopMessage(stopped: boolean): string {
   return stopped
@@ -659,7 +659,7 @@ export async function run(argv: string[]): Promise<number> {
       out(say.text(stopMessage(stopKept(repoRoot()))));
       return 0;
     }
-    err(say.text("Usage: factory site compare | site stop"));
+    err(say.text("Usage: kodor site compare | site stop"));
     return 2;
   } catch (e) {
     // Anything that stopped the comparison is a job not done, not a finding.
