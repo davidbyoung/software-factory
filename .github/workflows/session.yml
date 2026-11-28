@@ -14,7 +14,7 @@
 # and the variable LUNAMILL_APP_CLIENT_ID both reach the run, and otherwise
 # the build token. The workflow's own token is never used to push or to open
 # a pull request, since GitHub starts no CI for what that token does.
-name: Factory session
+name: lunamill session
 
 on:
   workflow_call:

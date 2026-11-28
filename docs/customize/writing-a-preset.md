@@ -19,7 +19,7 @@ repository holds your preset, and others follow it.
    two unchanged:
 
    ```yaml
-   version: 2 # the settings version, as in .claude/lunamill.yaml
+   version: 1 # the settings version, as in .claude/lunamill.yaml
    tickets:
      type: github
      board: 7

@@ -8,7 +8,7 @@
 # every repository the App is installed on: the workflow's own token
 # reaches only the repository it runs in. The key arrives by name, since a
 # workflow in another owner's repository cannot inherit it.
-name: Factory poller run
+name: lunamill poller run
 
 on:
   workflow_call:

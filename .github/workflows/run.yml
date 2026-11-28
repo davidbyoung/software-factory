@@ -27,7 +27,7 @@
 # the build, board, and auto-merge tokens. The verdict never does: it is
 # posted with the workflow's own token, which the rule that requires it
 # names.
-name: Factory run
+name: lunamill run
 
 on:
   workflow_call:

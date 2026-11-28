@@ -1,6 +1,6 @@
 # The jobs of run.yml's "Default branch" group: what runs on a push to the
 # default branch, on a schedule, or by hand, and never for one pull request.
-name: Factory default branch
+name: lunamill default branch
 
 on:
   workflow_call:
@@ -271,7 +271,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     concurrency:
-      group: lunamill-deps
+      group: factory-deps
       cancel-in-progress: false
     steps: *each
 

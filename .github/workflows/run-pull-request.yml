@@ -1,7 +1,7 @@
 # The jobs of run.yml's "Pull request" group: what judges a pull request's
 # commit. run.yml calls this file only on the events one of them starts on,
 # so on any other a pull request's checks list it as one skipped row.
-name: Factory pull request
+name: lunamill pull request
 
 on:
   workflow_call:

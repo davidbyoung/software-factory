@@ -1,7 +1,7 @@
 # The jobs of run.yml's "Tickets" group: what tells the other
 # repositories, opens the ticked tickets, and syncs the board. run.yml
 # calls this file only on the events one of them starts on.
-name: Factory tickets
+name: lunamill tickets
 
 on:
   workflow_call:

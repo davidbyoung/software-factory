@@ -7,7 +7,7 @@
 # It also checks that lunamill.yml is enabled: GitHub switches a workflow with
 # a schedule off in a public repository that goes quiet, and this one's
 # caller has none.
-name: Factory review run
+name: lunamill review run
 
 on:
   workflow_call:

@@ -1643,7 +1643,7 @@ describe("the five jobs that run a session", () => {
       "cancel-in-progress": false,
     });
     expect(jobs.dependencies!.concurrency).toEqual({
-      group: "lunamill-deps",
+      group: "factory-deps",
       "cancel-in-progress": false,
     });
   });

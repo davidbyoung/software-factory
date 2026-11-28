@@ -1037,6 +1037,25 @@ describe("the docs, for settings version 2", () => {
       expect(parseSettings(load(file), () => true).version).toBe(1);
   });
 
+  it("say version 1 in every settings example, but the upgrade notes below Moving to lunamill", () => {
+    const notes = "docs/maintain/upgrade-notes.md";
+    const versions = pages().flatMap((page) => {
+      const text =
+        page === notes
+          ? read(page).split(/^## (?!Moving to lunamill)/m)[0]
+          : read(page);
+      return [...text.matchAll(/^\s*```ya?ml\n([\s\S]*?)^\s*```/gm)].flatMap(
+        (block) =>
+          [...block[1].matchAll(/^\s*version:\s*(\S+)/gm)].map(
+            (v) => `${page}: ${v[1]}`,
+          ),
+      );
+    });
+
+    expect(versions.length).toBeGreaterThanOrEqual(5);
+    expect(versions.filter((v) => !v.endsWith(": 1"))).toEqual([]);
+  });
+
   it.each(ROLES)(
     "give the %s role a table in docs/customize/plugins.md of when it is called, what it is handed, what it returns, and what happens next",
     (role) => {
