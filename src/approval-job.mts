@@ -151,6 +151,9 @@ type Event = {
 const eventOf = (d: Pick<Deps, "env">): Event =>
   JSON.parse(readFileSync(d.env.GITHUB_EVENT_PATH!, "utf8"));
 
+const UNREADABLE =
+  "The change couldn't be read: git can't compare it with where it branched.";
+
 /** `prepare DIR`: takes the label off after a push or a change of base,
  * posts the status of a draft or a change that can't be read, and
  * otherwise writes each check's input and the plan. */
@@ -666,12 +669,7 @@ export async function check(d: CheckDeps, argv: string[]): Promise<number> {
   }
   const files = base ? changedFiles(d.git, base, head) : null;
   if (files === null) {
-    d.err(
-      say.mark(
-        "fail",
-        `The change couldn't be read: git can't compare it with where it branched.`,
-      ),
-    );
+    d.err(say.mark("fail", UNREADABLE));
     return 1;
   }
   const checks = checksOf(policies, files);
@@ -688,6 +686,11 @@ export async function check(d: CheckDeps, argv: string[]): Promise<number> {
   let failed = false;
   for (const c of checks) {
     const name = checkName(c);
+    const diff = diffOf(d.git, base, head, c.files);
+    if (diff === null) {
+      d.err(say.mark("fail", UNREADABLE));
+      return 1;
+    }
     const input: Input = {
       version: 1,
       repository: d.settings.repository,
@@ -695,7 +698,7 @@ export async function check(d: CheckDeps, argv: string[]): Promise<number> {
       base,
       head: head ?? d.git(["rev-parse", "HEAD"]).out.trim(),
       files: c.files,
-      diff: diffOf(d.git, base, head, c.files) ?? "",
+      diff,
       in: c.folder,
       ticket,
     };
