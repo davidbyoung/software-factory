@@ -80,9 +80,10 @@ no UI reviewer: `docs-reader`, the one reviewer plugin, reads the docs.
 
 ## Branching, pushing, and review: this repository
 
-- **The board**, https://github.com/users/davidbyoung/projects/1, is
-  shared with the repository the factory was drawn out of. Each
-  repository's sync and `factory status` read only its own cards.
+- **The board** is https://github.com/orgs/kodor-ai/projects/1, board 1
+  of `kodor-ai`, which owns this repository. The board at
+  https://github.com/users/davidbyoung/projects/1 is the repository the
+  factory was drawn out of, and no longer this one's.
 - **Builds start from a session.** `builds.trigger` is `manual`, so moving a
   card to Ready starts nothing, and no poller runs for this repository.
   Wherever the rules or a skill say a card moved to Ready starts a build,
