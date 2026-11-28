@@ -254,6 +254,119 @@ export function anchorsOf(text: string): Set<string> {
   return anchors;
 }
 
+/** The kind of tool to say in place of each product's name. */
+const KINDS: Record<string, string> = {
+  GitHub:
+    '"the code host", "the ticket system", "the board", or "the cloud runner"',
+  Claude: '"the coding agent"',
+  Anthropic: '"the coding agent"',
+  OpenSpec: '"the spec tool"',
+  Jira: '"the ticket system"',
+  Dependabot: '"a dependency bot"',
+};
+
+/** Pages that may name a product: the tools' own, the README a newcomer
+ * reads for which tools, the contributors' page, and the notes of what a
+ * release did. */
+const NAMES_PRODUCTS = (page: string) =>
+  page.startsWith("docs/integrations/") ||
+  [
+    "README.md",
+    "docs/developing.md",
+    "docs/maintain/upgrade-notes.md",
+  ].includes(page);
+
+/** Each line of `page` whose prose names a product, with the kind to say
+ * instead. Code, bare addresses, and the words of a link to an integration
+ * page are not read, and neither is the table of secrets on the tokens
+ * page. */
+export function productNamesIn(page: string, text: string): string[] {
+  if (NAMES_PRODUCTS(page)) return [];
+  // A link's words, wrapped or not, give way to blank lines of the same
+  // count, so each line keeps its number.
+  const unlinked = text.replace(
+    /\[([^\]]*)\]\(([^)\s]+)\)/g,
+    (link, words: string, target: string) =>
+      posix
+        .normalize(posix.join(posix.dirname(page), target.split("#")[0]!))
+        .startsWith("docs/integrations/")
+        ? "\n".repeat(words.split("\n").length - 1)
+        : link.replace(/\]\([^)]*\)$/, "]"),
+  );
+  const found: string[] = [];
+  let inCode = false;
+  let inSecrets = false;
+  unlinked.split("\n").forEach((line, i) => {
+    if (line.trim().startsWith("```")) {
+      inCode = !inCode;
+      return;
+    }
+    if (inCode) return;
+    if (/^## /.test(line))
+      inSecrets =
+        page === "docs/security/credentials.md" && line === "## Secrets";
+    if (inSecrets) return;
+    const prose = line.replace(/`[^`]*`/g, "").replace(/https?:\/\/\S+/g, "");
+    for (const word of Object.keys(KINDS))
+      if (new RegExp(`\\b${word}\\b`).test(prose))
+        found.push(
+          `${page}:${i + 1}: names ${word}. Say ${KINDS[word]}, or link its page under docs/integrations/.`,
+        );
+  });
+  return found;
+}
+
+/** A feature page's `##` headings, in order. */
+const FEATURE_SHAPE = [
+  "What you get",
+  "What it needs",
+  "Turn it on",
+  "How it works",
+  "Its settings",
+  "When something goes wrong",
+  "On your tools",
+];
+
+/** An integration page's `##` headings, in order. "Limits that come from"
+ * is followed by the tool's name. */
+const INTEGRATION_SHAPE = [
+  "What the factory uses it for",
+  "You need",
+  "Set it up",
+  "What setup adds",
+  "Tokens and secrets",
+  "What the factory can and cannot do there",
+  "Limits that come from",
+  "When something goes wrong",
+  "By hand",
+];
+
+/** What is wrong with the `##` headings of `page`, against `shape`. */
+export function offShape(
+  page: string,
+  text: string,
+  shape: string[],
+  kind: string,
+): string[] {
+  const fenced = fencedLines(text);
+  const headings = text
+    .split(/\r?\n/)
+    .filter((line, i) => !fenced[i] && line.startsWith("## "))
+    .map((line) => line.slice(3));
+  const fits =
+    headings.length === shape.length &&
+    headings.every((h, i) =>
+      shape[i] === "Limits that come from"
+        ? h.startsWith("Limits that come from ")
+        : h === shape[i],
+    );
+  return fits
+    ? []
+    : [
+        `${page}: its ## headings are "${headings.join(", ")}"; ${kind} are "${shape.join(", ")}".`,
+      ];
+}
+
 /** Each relative link in `text`, the text of `page`, that does not resolve:
  * to a file that `exists`, or to a heading among `anchorsFor` a page. */
 export function brokenLinks(
@@ -1027,7 +1140,7 @@ describe("the docs on spec tools", () => {
   it("give every visible change a Spec, a design, and tasks, whatever the tool", () => {
     const workflow = flat(
       "docs/features/specs.md",
-      "## A change your users will see",
+      "### A change your users will see",
     );
     for (const part of ["- **Spec:**", "- **Design:**", "- **Tasks:**"])
       expect(workflow).toContain(part);
@@ -1104,7 +1217,7 @@ describe("the docs on the factory's own approval policy", () => {
   it("name the example of a script and an agent together raw-sql, so copying it can't replace credentials", () => {
     const agent = sectionOf(
       read("docs/features/approval-policies.md"),
-      "## Checking with an agent",
+      "### Checking with an agent",
     );
     expect(agent).toContain("  - name: raw-sql\n");
     expect(agent).not.toContain("name: credentials");
@@ -1141,7 +1254,9 @@ describe("the docs on run.yml's groups", () => {
   const run = workflow("run.yml");
   /** The reference page's table of groups, by its first cell. */
   const table = Object.fromEntries(
-    rows(sectionOf(read("docs/integrations/github-actions.md"), "### The jobs"))
+    rows(
+      sectionOf(read("docs/integrations/github-actions.md"), "#### The jobs"),
+    )
       .filter(([group]) => group === "None" || group?.startsWith("`"))
       .map(([group, jobs]) => [group!.replaceAll("`", ""), flat(jobs!)]),
   );
@@ -1198,5 +1313,96 @@ describe("the upgrade notes", () => {
       "Naming every column",
       "Moving to settings version 2",
     ]);
+  });
+});
+
+describe("productNamesIn", () => {
+  const page = "docs/features/board.md";
+
+  it("finds a product named in prose, with the kind to say instead", () => {
+    expect(productNamesIn(page, "Sessions run in Claude Code.")).toEqual([
+      'docs/features/board.md:1: names Claude. Say "the coding agent", or link its page under docs/integrations/.',
+    ]);
+  });
+
+  it("reads a heading", () => {
+    expect(
+      productNamesIn(page, "## When the GitHub token expires"),
+    ).toHaveLength(1);
+  });
+
+  it("matches the name as it is written, so CLAUDE.md is not Claude", () => {
+    expect(
+      productNamesIn(page, "One line in CLAUDE.md imports the rules."),
+    ).toEqual([]);
+  });
+
+  it("leaves code alone, in a block or in backticks", () => {
+    const text = "Run `gh auth status`.\n\n```text\nSigned in to GitHub\n```\n";
+    expect(productNamesIn(page, text)).toEqual([]);
+  });
+
+  it("leaves a bare address alone", () => {
+    expect(
+      productNamesIn(page, "See https://example.com/guides/GitHub-Actions."),
+    ).toEqual([]);
+  });
+
+  it("leaves the words of a link to an integration page, wrapped or not, and keeps line numbers", () => {
+    const text = [
+      "- [GitHub Projects](../integrations/github-projects.md)",
+      "- [the GitHub",
+      "  page](../integrations/github.md)",
+      "Then GitHub.",
+    ].join("\n");
+    expect(productNamesIn(page, text)).toEqual([
+      expect.stringMatching(/^docs\/features\/board\.md:4: names GitHub/),
+    ]);
+  });
+
+  it("reads the words of any other link", () => {
+    expect(
+      productNamesIn(page, "[GitHub's docs](https://docs.github.com/x)"),
+    ).toHaveLength(1);
+  });
+
+  it("skips the pages that name products, and the table of secrets", () => {
+    expect(productNamesIn("docs/integrations/github.md", "GitHub")).toEqual([]);
+    expect(productNamesIn("README.md", "GitHub")).toEqual([]);
+    expect(
+      productNamesIn(
+        "docs/security/credentials.md",
+        "## Secrets\n\nThe GitHub tokens.\n\n## The file\n\nGitHub.",
+      ),
+    ).toEqual([expect.stringMatching(/credentials\.md:7: names GitHub/)]);
+  });
+});
+
+describe("the docs, naming tools and on their shapes", () => {
+  it("name the kind of tool outside Integrations", () => {
+    expect(pages().flatMap((page) => productNamesIn(page, read(page)))).toEqual(
+      [],
+    );
+  });
+
+  it("put each feature page on its shape", () => {
+    const found = pages()
+      .filter((p) => p.startsWith("docs/features/") && !p.endsWith("README.md"))
+      .flatMap((p) => offShape(p, read(p), FEATURE_SHAPE, "a feature page's"));
+    expect(found).toEqual([]);
+  });
+
+  it("put each integration page on its shape", () => {
+    const found = pages()
+      .filter(
+        (p) =>
+          p.startsWith("docs/integrations/") &&
+          !p.endsWith("README.md") &&
+          !p.endsWith("jira.md"),
+      )
+      .flatMap((p) =>
+        offShape(p, read(p), INTEGRATION_SHAPE, "an integration page's"),
+      );
+    expect(found).toEqual([]);
   });
 });

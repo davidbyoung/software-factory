@@ -9,11 +9,41 @@ This page is for someone deciding whether to build in the cloud, or who
 wants to know what happens when they do. At the end you know what each run
 does, what it costs, and which way of starting one fits you.
 
-On GitHub, the cloud runner is GitHub Actions.
-[Set up a repository](../setup/repository.md) has the steps,
-and the [reference](../integrations/github-actions.md#workflows) has what runs there.
+[Set up a repository](../setup/repository.md) has the steps, and
+[GitHub Actions](../integrations/github-actions.md#workflows) has what runs
+there.
 
-## Three ways a build starts
+## What you get
+
+A pull request marked ready, and a report on the ticket, from a build
+nobody had to watch.
+
+## What it needs
+
+Two credentials, stored as secrets on the code host:
+your coding agent's credential, which pays for the session, and an access token for the
+code host, which the build acts as. On your own account,
+[`factory init`](../setup/repository.md#run-factory-init) asks for each and
+stores it. In an organization, an owner stores the agent's credential once,
+with the key of the organization's own app on the code host, and the
+jobs that need an access token make one from that key, so `factory init`
+asks a developer for no token. The session itself is given no access
+token ([Tokens and secrets](../security/credentials.md#who-handles-a-token)).
+
+## Turn it on
+
+Run `factory init` and check "Builds in the cloud". It asks for the two
+credentials [What it needs](#what-it-needs) names and stores them as
+secrets, and in an organization it uses the ones the owner stored. So
+"builds in the cloud set up", in the table below, means both secrets are
+stored where the cloud runner reads them. Nothing in
+`.claude/factory.yaml` turns it on.
+
+**It worked when** `factory doctor` shows ✓ on each secret's line that
+ends "for builds in the cloud", and doesn't list "Builds in the cloud" as
+off. Then `factory build 12` prints the address of the run it started.
+
+### Three ways a build starts
 
 | What you do                          | Where the build runs                    | What you need                                                                             |
 | ------------------------------------ | --------------------------------------- | ----------------------------------------------------------------------------------------- |
@@ -34,7 +64,9 @@ Which of the last two you use is
 `manual` is a fine place to stay. Running `/factory-build N` in a session
 and running `factory build N` work whatever the trigger.
 
-## What a build in the cloud does
+## How it works
+
+### What a build in the cloud does
 
 ```text
 $ factory build 12
@@ -57,16 +89,6 @@ comes after, the review and the answers to it, are runs of their own
 [`session-minutes`](../reference/settings/session-minutes.md#session-minutes) changes. A build that
 ends without opening a pull request releases its claim in its last job,
 so a failed run does not hold its ticket.
-
-**What it needs.** Two credentials, stored as secrets on the code host:
-your coding agent's credential, which pays for the session, and an access token for the
-code host, which the build acts as. On your own account,
-[`factory init`](../setup/repository.md#run-factory-init) asks for each and
-stores it. In an organization, an owner stores the agent's credential once,
-with the key of the organization's own app on the code host, and the
-jobs that need an access token make one from that key, so `factory init`
-asks a developer for no token. The session itself is given no access
-token ([Tokens and secrets](../security/credentials.md#on-github)).
 
 **Who it acts as.** On your own account, the build acts as whoever owns
 that access token. Its commits name your coding agent as their author
@@ -101,27 +123,7 @@ it has no Spec or Acceptance criteria section, so there is nothing to build yet:
 its own repository, one at a time. The run that opens a pull request starts
 the next: [Build it in the cloud](../workflow/across-repositories.md#build-it-in-the-cloud).
 
-## A change to a workflow file
-
-A session can't change a file under `.github/workflows/`: what is in one
-runs with your repository's secrets. Publish pushes nothing then, whatever
-else the session did, and comments on the ticket, or on the pull request
-for any run but a build:
-
-```text
-Not pushed: commit 3c9f730 changes .github/workflows/ci.yml, which a build in the cloud can't push.
-Build this ticket on your computer: tell a session to work it. The commits are in the run: https://your-code-host/your-name/your-repo/runs/123456789
-```
-
-On your computer that is `/factory-build 12` in a session. The run's page
-keeps the commits for seven days, as the artifact whose
-name starts with `out-`. Publish also refuses commits that add a symbolic
-link or a submodule, merge anything but your default branch, are in another
-person's name, or whose message closes another ticket, and a build that asks
-for no pull request. Nothing else the session
-asked for is done then but a stop.
-
-## What a session can use
+### What a session can use
 
 - **Hosts.** Its commands reach the npm registry and the hosts you list
   under [`builds.hosts`](../reference/settings/builds.md#builds). Your code host is never
@@ -161,14 +163,16 @@ asked for is done then but a stop.
   works on itself, when a command needs them, so your registry has to be
   reachable from the sandbox.
 
-## What a run costs
+### What a run costs
 
 - **Your coding agent's use,** which the run's log ends with: its turns,
   its minutes, and its price at list prices. Publish notes it on the pull
   request, or on the ticket when there is none, and the board adds it to the
   ticket's Cost.
-- **The cloud runner's minutes,** on a plan that bills them. GitHub rounds
-  each job up to a whole minute, so a run is at least three. Publish's
+- **The cloud runner's minutes,** on a plan that bills them. A run is
+  three jobs, and
+  [GitHub Actions](../integrations/github-actions.md#limits-that-come-from-github)
+  says how it rounds each one. Publish's
   minutes include its wait for CI, so a run whose CI takes 20 minutes pays
   for those 20 twice: once in CI's own jobs, and once in Publish.
 - **More than one run for a ticket.** A pull request that uses both rounds
@@ -184,6 +188,37 @@ One more job runs no session: three times a day, the update job opens a
 pull request for a newer release of the factory, and for a
 [preset](../customize/presets.md) that changed. [Updating](../maintain/updating.md#what-happens)
 describes it.
+
+## Its settings
+
+[`builds.trigger`](../reference/settings/builds.md#builds) and
+[`builds.hosts`](../reference/settings/builds.md#builds),
+[`session-minutes`](../reference/settings/session-minutes.md#session-minutes),
+and [`commands.build-setup`](../reference/settings/commands.md#commandsbuild-setup)
+are the settings a build in the cloud reads. This page says what each
+does where it uses it.
+
+## When something goes wrong
+
+### A change to a workflow file
+
+A session can't change a file under `.github/workflows/`: what is in one
+runs with your repository's secrets. Publish pushes nothing then, whatever
+else the session did, and comments on the ticket, or on the pull request
+for any run but a build:
+
+```text
+Not pushed: commit 3c9f730 changes .github/workflows/ci.yml, which a build in the cloud can't push.
+Build this ticket on your computer: tell a session to work it. The commits are in the run: https://your-code-host/your-name/your-repo/runs/123456789
+```
+
+On your computer that is `/factory-build 12` in a session. The run's page
+keeps the commits for seven days, as the artifact whose
+name starts with `out-`. Publish also refuses commits that add a symbolic
+link or a submodule, merge anything but your default branch, are in another
+person's name, or whose message closes another ticket, and a build that asks
+for no pull request. Nothing else the session
+asked for is done then but a stop.
 
 ## On your tools
 

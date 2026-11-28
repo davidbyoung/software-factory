@@ -22,7 +22,8 @@ A word you do not know is in the [glossary](../reference/glossary.md).
 - A supported coding agent, signed in. `factory init` stops without one.
 - Node 22.18 or later.
 
-GitHub and Claude Code are the supported pair today, and
+Today the code host is [GitHub](../integrations/github.md) and the
+coding agent is [Claude Code](../integrations/claude-code.md), and
 [What you need](../setup/repository.md#what-you-need) says how to check each.
 Your repository can be written in any language:
 [A repository that is not JavaScript](../customize/any-language.md#a-repository-that-is-not-javascript)
@@ -140,7 +141,8 @@ third is steps 5 and 6 of this page, once you have a ticket.
 
 ## 4. Open a ticket
 
-Open a ticket in your ticket system: on GitHub, an issue in your
+Open a ticket in your ticket system: on
+[GitHub Issues](../integrations/github-issues.md), an issue in your
 repository. Say three things: what you want, why, and how you will know it
 is done. A few sentences is enough.
 

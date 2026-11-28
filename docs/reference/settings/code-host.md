@@ -11,8 +11,9 @@ code-host:
   branch-name: "feature/{user}/{ticket}"
 ```
 
-- **`type`** is the code host. GitHub is the only one so far, and it is
-  the default.
+- **`type`** is the code host. `github`, for
+  [GitHub](../../integrations/github.md), is the only one so far, and it
+  is the default.
 - **`branch-name`** is the pattern for the branch's name. It has no
   default: [`factory init`](../../setup/README.md) asks for it and offers
   `{ticket}`, so ticket 12 is built on a branch named `12`. A
@@ -32,19 +33,19 @@ A pattern uses these placeholders. It must have `{ticket}`; `{user}` is
 for a convention that names who did the work, and a pattern can leave
 it out:
 
-| Placeholder | What it becomes                      | For ticket 12 |
-| ----------- | ------------------------------------ | ------------- |
-| `{ticket}`  | The ticket's key, without `#`        | `12`          |
-| `{user}`    | The GitHub account the build runs as | `octocat`     |
+| Placeholder | What it becomes                           | For ticket 12 |
+| ----------- | ----------------------------------------- | ------------- |
+| `{ticket}`  | The ticket's key, without `#`             | `12`          |
+| `{user}`    | The code host's account the build runs as | `octocat`     |
 
-In a session, `{user}` is the account the GitHub CLI, `gh`, is signed in
-as, exactly as GitHub spells it, so the same ticket built by two people
-gets two branches. In GitHub Actions, it is the owner of
+In a session, `{user}` is the account
+[GitHub's command-line tool](../../integrations/github.md#you-need) is signed in as, exactly as the code host spells it, so the same ticket
+built by two people gets two branches. On the cloud runner, it is the owner of
 the [token the build runs with](../../integrations/github-actions.md#workflows), not
 whoever approved the ticket, so with a shared bot account every branch
-built in Actions carries the bot's name. Where a build acts as an
-organization's App, `{user}` is the App's name as GitHub writes it in
-an address, such as `software-factory-for-acme`.
+built in the cloud carries the bot's name. Where a build acts as an
+organization's App, `{user}` is the App's name as the code host writes it
+in an address, such as `software-factory-for-acme`.
 
 Keep the quotes, as in the examples. YAML reads an unquoted
 `branch-name: {ticket}` as a map rather than as text, and
@@ -52,8 +53,8 @@ Keep the quotes, as in the examples. YAML reads an unquoted
 
 `{ticket}` gives each ticket its own branch, and the same branch every
 time. So a ticket built a second time, such as a
-reopened ticket, or one whose first build stopped, finds its earlier branch still on GitHub, unless GitHub
-deleted it when its pull request merged. What the build does depends on
+reopened ticket, or one whose first build stopped, finds its earlier branch still on the code host, unless the code
+host deleted it when its pull request merged. What the build does depends on
 that branch's newest pull request:
 
 - **Merged, with nothing pushed to the branch since:** the build deletes
@@ -70,7 +71,7 @@ that branch's newest pull request:
   ```
 
   A build that stopped partway pushes its branch so its work is kept. To
-  keep it, open a pull request from the branch on GitHub. Otherwise
+  keep it, open a pull request from the branch on the code host. Otherwise
   delete the branch, and build the ticket again with `/factory-build 12`.
 
 Once you change the pattern, run `factory config check`, then
@@ -145,9 +146,9 @@ code-host:
 
 The rules under [`tickets.labels`](tickets.md#ticketslabels) hold here too: write
 only the keys you change, give each label its own name, quote a name
-with `: ` in it, and rename the label you have on GitHub yourself. Do
-that before the new name merges: after it, the factory creates a label of
-that name, and GitHub won't give a second one the same name. Then check
+with `: ` in it, and rename the label you have on the code host yourself.
+Do that before the new name merges: after it, the factory creates a label
+of that name, and the code host won't give a second one the same name. Then check
 the file and sync:
 
 ```console

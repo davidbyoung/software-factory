@@ -17,8 +17,9 @@ language.
 ## Set it up
 
 `factory init` asks "Which spec tool do you use?". Choose OpenSpec. To
-turn it on later, write [`specs: openspec`](../reference/settings/specs.md#specs) in your settings and run
-`factory init` again ([`specs`](../reference/settings/specs.md)).
+turn it on later, write
+[`specs: openspec`](../reference/settings/specs.md#specs) in your
+settings and run `factory init` again.
 
 **It worked when** init prints `Installed @fission-ai/openspec.` and your
 `package.json` lists the package.
@@ -42,6 +43,10 @@ A build runs `factory specs new`, `check`, and `finish` itself.
 `factory specs list` prints the specs your repository keeps, which is what
 to read before changing what one describes
 ([Your repository's commands](../reference/cli.md#your-repositorys-commands)).
+
+OpenSpec collects usage statistics unless `DO_NOT_TRACK=1` is set, so the
+factory sets it whenever it runs
+[`specs.check`](../reference/settings/specs.md#specscheck).
 
 ## Limits that come from OpenSpec
 

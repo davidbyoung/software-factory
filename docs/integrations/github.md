@@ -3,26 +3,32 @@
 The code host: the repository, its pull requests, the checks on each
 commit, and the secrets the cloud runner reads.
 
-## What setup adds
+## What the factory uses it for
 
-| What                                                                                                                                                                                                                                                                    | Added when                                                                                                                                                                 | To undo                                                                                   |
-| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| Secrets and variables named `FACTORY_...`                                                                                                                                                                                                                               | You create them                                                                                                                                                            | Delete them                                                                               |
-| `CLAUDE_CODE_OAUTH_TOKEN`                                                                                                                                                                                                                                               | You create it, for the automated review and builds in the cloud                                                                                                            | Delete it, unless another workflow uses it                                                |
-| The secrets your `.npmrc` reads, such as `NPM_TOKEN`, for Actions and for Dependabot                                                                                                                                                                                    | `init`, when you paste them                                                                                                                                                | Leave them if your own CI uses them; otherwise delete both copies                         |
-| Labels: `merge-automatic`, `merge-manual`, `verdict-override`, `policy-override`, `spec`, `factory`, or the names under [`tickets.labels`](../reference/settings/tickets.md#ticketslabels) and [`code-host.labels`](../reference/settings/code-host.md#code-hostlabels) | First use; `verdict-override`, the first time "Review verdict" is posted on a pull request with the review on                                                              | Delete them. Deleting a label removes it from every ticket                                |
-| A CI check that the factory's files are in step                                                                                                                                                                                                                         | Setup                                                                                                                                                                      | Goes with `factory-review.yml`                                                            |
-| An Actions policy named "Software factory", on a public repository, which lets `factory.yml` start on `pull_request_target`                                                                                                                                             | `init`, on a public repository; or you, [by hand](#a-public-repository-1)                                                                                                  | Delete it, under Settings, Actions, Policies                                              |
-| A "Review verdict" required check, as the ruleset "Software factory"                                                                                                                                                                                                    | With the review on, the first workflow run after the setup's pull request merges; `init`, when your default branch already has `factory.yml`; or you, in your branch rules | Delete the ruleset, under Settings, Rules, **first**, or pull requests wait on it forever |
-| Statuses on pull requests: "Who merges", "Review verdict"                                                                                                                                                                                                               | Each pull request                                                                                                                                                          | They stay in history                                                                      |
-| A ticket for each [follow-up](../workflow/follow-ups.md) ticked in a pull request                                                                                                                                                                                       | The merge                                                                                                                                                                  |
-| Comments on tickets the factory worked                                                                                                                                                                                                                                  | Each refinement and build                                                                                                                                                  | They stay. They hold the ticket's history                                                 |
+Your repository is on GitHub. A build opens its pull request there, the
+review's verdict and who merges are statuses on each commit, labels mark
+each ticket and pull request the factory handles, and the secrets the
+cloud runner reads are stored there. On your machine the factory reaches
+GitHub through the GitHub CLI you signed in with.
 
-In an organization's repository, the organization's own rule requires
-"Review verdict" in place of that ruleset, and the secrets are the
-organization's ([In an organization](github-organizations.md#what-setup-adds)).
+## You need
 
-## A public repository
+- **A GitHub repository, with Issues on.** Check that the repository has
+  an Issues tab. If it has none, turn Issues on: on GitHub, Settings,
+  General, Features, check "Issues".
+- **The GitHub CLI, signed in.** Check it with `gh auth status`, which
+  names the account you are signed in as. If it is not installed or not
+  signed in, install it from [cli.github.com](https://cli.github.com) and
+  run `gh auth login`. Your sessions use its sign-in, so a teammate who
+  joins the repository needs it too.
+
+## Set it up
+
+`factory init` sets the repository up
+([Run `factory init`](../setup/repository.md#run-factory-init)). A public
+repository needs one more thing of GitHub, which `init` also adds.
+
+### A public repository
 
 For a repository anyone can read. A private repository needs nothing
 here.
@@ -62,7 +68,39 @@ When `init` cannot add the policy, it says so and puts the step under
 "Left to do". [A public repository](#a-public-repository-1), under
 "By hand", has each field to fill in.
 
-## When the GitHub access token expires
+## What setup adds
+
+| What                                                                                                                                                                                                                                                                    | Added when                                                                                                                                                                 | To undo                                                                                   |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Secrets and variables named `FACTORY_...`                                                                                                                                                                                                                               | When you turn on a part that reads one: `init` stores the token you paste, or you run `gh secret set`                                                                      | Delete them                                                                               |
+| `CLAUDE_CODE_OAUTH_TOKEN`                                                                                                                                                                                                                                               | When you turn on the automated review or builds in the cloud: `init` stores the token you paste, or you run `gh secret set`                                                | Delete it, unless another workflow uses it                                                |
+| The secrets your `.npmrc` reads, such as `NPM_TOKEN`, for Actions and for Dependabot                                                                                                                                                                                    | `init`, when you paste them                                                                                                                                                | Leave them if your own CI uses them; otherwise delete both copies                         |
+| Labels: `merge-automatic`, `merge-manual`, `verdict-override`, `policy-override`, `spec`, `factory`, or the names under [`tickets.labels`](../reference/settings/tickets.md#ticketslabels) and [`code-host.labels`](../reference/settings/code-host.md#code-hostlabels) | First use; `verdict-override`, the first time "Review verdict" is posted on a pull request with the review on                                                              | Delete them. Deleting a label removes it from every ticket                                |
+| A CI check that the factory's files are in step                                                                                                                                                                                                                         | Setup                                                                                                                                                                      | Goes with `factory-review.yml`                                                            |
+| An Actions policy named "Software factory", on a public repository, which lets `factory.yml` start on `pull_request_target`                                                                                                                                             | `init`, on a public repository; or you, [by hand](#a-public-repository-1)                                                                                                  | Delete it, under Settings, Actions, Policies                                              |
+| A "Review verdict" required check, as the ruleset "Software factory"                                                                                                                                                                                                    | With the review on, the first workflow run after the setup's pull request merges; `init`, when your default branch already has `factory.yml`; or you, in your branch rules | Delete the ruleset, under Settings, Rules, **first**, or pull requests wait on it forever |
+| Statuses on pull requests: "Who merges", "Review verdict"                                                                                                                                                                                                               | Each pull request                                                                                                                                                          | They stay in history                                                                      |
+| A ticket for each [follow-up](../workflow/follow-ups.md) ticked in a pull request                                                                                                                                                                                       | The merge                                                                                                                                                                  | Close the ticket, as you would any other                                                  |
+| Comments on tickets the factory worked                                                                                                                                                                                                                                  | Each refinement and build                                                                                                                                                  | They stay. They hold the ticket's history                                                 |
+
+In an organization's repository, the organization's own rule requires
+"Review verdict" in place of that ruleset, and the secrets are the
+organization's ([In an organization](github-organizations.md#what-setup-adds)).
+
+## Tokens and secrets
+
+Every secret the factory reads is listed in
+[Secrets](../security/credentials.md#secrets).
+
+In an organization, the factory acts as the organization's GitHub App,
+which makes a fresh token for each run
+([In an organization](github-organizations.md#tokens-and-secrets)). A
+repository on your own account has no App, and could not use one, since
+a board a person owns refuses an App's token. So there you make a GitHub
+access token on your own account, which expires on a day you choose
+([When the GitHub access token expires](#when-the-github-access-token-expires)).
+
+### When the GitHub access token expires
 
 For you, on your own GitHub account. In an organization the App makes a
 token for each run, and nothing here applies.
@@ -132,9 +170,71 @@ steps above.
 **A run that failed** because the token expired passes once the new one
 is stored: re-run it from its page on the Actions tab.
 
+## What the factory can and cannot do there
+
+It opens pull requests, labels them, and posts their statuses. A session
+never merges a pull request, nor adds the `verdict-override` or
+`policy-override` label, which are a person's. A pull request merges
+itself only when [the merge policy](../features/auto-merge.md) turns on
+its auto-merge, and every other one waits for you.
+
+For certain people to review every change to certain files, use a
+`CODEOWNERS` file, with "Require review from Code Owners" in your branch
+rules: GitHub waits for one of them, and the factory isn't involved
+([Is it an approval policy?](../features/approval-policies.md#is-it-an-approval-policy)).
+[Waiting for you on every change to a workflow](#waiting-for-you-on-every-change-to-a-workflow)
+uses one for the workflow files.
+
+### Dependabot
+
+The dependency bot is Dependabot, and its settings file is
+`.github/dependabot.yml`. The
+[`factory-deps`](../features/dependency-updates.md#factory-deps) skill is
+written, and its jobs run, only in a repository that has that file. A
+security update GitHub opens in a repository without it waits for you:
+nothing moves it along or lets it merge itself.
+
+## Limits that come from GitHub
+
+- **GitHub never lets a secret be read back,** so `factory doctor` checks
+  only that each secret your parts read is set, not what it holds. A
+  wrong one shows when the first run that needs it fails, naming it.
+- **A workflow that a Dependabot pull request starts can read only
+  Dependabot's secrets,** so it has no Claude token, as a fork's
+  pull request has none. An approval policy's agent, such as
+  `factory-credentials-reader`, can't run on either: you read the lines
+  the **Approval policies** status's Details lists yourself, then add
+  `policy-override`
+  ([When `credentials` makes a pull request wait](../features/credentials-policy.md#when-credentials-makes-a-pull-request-wait)).
+- **GitHub Free can't require a status on a private repository.** There,
+  a waiting approval policy shows on the pull request, but nothing stops a
+  merge past it. Making the repository public, or moving to a paid plan,
+  lets the **Approval policies** status be required.
+- **GitHub won't let you approve a pull request of your own,** so where
+  you are the only writer, the `policy-override` label is how you approve
+  what an approval policy found
+  ([When a pull request waits](../features/approval-policies.md#when-a-pull-request-waits)).
+- **A session in the cloud can't reach GitHub at all.** A repository
+  whose PHP dependencies come through Composer feels this most, since
+  GitHub serves most of Composer's packages, so the session can't
+  download them. Install them in
+  [`commands.build-setup`](../reference/settings/commands.md#commandsbuild-setup)
+  instead, as that setting's entry shows for `composer install`.
+
+The limits of the factory's workflows are under
+[Limits that come from GitHub](github-actions.md#limits-that-come-from-github)
+on the GitHub Actions page.
+
+## When something goes wrong
+
+Run `factory doctor`, which marks what is wrong with ✗
+([Checking it](#checking-it)). Runs that fail with GitHub's `Bad credentials`
+usually mean the access token expired
+([When the GitHub access token expires](#when-the-github-access-token-expires)).
+
 ## By hand
 
-Every step `factory init` takes on GitHub, for someone who wants to take them without it.
+Every step `factory init` takes on GitHub, for someone who wants to take them without it, and the steps on GitHub it leaves to you.
 
 ### Choose what you want
 
@@ -311,6 +411,60 @@ public key from the account ends its use.
 
 **It worked when** the commits of the next update's pull request show as
 "Verified".
+
+### Waiting for you on every change to a workflow
+
+Where several people can write to your repository, have GitHub wait for
+you on every change to a workflow:
+
+1. Add a `CODEOWNERS` file, such as `.github/CODEOWNERS`, with this line,
+   with your own username:
+
+   ```text
+   /.github/ @your-username
+   ```
+
+2. Turn on "Require review from Code Owners" in your branch rules:
+   Settings, then Rules or Branches.
+
+**It worked when** a pull request that changes a file under `.github/`
+lists you as a required reviewer.
+
+### Dependabot and the factory's updates
+
+`.github/dependabot.yml` needs no group for the factory
+([Dependency bots](../features/dependency-updates.md#dependency-bots) says
+why). If yours has one from an earlier version, delete it, with its name
+in any other group's `exclude-patterns`.
+
+If Dependabot updates your workflow files, have it leave the factory's
+alone, with this entry in `.github/dependabot.yml`:
+
+```yaml
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    ignore:
+      - dependency-name: "davidbyoung/software-factory*"
+```
+
+### Dependabot and the poller's image
+
+A host that builds the poller from a Dockerfile in your repository, such
+as `poller/Dockerfile`
+([Hosting the poller](../features/hosting-the-poller.md#hosting-the-poller-own-server)),
+gets a pull request for each new version of the image from this entry in
+`.github/dependabot.yml`. That pull request waits for you, as the
+factory's own [update](../maintain/updating.md) does:
+
+```yaml
+- package-ecosystem: docker
+  directory: /poller
+  schedule:
+    interval: weekly
+```
 
 ### Checking it
 

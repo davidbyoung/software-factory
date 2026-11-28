@@ -16,7 +16,8 @@ acceptance criteria cannot be built; `factory-build` sends it here.
 
 **What it reads.** The ticket and its comments, the open tickets that touch
 the same code, the code itself, your project's instructions for the agent
-(`CLAUDE.md` files, on Claude Code), and the existing
+(`CLAUDE.md` files, on [Claude Code](../integrations/claude-code.md)),
+and the existing
 spec when [`specs`](../reference/settings/specs.md#specs) is on.
 
 **What it writes.**

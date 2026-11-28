@@ -4,7 +4,31 @@ For someone deciding how a change their users will see is specified. At
 the end you know when a ticket gets a Spec, and whether your repository
 keeps a copy of each.
 
-## A change your users will see
+## What you get
+
+Each change your users will see is built from a Spec in its ticket, and
+its pull request names the test that checks each Spec line.
+
+## What it needs
+
+Nothing: a spec tool is optional.
+
+## Turn it on
+
+The Spec in the ticket needs nothing turned on: refinement writes one
+into each ticket that gets the `spec` label.
+
+To keep a copy of each Spec in your repository too, turn a spec tool on.
+`factory init` asks "Which spec tool do you use?" when your settings name
+none, and installs the one you choose. To turn one on later, write the
+line in [Its settings](#its-settings) and run `factory init` again.
+**It worked when** init prints that it installed the spec tool, as
+[`specs`](../reference/settings/specs.md#specs) shows, and your
+`package.json` lists it.
+
+## How it works
+
+### A change your users will see
 
 A change that adds or alters behavior someone can see, and is not
 [small](../workflow/build.md#sizing-the-work-to-the-change), gets the `spec` label, which
@@ -25,12 +49,26 @@ you can read the Spec and approve the ticket as you approve any other
 from the ticket alone, and its pull request's description lists the
 test that checks each Spec line.
 
-A [spec tool](../reference/settings/specs.md#specs), such as OpenSpec, also keeps the
-Spec in your repository.
-
 Every other ticket, such as a bug fix, a copy change, or a small change,
 has a list of acceptance criteria instead: what must be true for it to
 be done.
+
+## Its settings
+
+The one choice is whether your repository keeps a copy of each Spec. To
+keep one, write this line in `.claude/factory.yaml`:
+
+```yaml
+specs: openspec # each build also writes its ticket's Spec into openspec/specs/
+```
+
+Without it, or with `specs: none`, the default, the ticket is the only
+copy. [`specs`](../reference/settings/specs.md#specs) has the rest.
+
+## When something goes wrong
+
+What fails is the spec tool's step: its page says what to do, under
+[When something goes wrong](../integrations/openspec.md#when-something-goes-wrong).
 
 ## On your tools
 

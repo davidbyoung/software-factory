@@ -30,13 +30,13 @@ files in your repository,
 - **On your code host:** the secrets you create for the parts you turn on;
   the labels and statuses that say who merges a pull request and whether
   the automated review found it ready; comments on the tickets it works;
-  the tickets it opened; and, on a public repository on GitHub, the
-  Actions policy named "Software factory", which lets the factory's
-  workflow run.
+  the tickets it opened; and, on a public repository, the policy named
+  "Software factory", which lets the factory's workflow run where the code
+  host needs one ([GitHub](../integrations/github.md#a-public-repository)).
 - **On your code host, once for an organization,** when an owner set it
-  up with `factory init --org`: the organization's own app, which its
-  cloud builds act as; the app's key and the coding agent's token, as
-  secrets, and a variable that names the app; a repository named
+  up with `factory init --org`: the organization's App, which its
+  cloud builds act as; the App's key and the coding agent's token, as
+  secrets, and a variable that names the App; a repository named
   `factory-config`, for the settings its repositories share; a property
   named `software-factory`, a value the organization keeps for each
   repository; and a rule that requires the review's verdict wherever
@@ -45,7 +45,8 @@ files in your repository,
   lists them.
 - **On your board,** if you have one: three fields, Session, Runs in, and
   Cost, which `factory init` adds when the board lacks
-  them, and the board's own Status, which the sync sets. `init` adds the
+  them, and the board's own Status, which
+  [the board sync](../features/board.md) sets. `init` adds the
   columns your settings name that the board lacked.
 - **Outside both,** only if you host the poller: the poller, wherever you
   host it. `factory remove` names it in what is left by hand.
@@ -55,7 +56,7 @@ files in your repository,
 | What                                                                                                         | Added when                                                                                                                   | To undo                                                                   |
 | ------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
 | The `factory` command, and each version it downloads, in `~/.cache/software-factory/`                        | You install it, and a repository names a version                                                                             | `npm uninstall -g @davidbyoung/software-factory`, and delete the folder   |
-| A GitHub access token and a Claude token, in `~/.config/software-factory/credentials.yaml`                   | `init`, on your own account, when you paste them ([Tokens and secrets](../security/credentials.md#the-file-on-your-machine)) | Delete your account's entries from the file, which `factory remove` names |
+| The code host's access token and the coding agent's token, in `~/.config/software-factory/credentials.yaml`  | `init`, on your own account, when you paste them ([Tokens and secrets](../security/credentials.md#the-file-on-your-machine)) | Delete your account's entries from the file, which `factory remove` names |
 | The presets you last followed for each account or organization, in `~/.config/software-factory/presets.yaml` | `init`, when you follow a preset                                                                                             | Delete the file                                                           |
 
 ## What it never touches
@@ -93,8 +94,9 @@ It commits nothing. Review the changes, commit them on a branch, and
 merge.
 
 It does not name the "Software factory" policy that `factory init` adds
-on a public repository on GitHub. Delete that one by hand too, in the
-repository's Settings, under Actions, Policies.
+on a public repository. Delete that one by hand too, from where
+[GitHub's A public repository, under By hand](../integrations/github.md#a-public-repository-1)
+says it is added.
 
 If your settings file is gone or cannot be read, it says so, removes what
 it finds, and names what the tools it ships with leave behind.
@@ -137,7 +139,7 @@ downloaded.
 
 For an owner of an organization that was set up with
 `factory init --org`. No command does this: each step is by hand, on
-GitHub, in this order.
+the code host, in this order.
 
 1. **Delete the rule, then the property.** In the organization's
    Settings, under Rules, delete the rule "Software factory". Then,
@@ -151,10 +153,10 @@ GitHub, in this order.
 3. **Delete the repository `factory-config`.** That stops the
    organization's one [poller](../features/builds-from-the-board.md#the-poller), which starts
    builds from the board.
-4. **Uninstall the app, then delete it.** In the organization's
-   Settings, under GitHub Apps, uninstall the app whose name starts
-   "Software Factory for". Then, under Developer settings, GitHub Apps,
-   delete it.
+4. **Uninstall the app, then delete it.** Uninstall the app whose name
+   starts "Software Factory for", then delete it, as
+   [By hand on GitHub organizations](../integrations/github-organizations.md#by-hand)
+   shows.
 5. **Delete the secrets and the variable.** In the organization's
    Settings, under Secrets and variables, Actions, delete the secrets
    `FACTORY_APP_PRIVATE_KEY` and `CLAUDE_CODE_OAUTH_TOKEN`, or

@@ -20,5 +20,5 @@ session-minutes:
 - **Run `factory sync` after changing one,** since it writes them into
   `.github/workflows/factory.yml`. `factory config check` fails until
   you do.
-- **GitHub may stop a job sooner:** see
-  [its limits](../../integrations/github-actions.md#limits).
+- **The cloud runner may stop a job sooner:** see
+  [its limits](../../integrations/github-actions.md#limits-that-come-from-github).

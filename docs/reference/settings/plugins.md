@@ -31,9 +31,9 @@ what it has to give back.
 | `test.reviewers`      | Agents        | A list   | When a change touches tests. A reviewer given `files` reads only changes to those             | `factory-test-reviewer` reads new tests                                                                                    |
 | `conflicts.resolvers` | Skills        | A list   | When a conflict is in one of the resolver's `files`. Each resolver needs at least one pattern | The session merges conflicts by hand, and [`commands.relock`](commands.md#commandsrelock) rebuilds the lock file           |
 
-In Claude Code, a skill lives at `.claude/skills/NAME/SKILL.md` and an
-agent at `.claude/agents/NAME.md`:
-[Skills in Claude Code](../../integrations/claude-code.md#skills-in-claude-code).
+In [Claude Code](../../integrations/claude-code.md#skills-in-claude-code),
+a skill lives at `.claude/skills/NAME/SKILL.md` and an agent at
+`.claude/agents/NAME.md`.
 
 - **`factory plugins`** prints every plugin the factory will use, its own
   included, one per line: skill or agent, its name, its role, and its

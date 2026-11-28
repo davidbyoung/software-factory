@@ -178,5 +178,7 @@ different commands for it.
 - **A [preset](presets.md),** a shared set of settings, if your company
   has one written for one package, such as a Python preset: apply it to
   each of your services with `factory preset add NAME --in 'services/*'`.
-- **Notes for a session about one package** go in a `CLAUDE.md` in that
-  package's folder, which Claude Code reads when it works there.
+- **Notes for a session about one package** go in the coding agent's
+  instructions file in that package's folder, a `CLAUDE.md` on
+  [Claude Code](../integrations/claude-code.md), which it reads when it
+  works there.

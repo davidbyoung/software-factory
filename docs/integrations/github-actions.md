@@ -3,7 +3,29 @@
 The cloud runner: the workflows that run the automated review, the board
 sync, builds in the cloud, and the factory's other jobs.
 
-## Workflows
+## What the factory uses it for
+
+Every run that does not need your machine: the automated review and its
+verdict, who merges, the board sync, the poller, builds in the cloud, the
+answers to a review, the conflict sweep, dependency updates, and the
+factory's own updates ([The jobs](#the-jobs)).
+
+## You need
+
+A GitHub repository ([You need](github.md#you-need), on the GitHub page).
+The jobs run on GitHub's own runners, so there is nothing to install.
+
+## Set it up
+
+`factory sync` writes the two workflow files, and `factory init` stores
+the secrets each part needs
+([Run `factory init`](../setup/repository.md#run-factory-init)).
+[By hand](#by-hand) has the steps for the review and for builds in the
+cloud.
+
+## What setup adds
+
+### Workflows
 
 `factory sync` writes two workflow files under `.github/workflows/`,
 always, whichever parts are on:
@@ -22,7 +44,7 @@ two files comes from your
 settings: your default branch, which parts are on, the poller's
 schedule, each session's minutes, and the names of your own secrets.
 
-### The jobs
+#### The jobs
 
 A job whose part is off is skipped, and starts no machine. Every time is
 UTC.
@@ -37,7 +59,7 @@ UTC.
 | Requiring the verdict              | `factory.yml`                                      | A push to the default branch                                                                                                                                                                                   | `pr-review` is on                                                                                                                                                                        |
 | Who merges                         | `factory.yml`                                      | Pull request events                                                                                                                                                                                            | [`auto-merge.allow`](../reference/settings/auto-merge.md#auto-merge) is set                                                                                                              |
 | The board sync                     | `factory.yml`                                      | The factory's commands, pull request events, and 07:00                                                                                                                                                         | [`tickets.board`](../reference/settings/tickets.md#tickets) is set                                                                                                                       |
-| Open the ticked tickets            | `factory.yml`                                      | A pull request from the repository merged, with a list of [follow-ups](../workflow/follow-ups.md)                                                                                                              |
+| Open the ticked tickets            | `factory.yml`                                      | A pull request from the repository merged, with a list of [follow-ups](../workflow/follow-ups.md)                                                                                                              | Always. It opens a ticket only for each follow-up that is ticked                                                                                                                         |
 | The poller                         | `factory.yml`                                      | Every [`builds.poll-minutes`](../reference/settings/builds.md#builds) minutes, or by hand                                                                                                                      | `builds.trigger` is `github-action`, unless a [preset](../customize/presets.md) you follow is in a repository that runs the poller, as an organization's `factory-config` does           |
 | Build                              | `factory.yml`                                      | The poller, `factory build N`, or by hand                                                                                                                                                                      | Always                                                                                                                                                                                   |
 | Answer                             | `factory.yml`                                      | A review you submit on a pull request, the run before it, or by hand                                                                                                                                           | The review is by someone who can write to the repository; or CI failed, or the automated review asked for changes, on a pull request a build in the cloud opened                         |
@@ -116,59 +138,23 @@ Most of `factory.yml`'s other jobs are in a group, and the group's name
 comes next, as in `factory / Pull request / Record the verdict`. Each job
 is listed here by the name its row shows:
 
-| Group            | Its jobs                                                                                                                                                                                                                                                                                                           |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| None             | Review and Answer, each three jobs, and Approve what an approval policy found                                                                                                                                                                                                                                      |
-| `Pull request`   | Record the verdict, the [approval policies](../features/approval-policies.md)' Read the change for the approval policies, Run the approval policies' commands, Run an approval policy's agent, and Post the approval policies' status, Classify risk (Who merges), and Enable auto-merge (Dependabot's auto-merge) |
-| `Tickets`        | Tell the other repositories, Sync the board, and Open the ticked tickets                                                                                                                                                                                                                                           |
-| `Default branch` | Factory files in step, Require the verdict, Build, Find the conflicts, Conflict, Find the dependency pull requests, Dependency, Open the updates' pull requests, Start the Ready tickets, and Unknown job                                                                                                          |
+| Group            | Its jobs                                                                                                                                                                                                                                                                                                                    |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| None             | Review and Answer, each three jobs, and Approve what an approval policy found                                                                                                                                                                                                                                               |
+| `Pull request`   | Record the verdict, the [approval policies](../features/approval-policies.md)' Read the change for the approval policies, Run the approval policies' commands, Run an approval policy's agent, and Post the approval policies' status, Classify risk (Who merges), and Enable auto-merge (Dependabot's auto-merge)          |
+| `Tickets`        | Tell the other repositories, Sync the board, and Open the ticked tickets                                                                                                                                                                                                                                                    |
+| `Default branch` | Factory files in step, Require the verdict, Build, Find the conflicts, Conflict, Find the dependency pull requests, Dependency, Open the updates' pull requests, Start the Ready tickets, and Unknown job, which fails a run started by hand with a job it doesn't know ([Starting a job by hand](#starting-a-job-by-hand)) |
 
 A build's rows read `factory / Default branch / Build / Session`. A group
 with nothing to do on an event shows as one skipped row with the group's
 name, such as `factory / Tickets`, not a row for each of its jobs.
 
-"Review verdict", "Automated review", "Approval policies", and "Who
-merges" are statuses: a job posts each on the commit, under that name,
-and the names do not change.
+Four names in the same list are not jobs. "Review verdict", "Automated
+review", "Approval policies", and "Who merges" are statuses: a job posts
+each on the commit, under that name, and the names do not change, so a
+branch rule can require one.
 
-**An organization's poller is in a workflow file of its own, in one
-repository.** `factory init --org` writes
-`.github/workflows/factory-poller.yml` into the organization's
-`factory-config` repository, beside its preset. Like the two files
-above, it calls a workflow in the factory's own repository, `poller.yml`,
-at the version it names. It has two jobs: the poller, on the schedule
-[`builds.poll-minutes`](../reference/settings/builds.md#builds) gives in the preset,
-which reads the organization's board once and starts the builds of every
-repository with a ticket in Ready
-([The poller](../features/builds-from-the-board.md#the-poller)), and, at 01:00 and by hand, an
-update job that opens a pull request there when a newer release of the
-factory is out. A repository that follows that preset gets no poller
-schedule in its own `factory.yml`.
-
-**Starting a job by hand.** The Actions tab, "Factory", "Run workflow".
-For a build, type the ticket's key, such as `12`, and leave the job empty. The board's "Runs in" field then shows "Actions", and
-"Session" the run's link. The Session job's log also shows each tool call
-the session was denied. `answer`, `conflict`, and `dependency` take a pull
-request's number, and `answer` a review's too, to answer that review. The
-other jobs take `conflicts`, `dependencies`, `updates`, `board`, or
-`poller` alone.
-
-The poller starts a build on the repository's default branch, which a
-poller you host reads once when it starts, and a scheduled pass on each
-run. The run does no start check of its own: only someone with write
-access can start a workflow.
-
-A review you submit on a pull request that conflicts with the default
-branch starts no run, since GitHub starts no workflow for a pull request it
-cannot merge. A Conflict run clears the conflict. Then start the answer by
-hand, with the pull request's and the review's numbers.
-
-GitHub runs `factory.yml` as the pull request leaves it when you submit a
-review, and as your default branch has it on every other event. A session
-can't change that file ([A change to a workflow
-file](../features/cloud-builds.md#a-change-to-a-workflow-file)).
-
-### With a part off
+#### With a part off
 
 The two files are written whichever parts you chose, so a part that is
 off shows as a skipped job, or as one that passes having done nothing.
@@ -208,7 +194,7 @@ off shows as a skipped job, or as one that passes having done nothing.
   No build token is set, so no update's pull request is opened. factory doctor shows when you are behind.
   ```
 
-### What a job installs
+#### What a job installs
 
 Each job installs the version of the factory your repository names. The
 Session job also installs your default branch's own dependencies, with
@@ -218,13 +204,31 @@ installs bubblewrap, socat, and ripgrep, which Claude Code's sandbox needs,
 and Claude Code. It takes Node's version from `package.json` when it sets
 `engines.node`, and uses Node 22 otherwise.
 
-A secret of your own, such as one your `.npmrc` reads
-([Private npm packages](private-npm.md#private-npm-packages)), reaches the
-Session job through one line `factory sync` writes under `secrets` in
-`factory.yml`, which passes each by name. The board sync, the poller, and
-the job that opens the ticked tickets get it too.
+### An organization's poller
+
+An organization's poller is in a workflow file of its own, in one
+repository. `factory init --org` writes
+`.github/workflows/factory-poller.yml` into the organization's
+`factory-config` repository, beside its preset. Like the two files
+above, it calls a workflow in the factory's own repository, `poller.yml`,
+at the version it names. It has two jobs: the poller, on the schedule
+[`builds.poll-minutes`](../reference/settings/builds.md#builds) gives in the preset,
+which reads the organization's board once and starts the builds of every
+repository with a ticket in Ready
+([The poller](../features/builds-from-the-board.md#the-poller)), and, at 01:00 and by hand, an
+update job that opens a pull request there when a newer release of the
+factory is out. A repository that follows that preset gets no poller
+schedule in its own `factory.yml`.
+
+## Tokens and secrets
 
 ### What each job can read and do
+
+A secret of your own, such as one your `.npmrc` reads
+([Private npm packages](private-npm.md#private-npm-packages)), reaches the
+jobs through one line `factory sync` writes under `secrets` in
+`factory.yml`, which passes each by name. The table says which jobs get
+it.
 
 | Job                                                                 | Secrets it gets                                                                                                                  | What its workflow token may do                                                                                |
 | ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
@@ -250,7 +254,7 @@ do not carry it, and Publish refuses a session's change to one.
 
 A cloud session acts as one of two things, by whether the key of an
 organization's GitHub App reaches its run.
-[Tokens and secrets](../security/credentials.md#on-github) says who
+[Who handles a token](../security/credentials.md#who-handles-a-token) says who
 stores what.
 
 **When the App's key reaches the run, it acts as the organization's App.**
@@ -302,18 +306,14 @@ pull request is squash merged, the commit on your default branch names
 the person who opened it as its author, and GitHub adds a
 `Co-authored-by: Claude` line for the build's commits.
 
-When a build cannot start, the poller's comment on the ticket reads "Could
-not start a build in GitHub Actions ... answered 403": give the token the
-scopes [Secrets](../security/credentials.md#secrets) names. An organization's poller
-posts no such comment for a repository its App is not installed on: its
-run in `factory-config` shows a warning that names the repository, and
-goes on to the next. A failed board sync arrives as an email from
-GitHub.
+## What the factory can and cannot do there
 
-## Limits
+GitHub runs `factory.yml` as the pull request leaves it when you submit a
+review, and as your default branch has it on every other event. A session
+can't change that file ([A change to a workflow
+file](../features/cloud-builds.md#a-change-to-a-workflow-file)).
 
-These come from GitHub, GitHub Actions, or Claude Code, not from the
-factory.
+## Limits that come from GitHub
 
 - **GitHub's own runners stop any job at 6 hours.** The Session job is given
   its [`session-minutes`](../reference/settings/session-minutes.md#session-minutes) plus 10, so
@@ -321,8 +321,8 @@ factory.
   there. Prepare has 15 minutes, and Publish 75. A self-hosted runner allows
   longer. `sync` writes each `session-minutes` value you changed into
   `factory.yml`, as the session's limit.
-- GitHub's shortest schedule is every five minutes, and scheduled runs can
-  start late.
+- **GitHub's shortest schedule is every five minutes,** and scheduled
+  runs can start late.
 - **A pull request from a fork gets no secrets.** The "Factory files in
   step" check needs none, so it runs on one. No run that uses Claude Code
   starts on a fork's pull request, so its verdict waits for a person.
@@ -331,7 +331,20 @@ factory.
   `factory.yml` starts on that event. `factory init` adds the policy
   ([A public repository](github.md#a-public-repository)). A private
   repository needs nothing.
-- Public repositories are not billed for Actions minutes.
+- **Public repositories are not billed for Actions minutes.**
+- **On a plan that bills Actions minutes, GitHub rounds each job up to a
+  whole minute.** So a cloud run, which is three jobs, is billed at least
+  three minutes
+  ([What a run costs](../features/cloud-builds.md#what-a-run-costs)). The
+  approval policies run three jobs on each push too, so in a private
+  repository each push they read is billed at least three minutes
+  ([What it costs](../features/credentials-policy.md#what-it-costs)).
+- **In a private repository, each run of the poller bills at least one
+  Actions minute,** whether it is a repository's own schedule, with
+  [`builds.trigger: github-action`](../reference/settings/builds.md#builds),
+  or an organization's in its `factory-config`. That is why
+  `factory init --org` asks how often the poller reads the board when
+  `factory-config` is private.
 - **GitHub switches off a workflow with a schedule in a public
   repository with no activity for 60 days.** `factory.yml` has
   schedules, so every job it starts stops with it, the review's verdict
@@ -339,7 +352,7 @@ factory.
   fails, saying how to enable the file. `factory doctor` fails too. GitHub
   does not run what it missed, so after you enable the file, push a commit
   to each pull request that has no verdict.
-- GitHub limits how many jobs an account runs at the same time.
+- **GitHub limits how many jobs an account runs at the same time.**
 - **A workflow's trigger cannot ask for the default branch's name,** so
   `factory sync` writes the name into the push trigger of `factory.yml`.
   After you rename the default branch, `factory sync --check` fails until
@@ -348,6 +361,10 @@ factory.
 - **A workflow in another owner's repository takes a secret only by a
   name it declares,** which is why your own secrets reach the factory's
   jobs through one line of `factory.yml`, not a line for each job.
+- **GitHub's default for a workflow's own token is read for a new
+  repository, and can be write for an older one.** The review's verdict
+  is trusted from that token's account, and the code in a pull request
+  runs beside it, so `factory doctor` checks it.
 - **Every review event costs a minute of Actions,** including the
   factory's own replies, which start a Prepare that finds nothing to do.
 - **A run's artifacts are kept on GitHub:** one day for what Prepare handed
@@ -356,28 +373,50 @@ factory.
   ([Limitations](../about/limitations.md#what-it-does-not-do)).
 - **The squash merge on your default branch is signed by GitHub,** whether
   or not the build's own commits were.
-- **Only part of the factory works inside a session Claude hosts,** such
-  as Claude Code on the web. Such a session is a machine of its own, so
-  put the install line, `npm install -g @davidbyoung/software-factory`,
-  in its environment's setup: without the command, the factory's hooks
-  stop the session's commands. With it, the hooks run, and the commands
-  that read only the repository work, such as `factory sync`,
-  `factory config check`, and `factory gate`. The commands that need
-  GitHub's GraphQL API, which is closed there, still do not: the board
-  commands, `factory status`, and the ticket commands.
-  `factory build N` works, since it only asks GitHub to start a
-  workflow.
-- **Untested against a real organization: the board sync on a board one
-  owns.** It is read the same way as a person's, with the token made from the
-  organization's App, whose permissions include the organization's
-  Projects. A classic token stored by hand needs access to the
-  organization's projects, which an organization's settings can refuse.
-- **Untested: GitHub's built-in board automations,** such as moving a
-  closed issue to Done. They may fight the board sync.
+
+## When something goes wrong
+
+When a build cannot start, the poller's comment on the ticket reads "Could
+not start a build in GitHub Actions ... answered 403": give the token the
+scopes [Secrets](../security/credentials.md#secrets) names. An organization's poller
+posts no such comment for a repository its App is not installed on: its
+run in `factory-config` shows a warning that names the repository, and
+goes on to the next. A failed board sync arrives as an email from
+GitHub.
+
+A review you submit on a pull request that conflicts with the default
+branch starts no run, since GitHub starts no workflow for a pull request it
+cannot merge. A Conflict run clears the conflict. Then start the answer by
+hand, with the pull request's and the review's numbers.
 
 ## By hand
 
-The steps `factory init` takes for the review and for builds in the cloud, done without it.
+The steps `factory init` takes for the review and for builds in the cloud, done without it, and how to start one of the factory's jobs yourself.
+
+### Starting a job by hand
+
+On the Actions tab, open the "Factory" workflow and choose "Run
+workflow". The form has four fields. The first, the job, names what to
+run, and the others say what to run it on:
+
+- **A build:** type the ticket's key, such as `12`, in the ticket field,
+  and leave the job empty. The board's "Runs in" field then shows
+  "Actions", and "Session" the run's link. The Session job's log also
+  shows each tool call the session was denied.
+- **`answer`, `conflict`, or `dependency`:** type it as the job, and the
+  pull request's number in its field. For `answer`, also type a review's
+  number to answer that review.
+- **`conflicts`, `dependencies`, `updates`, `board`, or `poller`:** type
+  it as the job, and leave the other fields empty.
+
+A job the workflow doesn't know fails the run, as "Unknown job", and
+names the ones it does.
+
+The poller starts each build as the same run, on your default branch. It
+reads which branch that is from GitHub: a poller you host reads it once,
+when it starts, and a scheduled pass reads it on each run. A build makes
+no check of who started it, since only someone with write access to the
+repository can start a workflow.
 
 ### The automated review
 
@@ -410,7 +449,8 @@ own token.
    confined to [the session's sandbox](../security/cloud-runs.md#what-a-cloud-run-is).
    The review's job installs your default branch's dependencies with
    `npm ci` when its root has a `package-lock.json`, and chooses the model
-   from `FACTORY_BUILD_MODEL` ([Variables](#who-a-cloud-session-acts-as)) when
+   from the variable `FACTORY_BUILD_MODEL`
+   ([Who a cloud session acts as](#who-a-cloud-session-acts-as)) when
    it is set.
 
 3. **Optionally, write `.github/review-notes.md`:** what a reviewer must

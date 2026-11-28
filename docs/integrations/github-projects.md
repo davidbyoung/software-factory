@@ -2,6 +2,37 @@
 
 The board: a GitHub Project with a column for each of a ticket's states.
 
+## What the factory uses it for
+
+The board is a GitHub Project, owned by the account or the organization
+that owns the repository. The board sync sets the Project's own Status
+field to the ticket's column, and writes three fields of the factory's
+own, which `init` adds when the board lacks them:
+
+| Field   | Shows                                                                    |
+| ------- | ------------------------------------------------------------------------ |
+| Status  | The column                                                               |
+| Session | Which session is on the ticket, "actions, starting", or "Waiting on you" |
+| Runs in | "local" or "Actions"                                                     |
+| Cost    | An estimate of what refining and building the ticket used                |
+
+Anything typed into the last three is overwritten on the next sync. The
+Project's number, the last part of its address, is what
+[`tickets.board`](../reference/settings/tickets.md#tickets) holds in your
+settings.
+
+## You need
+
+A repository on GitHub. `factory init` makes the Project, or uses one
+you already have.
+
+## Set it up
+
+Run `factory init` and check "A board", as
+[Turn it on](../features/board.md#turn-it-on) says. It asks for a GitHub
+access token on your own account
+([Tokens and secrets](#tokens-and-secrets)).
+
 ## What setup adds
 
 | What                                                                                                                                  | To undo                                      |
@@ -13,22 +44,42 @@ The board: a GitHub Project with a column for each of a ticket's states.
 A board the factory created for you is an ordinary GitHub Project. Keep
 it or delete it.
 
-## The board
+## Tokens and secrets
 
-A GitHub Project, owned by the account or the organization that owns the
-repository. The sync sets its Status field to the ticket's column and
-writes three fields of its own, which `init` adds when the board lacks
-them:
+The board sync writes with a GitHub access token stored as
+`FACTORY_BOARD_TOKEN`. [Secrets](../security/credentials.md#secrets) has
+the one to make, and [GitHub](github.md#when-the-github-access-token-expires)
+says what to do when it expires.
 
-| Field   | Shows                                                                    |
-| ------- | ------------------------------------------------------------------------ |
-| Status  | The column                                                               |
-| Session | Which session is on the ticket, "actions, starting", or "Waiting on you" |
-| Runs in | "local" or "Actions"                                                     |
-| Cost    | An estimate of what refining and building the ticket used                |
+## What the factory can and cannot do there
 
-Anything typed into the last three is overwritten on the next sync. Its
-number, the last part of its address, is [`tickets.board`](../reference/settings/tickets.md#tickets) in your settings.
+The sync sets each ticket's column and writes its three fields. It never
+creates, renames, or removes a column or field: `factory init` adds the
+ones a board lacks.
+
+## Limits that come from GitHub
+
+**A field holds at most 1,024 characters.** A field you add to a Project, which shows as a column of its table, holds
+at most 1,024 characters, so it can't hold a factory field such as a Spec,
+which is often several thousand. Use an
+[issue field](github-issues.md#set-it-up) instead
+([Your tickets already have fields](../features/board.md#your-tickets-already-have-fields)).
+
+Two more are untested:
+
+- **The board sync on a board an organization owns,** against a real
+  organization. It is read the same way as a person's, with the token
+  made from the organization's App, whose permissions include the
+  organization's Projects. A classic token stored by hand needs access to
+  the organization's projects, which an organization's settings can
+  refuse.
+- **GitHub's built-in board automations,** such as moving a closed issue
+  to Done. They may fight the board sync.
+
+## When something goes wrong
+
+A board that does not show a ticket where you expect: run
+`factory board check`, which lists the column it reads for each state.
 
 ## By hand
 

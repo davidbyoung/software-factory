@@ -17,8 +17,10 @@ tickets:
 
 - **`type`** is the ticket system. Only `github` is built, and it is the
   default.
-- **`board`** is your GitHub Project's number: the last part of its
-  address, such as `1` in `github.com/users/your-name/projects/1`. The
+- **`board`** is your board's number. On
+  [GitHub Projects](../../integrations/github-projects.md#what-the-factory-uses-it-for)
+  it is the last part of its address, such as `1` in
+  `github.com/users/your-name/projects/1`. The
   default, `none`, means no board.
 - **`columns`** says which of the board's columns shows each state, and a
   board needs it: see [`tickets.columns`](#ticketscolumns).
@@ -47,8 +49,8 @@ There is no default: your board's column names may not be the
 factory's, and a guess would put tickets in the wrong column without
 telling you.
 
-A new GitHub Project starts with only Todo, In Progress, and Done,
-so its settings would be:
+A new board on [GitHub Projects](../../integrations/github-projects.md#a-board)
+starts with only Todo, In Progress, and Done, so its settings would be:
 
 ```yaml
 tickets:
@@ -197,7 +199,8 @@ instead, or write `none` to stop the board sync filling one in.
 
 **On the ticket,** refining a ticket writes four factory fields into its
 description, each under its own heading. Each can go instead in a ticket
-field that holds text, which on GitHub is an issue field: see
+field that holds text, which on
+[GitHub Issues](../../integrations/github-issues.md) is an issue field: see
 [Your tickets already have fields](../../features/board.md#your-tickets-already-have-fields),
 which also says why a board field can't hold one.
 
@@ -215,7 +218,8 @@ you confirm them.
 - **`none` keeps the factory field in the description,** and so does
   leaving its key out. Unlike the board's three, a factory field never
   goes in a ticket field just because the names match.
-- **A ticket field is named as GitHub shows it,** capitals included.
+- **A ticket field is named as the ticket system shows it,** capitals
+  included.
 - **These keys don't need a board,** since the ticket field belongs to
   the ticket.
 - **The ticket field must exist and hold text.** One that doesn't, such
@@ -257,25 +261,28 @@ tickets:
 - **Write only the keys you change.** A key you leave out keeps its
   default name. `factory init` doesn't ask about labels, and doesn't write
   this block.
-- **You don't create the label.** The factory creates it on GitHub the
-  first time it adds it to a ticket.
+- **You don't create the label.** The factory creates it in the ticket
+  system the first time it adds it to a ticket.
 - **Two labels can't share a name,** and capitals don't make two names
-  different, so `Spec` and `spec` are one label. On GitHub, a name here
-  can't match one under `code-host.labels` either, since one
-  repository's labels serve its tickets and its pull requests.
+  different, so `Spec` and `spec` are one label. Where the ticket system
+  keeps its labels with the code host's, as
+  [GitHub Issues](../../integrations/github-issues.md#what-the-factory-can-and-cannot-do-there)
+  does, a name here can't match one under `code-host.labels` either,
+  since one repository's labels serve its tickets and its pull requests.
 - **Quote a name with `: ` in it,** such as `spec: "kind: spec"`.
   Without the quotes, YAML can't read the file.
 
 To rename a label:
 
 1. Write the new name under `tickets.labels` in `.claude/factory.yaml`.
-2. If tickets already carry the label, rename it on GitHub to the same
-   name, under Issues, Labels, Edit. That moves every ticket that has
-   it. The factory finds tickets only by the name in your settings and
+2. If tickets already carry the label, rename it in the ticket system to
+   the same name
+   ([GitHub Issues](../../integrations/github-issues.md#by-hand) says
+   where). That moves every ticket that has it. The factory finds tickets only by the name in your settings and
    never renames a label, so until you do, it doesn't see them: a
    ticket still labeled `spec` is built without its Spec. Renaming `factory`
-   hides every ticket that carries the old name until you rename the label on
-   GitHub too.
+   hides every ticket that carries the old name until you rename the label in
+   the ticket system too.
 3. Check the file and sync, as for every setting:
 
    ```console

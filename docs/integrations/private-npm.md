@@ -5,14 +5,29 @@ registry, such as your company's own packages. At the end, the factory's
 jobs that install your dependencies install it as your machine does, and
 Dependabot offers its new versions.
 
-## Private npm packages
+## What the factory uses it for
 
-The factory itself needs none of this. It comes from the public npm
+The jobs that install your repository's dependencies, with `npm ci`, sign
+in to your registry with a token you store, and Dependabot reads the
+registry for your packages' new versions.
+
+### Private npm packages
+
+This page is for your repository's own private packages, the ones its
+`package-lock.json` installs from a registry that needs a token. The
+factory itself needs none of it. It comes from the public npm
 registry, onto each machine and each job, and a
 [preset](../customize/presets.md#who-can-read-a-preset) comes from a repository on
 your code host, read with the access you already have. A repository with
 no `package-lock.json` at its root needs none of it either, since no job
 runs `npm ci` there.
+
+## You need
+
+A `package-lock.json` at your repository's root, and a registry that can
+make a token that only reads ([2. Make a read-only token](#2-make-a-read-only-token)).
+
+## Set it up
 
 ### 1. Read the token from a variable in `.npmrc`
 
@@ -28,7 +43,7 @@ one that reads the token from an environment variable:
 
 Your registry's documentation gives both lines with its own address. The
 variable can have any name; the factory stores the token as a secret of
-the same name, so wherever this section says `NPM_TOKEN`, use yours. On
+the same name, so wherever this page says `NPM_TOKEN`, use yours. On
 your machine, set the variable in your shell's profile, such as
 `export NPM_TOKEN=...`. If the token line is only in your own
 `~/.npmrc`, move it into this file with the variable in place of the
@@ -49,10 +64,8 @@ token yourself, with `gh secret set PACKAGES_TOKEN --app dependabot`, and in
 step 4 name `PACKAGES_TOKEN` in place of `NPM_TOKEN`.
 
 In the cloud, your default branch's packages are installed with that token
-before the session starts. The session itself has no GitHub token, and its
-commands can't reach GitHub, so it can't install the packages of the branch
-it works on. When your gate needs them, build that repository's tickets on
-your machine ([Limitations](../about/limitations.md#what-it-does-not-do)).
+before the session starts, and the session can't install any others
+([Limits that come from npm](#limits-that-come-from-npm)).
 
 ### 2. Make a read-only token
 
@@ -143,6 +156,14 @@ check is the first session in the cloud after the merge, such as the
 review of your next pull request or your next build: its "Install the
 repository's dependencies" step passes once the job can sign in.
 
+## What setup adds
+
+The token, stored twice, as an Actions secret and a Dependabot secret, and
+the factory's two workflow files rewritten to pass it to the jobs that
+install ([3. Store it with `factory init`](#3-store-it-with-factory-init)).
+
+## Tokens and secrets
+
 ### Replacing the token
 
 When the token expires, the next job that installs your dependencies
@@ -161,3 +182,32 @@ again instead.
 If you rename the variable in `.npmrc`, the factory's commands stop and
 say to run `factory sync`, which rewrites the two workflow files for the
 new name.
+
+## What the factory can and cannot do there
+
+It installs your packages, and nothing more: the token can only read.
+
+## Limits that come from npm
+
+- **With GitHub Packages, a session in the cloud can't install the
+  packages of the branch it works on.** Your default branch's packages
+  are installed with the workflow's own token before the session starts,
+  but the session itself has no GitHub token, and its commands can't
+  reach GitHub. When your gate needs the branch's packages, build that
+  repository's tickets on your machine
+  ([Limitations](../about/limitations.md#what-it-does-not-do)).
+
+## When something goes wrong
+
+A job that fails at `npm ci` with a 401: the token expired
+([Replacing the token](#replacing-the-token)). An `.npmrc` that `init`
+does not list under "Found" has no token line
+([3. Store it with `factory init`](#3-store-it-with-factory-init)).
+
+## By hand
+
+Steps 1, 2, 4, and 5 under [Set it up](#set-it-up) are yours already.
+Step 3 is `init`'s: to take it yourself, run the two `gh secret set`
+commands under [Replacing the token](#replacing-the-token), then
+`factory sync`, which rewrites the two workflow files for the variable
+your `.npmrc` reads.

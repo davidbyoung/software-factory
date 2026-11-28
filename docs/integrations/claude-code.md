@@ -3,71 +3,19 @@
 The coding agent: what runs each session, on your machine and in the
 cloud.
 
-## What setup adds
+## What the factory uses it for
 
-Everything the factory adds, and what
-[removing it](../maintain/removing.md) does with each.
+Every session runs in Claude Code: the ones you start on your machine,
+and the automated review, the approval policies' agents, and builds in
+the cloud. They run the factory's skills and agents.
 
-### In your repository
-
-| What                                                                            | Added by                                                           | Removing it                                                    |
-| ------------------------------------------------------------------------------- | ------------------------------------------------------------------ | -------------------------------------------------------------- |
-| `.claude/factory.yaml`, your settings                                           | Setup                                                              | Deletes it                                                     |
-| `.claude/factory.lock`                                                          | Setup                                                              | Deletes it                                                     |
-| `.claude/factory/`, the rules                                                   | Setup                                                              | Deletes it                                                     |
-| `.claude/skills/factory-*/`                                                     | Setup                                                              | Deletes them                                                   |
-| `.claude/agents/factory-*.md`                                                   | Setup                                                              | Deletes them                                                   |
-| Six hook entries in `.claude/settings.json`                                     | Setup                                                              | Removes those six, keeps the rest, and deletes an emptied file |
-| One folder under `permissions.additionalDirectories` in `.claude/settings.json` | Setup                                                              | Removes it, keeps the rest                                     |
-| `attribution` in `.claude/settings.json`, when the file had none                | Setup                                                              | Leaves it: delete the key to get Claude Code's lines back      |
-| One line in `CLAUDE.md`                                                         | Setup                                                              | Removes that line, and deletes an emptied file                 |
-| `.github/workflows/factory.yml` and `.github/workflows/factory-review.yml`      | Setup                                                              | Deletes them                                                   |
-| `.github/factory-review.md`                                                     | Setup                                                              | Deletes it                                                     |
-| `.github/review-notes.md`                                                       | You, if you wrote one. It is yours                                 | Leaves it                                                      |
-| A small `package.json`, and `node_modules/` in `.gitignore`, if you had none    | Setup, only before a spec tool that npm installs, such as OpenSpec | Leaves them. Delete them if nothing else uses them             |
-
-The "Removing it" column says what `factory remove` does with each.
-
-Nothing of the factory's own is installed in the repository: no
-`package.json` entry, no `package-lock.json`, and no `node_modules/`. The
-`factory` command is installed once on each machine
-([Which version runs](../get-started/install.md#which-version-runs)).
-
-## Hooks
-
-`sync` adds six hooks to `.claude/settings.json`. They run inside Claude
-Code sessions in this repository on a machine, not in your own terminal, and
-not in a session in the cloud, where no hook runs. Each runs the `factory`
-command installed on the machine. On a machine without it, the hooks before
-a shell command and before a file is read block the call, and they and the
-hook at a session's start say how to install it ([Which version
-runs](../get-started/install.md#which-version-runs)).
-
-| Hook                                                      | What it does                                                                                                                                                                                       |
-| --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Before a shell command                                    | Blocks a commit on your default branch, a push to it, and a force push. Runs your [`commands.before-commit`](../reference/settings/commands.md#commandsbefore-commit) commands before a commit     |
-| Before posting ticket text                                | Refuses text with a bare `<tag>`, which GitHub would silently drop                                                                                                                                 |
-| When a reviewer starts or stops                           | Records the run on the ticket, so its cost is counted                                                                                                                                              |
-| Before an unattended build writes a file under `.claude/` | Approves the write, when the run is one the factory started and the file is not `.claude/settings.json` or `.claude/settings.local.json`                                                           |
-| When a session starts                                     | Shows unfinished branches and where each ticket stands                                                                                                                                             |
-| Before a file is read, searched, or listed                | Refuses a call that opens the factory's credentials file on your machine, which only the factory's commands read ([The file on your machine](../security/credentials.md#the-file-on-your-machine)) |
-
-The fourth hook has nothing to approve while no hook runs in a session in
-the cloud. A change under `.claude/` in any pull request still waits for
-your merge, since no [`auto-merge`](../reference/settings/auto-merge.md#auto-merge) rule allows it, and a session in the
-cloud follows your default branch's copy of those files until then.
-
-`sync` also sets `attribution` in `.claude/settings.json` to leave out
-Claude Code's own "Co-Authored-By" and "Generated with" lines, so a
-session's commits and pull requests carry only the person's name. It leaves an `attribution`
-you set yourself alone.
-
-## Skills in Claude Code
+### Skills in Claude Code
 
 In Claude Code each skill is a slash command, such as `/factory-refine 12`.
 [Skills and agents](../reference/skills.md#at-a-glance) lists every one with what it does.
 
-**Where the files live.** `sync` writes the factory's skills to
+**Where the files live.** `factory sync`, which writes the factory's
+files into your repository, writes its skills to
 `.claude/skills/factory-*/` and its agents to
 `.claude/agents/factory-*.md`. Your own skills go in
 `.claude/skills/NAME/SKILL.md` and your own agents in
@@ -91,7 +39,72 @@ each area from them. How to check a change is not there: it is
 `sync` adds one line to the root `CLAUDE.md`, which loads the factory's
 rules.
 
-## When the Claude token's year is up
+## You need
+
+Claude Code, signed in. Check it with `claude --version`, which prints
+its version. If it is not ready,
+[install it](https://claude.com/claude-code), run `claude`, and sign in.
+
+## Set it up
+
+`factory init` writes everything under [What setup adds](#what-setup-adds),
+and asks for the Claude token when you turn on the automated review or
+builds in the cloud ([Tokens and secrets](#tokens-and-secrets)).
+
+## What setup adds
+
+This is the one list of every file setup writes in your repository, for
+every tool the factory uses, with what
+[removing it](../maintain/removing.md) does with each. What setup adds on
+the code host and the board is on [GitHub](github.md#what-setup-adds) and
+[GitHub Projects](github-projects.md#what-setup-adds).
+
+### In your repository
+
+| What                                                                            | Added by                                                           | Removing it                                                    |
+| ------------------------------------------------------------------------------- | ------------------------------------------------------------------ | -------------------------------------------------------------- |
+| `.claude/factory.yaml`, your settings                                           | Setup                                                              | Deletes it                                                     |
+| `.claude/factory.lock`                                                          | Setup                                                              | Deletes it                                                     |
+| `.claude/factory/`, the rules                                                   | Setup                                                              | Deletes it                                                     |
+| `.claude/skills/factory-*/`                                                     | Setup                                                              | Deletes them                                                   |
+| `.claude/agents/factory-*.md`                                                   | Setup                                                              | Deletes them                                                   |
+| Six hook entries in `.claude/settings.json`                                     | Setup                                                              | Removes those six, keeps the rest, and deletes an emptied file |
+| One folder under `permissions.additionalDirectories` in `.claude/settings.json` | Setup                                                              | Removes it, keeps the rest                                     |
+| `attribution` in `.claude/settings.json`, when the file had none                | Setup                                                              | Leaves it: delete the key to get Claude Code's lines back      |
+| One line in `CLAUDE.md`                                                         | Setup                                                              | Removes that line, and deletes an emptied file                 |
+| `.github/workflows/factory.yml` and `.github/workflows/factory-review.yml`      | Setup                                                              | Deletes them                                                   |
+| `.github/factory-review.md`                                                     | Setup                                                              | Deletes it                                                     |
+| `.github/review-notes.md`                                                       | You, if you wrote one. It is yours                                 | Leaves it                                                      |
+| A small `package.json`, and `node_modules/` in `.gitignore`, if you had none    | Setup, only before a spec tool that npm installs, such as OpenSpec | Leaves them. Delete them if nothing else uses them             |
+
+The "Removing it" column says what `factory remove` does with each.
+
+`sync` sets `attribution` in `.claude/settings.json` to leave out
+Claude Code's own "Co-Authored-By" and "Generated with" lines, so a
+session's commits and pull requests carry only the person's name. It
+leaves an `attribution` you set yourself alone.
+
+The list holds files only, since the factory itself is not one of your
+repository's dependencies. Nothing of the factory's own is installed in
+the repository: no
+`package.json` entry, no `package-lock.json`, and no `node_modules/`. The
+`factory` command is installed once on each machine
+([Which version runs](../get-started/install.md#which-version-runs)).
+
+## Tokens and secrets
+
+The automated review, the approval policies' agents, and builds in the
+cloud read a Claude token from a secret, `CLAUDE_CODE_OAUTH_TOKEN`, or an
+API key as `ANTHROPIC_API_KEY`. Sessions on your machine use your own
+sign-in.
+
+What pays for builds in the cloud is a Claude subscription or an API
+key, and `factory init --org` asks which. For a subscription it runs
+`claude setup-token`, and you paste the token it prints, the line that
+starts `sk-ant-oat01-`, which is stored as `CLAUDE_CODE_OAUTH_TOKEN`. An
+API key you paste, and it is stored as `ANTHROPIC_API_KEY`.
+
+### When the Claude token's year is up
 
 For whoever stored the Claude token: you on your own account, or an
 owner of the organization. A token that `claude setup-token` makes lasts
@@ -162,3 +175,78 @@ owners are listed on its People page on GitHub, under the Owner role.
 
 **A run that failed** because of the old token passes once the new one
 is stored: re-run it from its page on the Actions tab.
+
+## What the factory can and cannot do there
+
+### Hooks
+
+`sync` adds six hooks to `.claude/settings.json`. They run inside Claude
+Code sessions in this repository on a machine, not in your own terminal, and
+not in a session in the cloud, where no hook runs. Each runs the `factory`
+command installed on the machine. On a machine without it, the hooks before
+a shell command and before a file is read block the call, and they and the
+hook at a session's start say how to install it ([Which version
+runs](../get-started/install.md#which-version-runs)).
+
+| Hook                                                      | What it does                                                                                                                                                                                       |
+| --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Before a shell command                                    | Blocks a commit on your default branch, a push to it, and a force push. Runs your [`commands.before-commit`](../reference/settings/commands.md#commandsbefore-commit) commands before a commit     |
+| Before posting ticket text                                | Refuses text with a bare `<tag>`, which GitHub would silently drop                                                                                                                                 |
+| When a reviewer starts or stops                           | Records the run on the ticket, so its cost is counted                                                                                                                                              |
+| Before an unattended build writes a file under `.claude/` | Approves the write, when the run is one the factory started and the file is not `.claude/settings.json` or `.claude/settings.local.json`                                                           |
+| When a session starts                                     | Shows unfinished branches and where each ticket stands                                                                                                                                             |
+| Before a file is read, searched, or listed                | Refuses a call that opens the factory's credentials file on your machine, which only the factory's commands read ([The file on your machine](../security/credentials.md#the-file-on-your-machine)) |
+
+The hook that approves an unattended build's writes under `.claude/`
+matters only on a machine, since no hook runs in the cloud: a session
+there writes such a file with a command instead. Either way, the change
+is not live until you merge it. A pull request that changes a file under
+`.claude/` always waits for you, whatever
+[`auto-merge`](../reference/settings/auto-merge.md#auto-merge) allows, and
+until it merges, every session in the cloud follows your default
+branch's copy of those files.
+
+A session Claude hosts, such as Claude Code on the web, is a machine of
+its own, so the hooks there need the `factory` command too. Put the
+install line, `npm install -g @davidbyoung/software-factory`, in its
+environment's setup: without the command, the hooks stop the session's
+commands. With it, the hooks run, and the commands that read only the
+repository work, such as `factory sync`, `factory config check`, and
+`factory gate`
+([Limits that come from Claude Code](#limits-that-come-from-claude-code)
+has the ones that don't).
+
+## Limits that come from Claude Code
+
+- **A token that `claude setup-token` makes lasts a year**
+  ([When the Claude token's year is up](#when-the-claude-tokens-year-is-up)).
+- **Claude Code's sandbox is not a complete isolation boundary.** Its
+  documentation says: "Sandboxing reduces risk but is not a complete
+  isolation boundary."
+- **A session Claude hosts, such as Claude Code on the web, can't reach
+  GitHub's GraphQL API,** which is closed there. So the commands that
+  need it do not work in one: the board commands, `factory status`, and
+  the ticket commands. `factory build N` works, since it only asks GitHub
+  to start a workflow ([Hooks](#hooks) says what such a session needs
+  first).
+- **Untested: whether `claude setup-token` ends Claude Code's own
+  sign-in.** Once, Claude Code's sign-in on the machine expired within an
+  hour of `claude setup-token`, which both setup commands run when a
+  subscription pays for sessions. Claude Code's documentation does not
+  say whether one affects the other. If a later step says the session
+  expired, run `claude` and sign in again.
+
+## When something goes wrong
+
+A run in the cloud that fails with an error naming
+`CLAUDE_CODE_OAUTH_TOKEN`: its token's year is up. Replace it as
+[When the Claude token's year is up](#when-the-claude-tokens-year-is-up)
+says, then re-run it.
+
+A session on your machine that blocks every shell command and file read,
+and says how to install the `factory` command: the command is not
+installed on that machine ([Hooks](#hooks)).
+
+## By hand
+
+Nothing: `factory sync` writes every file and hook above.

@@ -5,9 +5,40 @@ a page is pictured before and after, in a browser the factory drives, and
 read by a UI reviewer: an agent that looks at those pictures for
 usability and design.
 
-## The UI reviewer
+## What you get
 
-`factory-ui-reviewer` ships with the factory and is written to any repository
+Before you see a visible change, its pages are pictured before and after,
+measured, and read by the UI reviewer.
+
+## What it needs
+
+The [`site`](../reference/settings/site.md#site) settings, which say how
+to start the website, and a browser for the factory to drive, which
+`npm install -D playwright` installs in your repository. Until it is
+installed, `factory config check` fails on settings with `site`.
+
+## Turn it on
+
+Write [`site`](../reference/settings/site.md#site) in
+`.claude/factory.yaml`. Most sites need two lines: the command that
+builds and serves the site on the port the factory gives it, and the
+address it serves at:
+
+```yaml
+site:
+  start: npm run build && npx serve out -p $PORT # build the site, and serve it on $PORT
+  url: http://localhost:$PORT # where the factory opens it
+```
+
+Then run `factory sync`, which writes the UI reviewer and
+`factory-design` into your repository.
+
+**It worked when** `factory site compare` starts your branch and the
+default branch, takes the pictures, and prints where it saved them.
+
+### The UI reviewer
+
+`factory-ui-reviewer` ships with the factory and is copied into any repository
 with [`site`](../reference/settings/site.md#site) in its settings, but runs only where it is listed:
 
 ```yaml
@@ -20,9 +51,9 @@ plugins:
           - public/**
 ```
 
-It needs the `site` settings, which say how to start the website.
+## How it works
 
-## `factory-design`
+### `factory-design`
 
 **What it does.** Designs a visible change to a website as a designer
 would: one recommended design in real content, built from your site and
@@ -41,7 +72,7 @@ does not get it at all.
 or one made by editing a running page instead of building it. Leave a
 scratch worktree behind.
 
-## `factory site`
+### `factory site`
 
 `factory site compare` starts the working tree with
 [`site.start`](../reference/settings/site.md#site), starts the default branch from a
@@ -77,8 +108,10 @@ not do its job.
 - **With several sites,** a list under [`site`](../reference/settings/site.md#site), it
   compares each site the branch's change touches, one after another, after
   a line that says which and why, and saves each site's pictures in a
-  `--site FOLDER` compares the one site in that folder,
-  whatever changed. With several sites, `--keep`, `--before`, and
+  folder of its own, named for the site's folder, inside that run's
+  folder under `node_modules/.cache/factory/site/`, which is named for the
+  time the run started. `--site FOLDER` compares the
+  one site in that folder, whatever changed. With several sites, `--keep`, `--before`, and
   `--after` need `--site FOLDER`.
   A site the default branch doesn't have yet is pictured alone, every page
   of it new.
@@ -88,6 +121,31 @@ not do its job.
   worktree.
 - `--before URL --after URL` compares two sites that are already running and
   starts nothing. One without the other is refused.
+
+## Its settings
+
+[`site`](../reference/settings/site.md#site) says how to start the website
+and what `factory site compare` measures, and
+[`plugins`](../reference/settings/plugins.md#plugins) lists the UI reviewer.
+
+## When something goes wrong
+
+`factory site compare` exits non-zero only when it could not do its job.
+What got worse on a page is not a failure: it prints as a `measured:`
+line.
+
+### When it can't start the site
+
+It prints `the site did not answer at` the site's address, then the last
+lines your `site.start` command printed. With `(its command exited)`,
+the command stopped before the site answered: run it yourself, with
+`PORT` set, and fix what those lines show. With `in 5 minutes`, or the
+minutes you set, the site was still building, or serves at another
+address than [`site.url`](../reference/settings/site.md#site) says: check
+the address, or raise `site.start-minutes`.
+
+With `--before` and `--after`, `nothing answers at` an address means
+that site isn't running: start it, and run the command again.
 
 ## On your tools
 

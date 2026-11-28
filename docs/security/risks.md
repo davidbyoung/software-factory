@@ -16,13 +16,15 @@ hijacked session could still:
   secrets your own CI gives a branch, so give CI no secret you would not
   give a session.
 - **Close another ticket when you merge its pull request,** if it hides the
-  words well enough. The usual wordings are refused, and Publish asks GitHub
-  what the pull request would close, but a merge's own message can hold text
+  words well enough. The usual wordings are refused, and Publish asks the
+  code host what the pull request would close, but a merge's own message can hold text
   neither reads. You would reopen that ticket.
 - **Pass its own review, where your CI's own token can write.** That token
   is the account the verdict is trusted from, and the code in a pull request
-  runs beside it. GitHub's default is read for a new repository and can be
-  write for an older one, so `factory doctor` checks it. A workflow of yours
+  runs beside it. A new repository's token can only read by default, but
+  an older repository's may still write
+  ([GitHub Actions](../integrations/github-actions.md#limits-that-come-from-github)),
+  so `factory doctor` checks it. A workflow of yours
   that runs a pull request's code should say no more than
   `permissions: contents: read`. A workflow the pull request adds is another
   matter ([Who can pass the review without it](#who-can-pass-the-review-without-it)).
@@ -50,18 +52,18 @@ credential that pays for it. The sandbox is "not a complete isolation
 boundary", in
 [its vendor's own words](https://code.claude.com/docs/en/sandboxing)
 ([What nobody has tested](../about/limitations.md#what-nobody-has-tested)). A
-session that got out of it would still find no GitHub key on its machine.
+session that got out of it would still find no key to your code host on its machine.
 
 ## Who can pass the review without it
 
 Your branch rules require "Review verdict", and "Approval policies" where
-you have [approval policies](../features/approval-policies.md), from GitHub Actions,
-not from the factory's own workflow. So a workflow that a pull request
+you have [approval policies](../features/approval-policies.md), from the cloud
+runner, not from the factory's own workflow. So a workflow that a pull request
 adds can pass them:
 
 - **From a branch of your repository,** a workflow that asks for
   `permissions: statuses: write` gets it, whatever your default
-  ([GitHub's own words](https://docs.github.com/en/actions/security-for-github-actions/security-guides/automatic-token-authentication#modifying-the-permissions-for-the-github_token)),
+  ([the cloud runner's own words](https://docs.github.com/en/actions/security-for-github-actions/security-guides/automatic-token-authentication#modifying-the-permissions-for-the-github_token)),
   and can mark them passed at any time. Anyone who can push a branch can
   do this: a person with write access, or a session on your own machine,
   which works with your sign-in. A session in the cloud can't add a
@@ -81,10 +83,10 @@ adds can pass them:
   [its fork settings](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/enabling-features-for-your-repository/managing-github-actions-settings-for-a-repository#enabling-workflows-for-forks-of-private-repositories)
   allow.
 
-Where several people can write to your repository, have GitHub wait for
-you on every change to a workflow: add a `CODEOWNERS` file with the line
-`/.github/ @your-username`, and turn on "Require review from Code Owners" in your
-branch rules.
+Where several people can write to your repository, have the code host
+wait for you on every change to a workflow, with a `CODEOWNERS` rule that
+requires your review
+([GitHub](../integrations/github.md#waiting-for-you-on-every-change-to-a-workflow) has the steps).
 
 ## Risks that do not go away
 

@@ -4,8 +4,16 @@ What the factory does not do, what it assumes that nobody has tested, and
 the risks that come with it. Read this before relying on it.
 
 The limits that come from today's tools rather than from the factory, such
-as a code host's billing or what its workflows can see, are in
-[the GitHub and Claude Code reference](../integrations/github-actions.md#limits).
+as a code host's billing or what its workflows can see, and what nobody
+has tested about one tool, are on that tool's page:
+[GitHub](../integrations/github.md#limits-that-come-from-github),
+[GitHub Issues](../integrations/github-issues.md#limits-that-come-from-github),
+[GitHub Projects](../integrations/github-projects.md#limits-that-come-from-github),
+[GitHub Actions](../integrations/github-actions.md#limits-that-come-from-github),
+[GitHub organizations](../integrations/github-organizations.md#limits-that-come-from-github),
+[Claude Code](../integrations/claude-code.md#limits-that-come-from-claude-code),
+[OpenSpec](../integrations/openspec.md#limits-that-come-from-openspec), and
+[Private npm registries](../integrations/private-npm.md#limits-that-come-from-npm).
 
 ## What it does not do
 
@@ -15,46 +23,46 @@ as a code host's billing or what its workflows can see, are in
   ([`code-host.type`](../reference/settings/code-host.md#code-host),
   [`tickets.type`](../reference/settings/tickets.md#tickets), and
   [`builds.runner`](../reference/settings/builds.md#builds)). Each has one implementation
-  today, GitHub's, and no other is planned. A ticket system or code host
+  today, for [GitHub](../integrations/github.md), and no other is planned. A ticket system or code host
   named by a package, for an adapter you write yourself, is not planned
   either; the design leaves room. The skills are written for one coding
-  agent, Claude Code. [The glossary](../reference/glossary.md) says which tool each
+  agent, [Claude Code](../integrations/claude-code.md). [The glossary](../reference/glossary.md) says which tool each
   word means today.
 - **It needs Node on each machine,** 22.18 or later, even for a
   repository written in another language. Nothing of Node's goes in the
   repository
   ([A repository that is not JavaScript](../customize/any-language.md#a-repository-that-is-not-javascript)).
 - **A session your coding agent's vendor hosts is a machine too.** One
-  such as Claude Code on the web, which is not the factory's session in the
-  cloud, starts without the factory, and the
+  such as [Claude Code on the web](../integrations/claude-code.md#limits-that-come-from-claude-code), which is
+  not the factory's session in the cloud, starts without the factory, and the
   factory's hooks stop its commands until it is there. Put the install
   line in the setup of the environment the session runs in:
   `npm install -g @davidbyoung/software-factory`. The hooks then run,
-  and the commands that read only the repository work. On GitHub,
-  [GitHub Actions](../integrations/github-actions.md#limits) says what still does not
-  work there.
+  and the commands that read only the repository work. What still does not
+  work there is under
+  [GitHub Actions](../integrations/github-actions.md#limits-that-come-from-github).
 - **A preset names no versions of the factory.** A preset has no version
   of its own, and says nowhere which factory it was written for. One
   that uses a setting your version does not know stops
   `factory preset add`, and fails the check on its update's pull
   request, with that setting's name
   ([Writing a preset](../customize/writing-a-preset.md#making-the-repository)).
-- **An organization is set up on github.com only.** GitHub Enterprise
-  Server is not supported: its servers cannot call the factory's
-  workflows on github.com. `factory init --org` refuses any other
-  address.
+- **An organization cannot be set up on a self-hosted code host server,**
+  only on the code host's own public service
+  ([GitHub organizations](../integrations/github-organizations.md#limits-that-come-from-github)
+  says why). `factory init --org` refuses any other address.
 - **Your own account gets no app.** `factory init --org` is for an
   organization. On your own account, builds act with one access
   token of yours, since a board a person owns refuses an app's token
-  ([Tokens and secrets](../security/credentials.md#on-github)).
+  ([Tokens and secrets](../security/credentials.md#who-handles-a-token)).
 - **An organization's poller runs only on a schedule,** in its
   `factory-config` repository. Nobody can host one for a whole
   organization. A repository in an organization that is set up keeps its
   tickets from that poller by setting `builds.trigger: manual` in its
   own settings.
 - **No command replaces the key of an organization's app, or takes an
-  organization's setup out.** GitHub makes a new key only on the app's
-  own page: [Replacing the App's key](../integrations/github-organizations.md#replacing-the-apps-key)
+  organization's setup out.** The code host makes a new key only on the
+  app's own page: [Replacing the App's key](../integrations/github-organizations.md#replacing-the-apps-key)
   has the steps, and
   [Taking an organization's setup out](../maintain/removing.md#taking-an-organizations-setup-out)
   lists what an owner deletes.
@@ -63,18 +71,17 @@ as a code host's billing or what its workflows can see, are in
   and the coding agent's
   ([The file on your machine](../security/credentials.md#the-file-on-your-machine)).
   Init checks them itself, the next time it would store them.
-- **A session in the cloud can't install from GitHub Packages itself.** Your
-  default branch's packages are installed before it starts, and after that it
-  has no GitHub token and its commands can't reach GitHub
+- **A session in the cloud can't install from your code host's package
+  registry itself.** Your default branch's packages are installed before it
+  starts, and after that it has no token for the code host and its commands
+  can't reach it
   ([GitHub Packages](../integrations/private-npm.md#github-packages)).
-- **Dependabot's pull requests do not merge themselves under an
-  organization's app, as set up.** The job that turns auto-merge on for
-  one reads Dependabot's secrets, not the Actions ones, and
-  `factory init --org` stores the app's key for Actions alone. An owner
-  who wants it makes a new key, as
-  [Replacing the App's key](../integrations/github-organizations.md#replacing-the-apps-key)
-  shows, and stores it a second time for Dependabot, with
-  `--app dependabot` added to that page's `gh secret set` line.
+- **A dependency bot's pull requests do not merge themselves under an
+  organization's app, as set up.** `factory init --org` stores the app's
+  key only where the workflows read it, and the job that turns auto-merge
+  on for one of the bot's pull requests reads the bot's own secrets.
+  [GitHub organizations](../integrations/github-organizations.md#limits-that-come-from-github)
+  says how an owner stores the key a second time.
 - **No hook runs in a session in the cloud.** The hooks that guard a session
   on your machine, and
   [`commands.before-commit`](../reference/settings/commands.md#commandsbefore-commit), are
@@ -176,9 +183,11 @@ as a code host's billing or what its workflows can see, are in
 - **A cloud session reaches only the npm registry and the hosts under
   [`builds.hosts`](../reference/settings/builds.md#builds).** It has no web search, and
   it can't reach your code host at all. So a package your code host
-  serves, as GitHub does most of Composer's, can't be installed in a
-  session ([`commands.build-setup`](../reference/settings/commands.md#commandsbuild-setup)
-  says what to do instead).
+  serves can't be installed in a session
+  ([`commands.build-setup`](../reference/settings/commands.md#commandsbuild-setup)
+  says what to do instead, and
+  [GitHub](../integrations/github.md#limits-that-come-from-github) says
+  which packages it serves).
 - **A cloud session reads only what the job before it handed over:** its own ticket and
   pull request, their threads and check results, up to 20 tickets its
   ticket names, and, for a Conflict, the pull requests merged since its
@@ -191,8 +200,8 @@ as a code host's billing or what its workflows can see, are in
 - **A pull request from a fork starts no run in the cloud,** and its review
   verdict waits for a person. So does one that goes into a branch other
   than your default branch, once it is marked ready.
-- **One of Dependabot's pull requests gets the verdict's pass only while
-  every commit on it is Dependabot's own.** Once a session or a person
+- **A dependency bot's pull request gets the verdict's pass only while
+  every commit on it is the bot's own.** Once a session or a person
   pushes to it, the automated review reads it, and the next Dependency run
   answers what it asks for. With the review off, or a push whose review did
   not run, the verdict waits. Override it, with
@@ -226,26 +235,23 @@ as a code host's billing or what its workflows can see, are in
 - **A determined attacker.** Known ways to steal the agent's credential and
   the job's own token were tried against the sandbox and failed, and a pull
   request written to talk the review into "ready" failed too. Nobody has been
-  asked to break it. Claude Code's documentation says of its sandbox:
-  "Sandboxing reduces risk but is not a complete isolation boundary."
+  asked to break it. The sandbox's own vendor does not call it a complete
+  isolation boundary
+  ([Claude Code](../integrations/claude-code.md#limits-that-come-from-claude-code)).
 - **A browser in a cloud session,** and a cloud build of a repository that
   is not JavaScript, whose dependencies are copied or installed as
   [`commands.build-setup`](../reference/settings/commands.md#commandsbuild-setup) says.
 - **Parts of an organization's setup, against a real one.** These have
-  run on GitHub, once each, in an organization on the Free plan:
+  run on the code host, once each, in an organization on its free plan:
   `factory init --org` from start to finish; a job making a token from
   the app, with that job's own permissions; signing the code host's
   command-line tool in with such a token, and a push and a pull request
   made through that sign-in; and `factory enroll`, with the
   organization's property and without it. These have not: the
-  organization-wide rule, which needs GitHub's Team plan; and the poller in
-  `factory-config`, which needs a release of the factory to call.
-- **Whether `claude setup-token` ends the coding agent's own sign-in.**
-  Once, Claude Code's sign-in on the machine expired within an hour of
-  `claude setup-token`, which both setup commands run when a
-  subscription pays for sessions. Claude Code's documentation does not
-  say whether one affects the other. If a later step says the session
-  expired, run `claude` and sign in again.
+  organization-wide rule, which needs a paid plan
+  ([GitHub organizations](../integrations/github-organizations.md#limits-that-come-from-github)
+  names it); and the poller in `factory-config`, which needs a release of
+  the factory to call.
 - **Your board's own automations,** such as moving a closed ticket to Done.
   They may fight the board sync.
 - **A factory update reaching a repository through the update job.**
