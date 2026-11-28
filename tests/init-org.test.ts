@@ -140,7 +140,7 @@ const ADDRESSES = [
   "The settings every repository shares are yours to edit:",
   "     https://github.com/acme/factory-config/blob/HEAD/factory-preset.yaml",
   "The steps in full:",
-  "     https://github.com/davidbyoung/software-factory/blob/v0.4.0/docs/github/setup.md#in-an-organization",
+  "     https://github.com/davidbyoung/software-factory/blob/v0.4.0/docs/setup/organization.md#what-each-developer-does-next",
 ];
 /** How a run that did something ends. `because` is why a third step is
  * left to each repository's admin, where no organization's rule was made. */
@@ -952,7 +952,7 @@ describe("factory init --org, a first run", () => {
       "The settings every repository shares are yours to edit:",
       "     {copy:https://github.com/acme/factory-config/blob/HEAD/factory-preset.yaml}",
       "The steps in full:",
-      "     {copy:https://github.com/davidbyoung/software-factory/blob/v0.4.0/docs/github/setup.md#in-an-organization}",
+      "     {copy:https://github.com/davidbyoung/software-factory/blob/v0.4.0/docs/setup/organization.md#what-each-developer-does-next}",
     ]);
   });
 
@@ -2020,7 +2020,7 @@ describe("factory init --org, the address of the docs", () => {
 
   it("names the installed release's copy of the page", async () => {
     expect(await docsLine("1.12.3")).toBe(
-      "https://github.com/davidbyoung/software-factory/blob/v1.12.3/docs/github/setup.md#in-an-organization",
+      "https://github.com/davidbyoung/software-factory/blob/v1.12.3/docs/setup/organization.md#what-each-developer-does-next",
     );
   });
 
@@ -2028,7 +2028,7 @@ describe("factory init --org, the address of the docs", () => {
     "names the default branch's copy for %s, which is no release",
     async (version) => {
       expect(await docsLine(version)).toBe(
-        "https://github.com/davidbyoung/software-factory/blob/main/docs/github/setup.md#in-an-organization",
+        "https://github.com/davidbyoung/software-factory/blob/main/docs/setup/organization.md#what-each-developer-does-next",
       );
     },
   );
@@ -2048,7 +2048,7 @@ describe("factory init --org, the address of the docs", () => {
           .replaceAll(" ", "-"),
       );
     expect(headings).toContain(anchor);
-    expect(anchor).toBe("in-an-organization");
+    expect(anchor).toBe("what-each-developer-does-next");
   });
 });
 

@@ -26,7 +26,7 @@ folder, which `.gitignore` leaves out, so a later build finds a clean tree:
 
 - `draft.md`: the syntax and workflows, as Markdown with Mermaid blocks.
 - The docs page, once there is one (step 6), as one Markdown file at the
-  path it will have in the repository, such as `.dx-first/N/docs/presets.md`.
+  path it will have in the repository, such as `.dx-first/N/docs/customize/presets.md`.
 - `draft.html`: the page the owner reads. It renders those Markdown files
   as they are, Mermaid included, so the owner reviews the text that ships,
   not a copy of it.
@@ -55,7 +55,7 @@ Then read:
 - "Writing for the factory" in `docs/developing.md`.
 
 The draft follows the docs' conventions, not the session's: a command is
-written `factory ...`, the one install `docs/cli.md` describes.
+written `factory ...`, the one install `docs/get-started/install.md` describes.
 
 Run on its own, post the `refining` marker first, so the card shows the
 ticket is being worked: `factory ticket refining N`.

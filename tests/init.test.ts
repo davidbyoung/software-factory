@@ -1025,7 +1025,7 @@ describe("factory init, word for word", () => {
         "  2. Start a new session of your coding agent here. It loads the factory from the files now in your repository.",
         "  3. Refine a ticket with /factory-refine N, then build it with /factory-build N.",
         "The steps in full:",
-        "     https://github.com/davidbyoung/software-factory/blob/v0.2.0/docs/quick-start.md#4-open-a-ticket",
+        "     https://github.com/davidbyoung/software-factory/blob/v0.2.0/docs/get-started/quick-start.md#4-open-a-ticket",
         "",
         "Checks",
         "  ✓ Every check passed",

@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { Ajv } from "ajv";
 import { load } from "js-yaml";
 import { describe, expect, it } from "vitest";
@@ -63,7 +63,15 @@ const read = (url: string) =>
 const yamlBlocks = (md: string) =>
   [...md.matchAll(/```yaml\n([\s\S]*?)```/g)].map((m) => m[1]!);
 
-const complete = yamlBlocks(read("../docs/configuration.md")).filter((b) =>
+/** Every settings page, as one text: a key's entry is on its own page. */
+const settingsPages = readdirSync(
+  new URL("../docs/reference/settings/", import.meta.url),
+)
+  .filter((f) => f.endsWith(".md"))
+  .sort()
+  .map((f) => read(`../docs/reference/settings/${f}`))
+  .join("\n");
+const complete = yamlBlocks(settingsPages).filter((b) =>
   b.includes("repository:"),
 );
 

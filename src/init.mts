@@ -177,6 +177,7 @@ import {
   notValid,
   openPage,
   pasted,
+  DOCS_PAGES,
   docsPage,
 } from "./init-shared.mts";
 
@@ -760,8 +761,7 @@ function presetStop(o: {
     );
   const under = (text: string) => say.text(`     ${text}`);
   const command = under(`factory init --org ${o.address}`);
-  const steps = (section: string) =>
-    under(docsPage(o.version, `github/setup.md#${section}`));
+  const steps = (page: string) => under(docsPage(o.version, page));
   if (o.lacks === "plan")
     return [
       fails(`${plan} does not share them with a private repository.`),
@@ -769,7 +769,7 @@ function presetStop(o: {
         `Make ${repository} public, or move ${owner} to a paid plan. Then run factory init again.`,
       ),
       say.text(`What ${plan} leaves out:`),
-      steps("on-githubs-free-plan"),
+      steps(DOCS_PAGES.freePlan),
     ];
   if (o.lacks === "not set up")
     return [
@@ -788,7 +788,7 @@ function presetStop(o: {
       say.text(
         `If ${owner} is set up already, its secrets are not shared with ${repository}. How an owner shares them:`,
       ),
-      steps("when-the-organizations-secrets-do-not-reach-you"),
+      steps(DOCS_PAGES.secretsDoNotReach),
     ];
   const byKey = o.needs.some((anyOf) => anyOf.includes(APP_KEY));
   const secrets = [
@@ -819,7 +819,7 @@ function presetStop(o: {
     say.text("If one is not listed there, the owner runs this first:"),
     command,
     say.text("The steps in full:"),
-    steps("when-the-organizations-secrets-do-not-reach-you"),
+    steps(DOCS_PAGES.secretsDoNotReach),
   ];
 }
 
@@ -1120,7 +1120,7 @@ export function afterMerge(
       "Refine a ticket with /factory-refine N, then build it with /factory-build N.",
     ),
     say.text("The steps in full:"),
-    say.text(`     ${docsPage(version, "quick-start.md#4-open-a-ticket")}`),
+    say.text(`     ${docsPage(version, DOCS_PAGES.firstTicket)}`),
   ];
 }
 

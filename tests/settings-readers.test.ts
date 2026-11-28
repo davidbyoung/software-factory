@@ -293,7 +293,7 @@ describe.each(Object.entries({ ...OWN_READERS, ...PRESET_READERS }))(
     it("refuses an older version in the shared words", () =>
       readIt(
         file([]).replace("version: 2", "version: 1"),
-        'version: must be 2: this file is version 1, see "Moving to settings version 2" in docs/updating.md',
+        "version: must be 2: this file is version 1, see https://github.com/davidbyoung/software-factory/blob/main/docs/maintain/upgrade-notes.md#moving-to-settings-version-2",
       ));
 
     it("refuses a file YAML cannot read in YAML's own words", async () => {

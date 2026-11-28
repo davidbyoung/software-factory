@@ -344,7 +344,7 @@ describe("factory init, the branch and its commit", () => {
 
 describe("factory init, its closing lines", () => {
   const ADDRESS =
-    "https://github.com/davidbyoung/software-factory/blob/v0.2.0/docs/quick-start.md#4-open-a-ticket";
+    "https://github.com/davidbyoung/software-factory/blob/v0.2.0/docs/get-started/quick-start.md#4-open-a-ticket";
   /** What comes after the setup merges, for a default branch. */
   const after = (branch: string) => [
     "After it merges:",
@@ -413,9 +413,11 @@ describe("factory init, its closing lines", () => {
   });
 
   it("names the docs at the installed release, and on main for a version that is no release", () => {
-    expect(docsPage("0.2.0", "quick-start.md#4-open-a-ticket")).toBe(ADDRESS);
-    expect(docsPage("0.0.0-development", "quick-start.md")).toBe(
-      "https://github.com/davidbyoung/software-factory/blob/main/docs/quick-start.md",
+    expect(
+      docsPage("0.2.0", "get-started/quick-start.md#4-open-a-ticket"),
+    ).toBe(ADDRESS);
+    expect(docsPage("0.0.0-development", "get-started/quick-start.md")).toBe(
+      "https://github.com/davidbyoung/software-factory/blob/main/docs/get-started/quick-start.md",
     );
     expect(docsPage("main", "cli.md")).toMatch(/\/blob\/main\/docs\//);
   });

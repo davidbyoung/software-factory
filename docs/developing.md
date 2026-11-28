@@ -1,7 +1,7 @@
 # Developing the factory
 
 How to work on the factory itself. For using it, start with the
-[quick start](quick-start.md).
+[quick start](get-started/quick-start.md).
 
 ## Where it lives
 
@@ -30,7 +30,7 @@ this repository's source.
 A change reaches a repository that uses the factory as a release: a new
 version on npm and its tag here, then a pull request there, which that
 repository's update job opens with the files the version writes
-([Updating](updating.md)).
+([Updating](maintain/updating.md)).
 
 ## What is built
 
@@ -55,7 +55,7 @@ marked working below exist only in these docs.
 | Two workflow files in a repository, which call the factory's own workflows at the version its lock names                                                                       | Working                                             |
 | A job that passes or is skipped when its part is off, and a session job that looks for work before a token                                                                     | Working                                             |
 | The Actions policy a public repository needs for `pull_request_target`, added by `init` and checked by `doctor`                                                                | Working                                             |
-| The automated review as one of the factory's runs, and [`pr-review`](configuration.md#pr-review)                                                                               | Working                                             |
+| The automated review as one of the factory's runs, and [`pr-review`](reference/settings/pr-review.md#pr-review)                                                                | Working                                             |
 | Nothing in the package names the repository it was drawn out of, checked in the folder and the packed tarball                                                                  | Working                                             |
 | The `factory-` names and the `FACTORY_` secrets                                                                                                                                | Working                                             |
 | Ticket commands that go through one interface                                                                                                                                  | Working                                             |
@@ -74,7 +74,7 @@ marked working below exist only in these docs.
 | A second repository set up and removed from the quick start alone                                                                                                              | Working                                             |
 | `factory remove`                                                                                                                                                               | Working                                             |
 | Starting builds from a scheduled job, `factory poller --once`, and a poller built from an installed package                                                                    | Working                                             |
-| [`rules`](configuration.md#rules) in the settings, `factory config explain`, and the `factory-trace` skill                                                                     | Working                                             |
+| [`rules`](reference/settings/rules.md#rules) in the settings, `factory config explain`, and the `factory-trace` skill                                                          | Working                                             |
 | Settings version 2: commands, a spec check, and plugins grouped by phase                                                                                                       | Working                                             |
 | `factory gate`, `test-one`, `end-to-end`, and `specs check`, which run the settings' commands                                                                                  | Working                                             |
 | The default branch read from Git and the code host, never assumed, and `factory default-branch`                                                                                | Working                                             |
@@ -85,12 +85,12 @@ marked working below exist only in these docs.
 | An organization set up once, with `factory init --org`: its own GitHub App, its secrets, the repository that holds its preset, and the rule that requires the review's verdict | Working                                             |
 | A run that acts as the organization's App, with a token made by each job that needs one, and none by a session                                                                 | Working                                             |
 | A cloud run as three jobs, Prepare, Session, and Publish, with no sign-in beside the AI: a build, a review, an answer, a conflict, and a dependency                            | Built. Not yet run end to end                       |
-| [`builds.hosts`](configuration.md#builds), the hosts a session in the cloud may reach                                                                                          | Working                                             |
+| [`builds.hosts`](reference/settings/builds.md#builds), the hosts a session in the cloud may reach                                                                              | Working                                             |
 | The review's verdict taken from its own run, and no comment                                                                                                                    | Working                                             |
 | An organization's one poller, in the repository that holds its preset                                                                                                          | Working                                             |
 | `init` choosing the repository from the checkout's remotes, reading presets before it asks, running the gate, and opening the setup pull request                               | Working                                             |
 | The verdict made a required check by the first run after a repository's setup merges, with `factory enroll`                                                                    | Working                                             |
-| [Approval policies](approval-policies.md): checks whose findings wait for a person's `policy-override`                                                                         | Built. Not yet run end to end                       |
+| [Approval policies](features/approval-policies.md): checks whose findings wait for a person's `policy-override`                                                                | Built. Not yet run end to end                       |
 | A person's GitHub and Claude tokens kept on their machine, for their next repository                                                                                           | Working                                             |
 | Verified commits from a build that acts as an organization's App                                                                                                               | Planned: #77                                        |
 | Another ticket system, such as Jira                                                                                                                                            | Planned: #63                                        |
@@ -101,7 +101,7 @@ marked working below exist only in these docs.
 | Sharing plugins between repositories                                                                                                                                           | Not planned                                         |
 
 When a part is built, its pull request updates this table, and corrects any
-page the build had to differ from. [The CLI](cli.md) marks each command
+page the build had to differ from. [Commands](reference/cli.md) marks each command
 built or planned.
 
 ## The folder
@@ -147,23 +147,26 @@ one. That costs nothing, and it keeps the plugin's own tooling usable on the
 folder. The settings are validated in code, and `settings.schema.json` is the
 editor's copy of their keys. A new key goes in `SETTINGS_KEYS` in
 `src/config.mts`, in the schema, in `src/explain.mts`, which prints it, and
-in `docs/configuration.md`, and a test fails when the first two differ. A
+on its page under `docs/reference/settings/`, and a test fails when the
+first two differ. A
 rule that one setting needs another lets a preset leave the other out,
 through `preset` in `parseSettings`.
 
 - **A command a session runs** goes under
-  [`commands`](configuration.md#commands), with a `factory`
+  [`commands`](reference/settings/commands.md#commands), with a `factory`
   command in `src/commands.mts` that runs it, so a skill names the
   `factory` command and never the repository's own.
 - **A plugin role** goes in `ROLES` and `ROLE_SHAPE` in `src/config.mts`,
   which say its phase, whether it takes a skill or an agent, one or a
   list, and `files` or `labels`. Its keys in `SETTINGS_KEYS` follow from
-  that table. `docs/plugins.md` gains its table of what it is handed and
+  that table. `docs/customize/plugins.md` gains its table of what it is
+  handed and
   what it returns.
 - **A key that is renamed or moved** raises the settings' `version`.
   There is no command that converts a file: the older version is refused
-  with a line that names a section of `docs/updating.md`, as version 1 is
-  with "Moving to settings version 2", and that section shows each key
+  with the address of a section of `docs/maintain/upgrade-notes.md`,
+  through `DOCS_PAGES` in `src/lib/docs-page.mts`, as version 1 is with
+  "Moving to settings version 2", and that section shows each key
   before and after.
 
 ## Running from source
@@ -197,7 +200,7 @@ this order:
    and otherwise `dist/cli.mjs`.
 
 The launcher reads the lock's version with a pattern, since it loads no
-package to parse YAML with. [Which version runs](cli.md#which-version-runs)
+package to parse YAML with. [Which version runs](get-started/install.md#which-version-runs)
 is what a user is told.
 
 Hooks here run the launcher by its path with `node`. In a repository that
@@ -275,7 +278,7 @@ calls them at a version.
 ### A run in the cloud
 
 `session.yml` is the three jobs of every run that uses the coding agent
-([What a cloud run is](builds.md#what-a-cloud-run-is)), which `run.yml`
+([What a cloud run is](security/cloud-runs.md#what-a-cloud-run-is)), which `run.yml`
 calls once for each kind. The skills are the same ones a session on a
 machine follows, so nothing in a skill asks where it runs. The difference
 is below the commands: `FACTORY_HANDOFF` names a folder, and where it is
@@ -333,7 +336,7 @@ addition, not a rewrite. Four rules keep it that way, and its setup is
 **1. Nothing talks to the ticket system except through the tool.** A skill
 never runs `gh issue` or calls GitHub's issues or projects API. It runs
 `factory ticket view 12`, `factory ticket comment 12`, and the other
-commands under [Tickets](cli.md#tickets). A test fails when a factory
+commands under [Tickets](reference/cli-internal.md#tickets). A test fails when a factory
 skill, agent, rule, review instruction, or workflow contains a direct call.
 
 **2. Three folders are the only code that calls GitHub.**
@@ -344,7 +347,7 @@ runs. Every command reaches a ticket, a pull request, or a build through
 one of them, and a test fails when a file elsewhere under `src/` calls
 GitHub or holds a `github.com` address.
 
-**3. The tool reads [`tickets.type`](configuration.md#tickets) and hands
+**3. The tool reads [`tickets.type`](reference/settings/tickets.md#tickets) and hands
 the work to that type's adapter.** An adapter is one module in
 `src/tickets/` that implements the `Tickets` type in
 `src/tickets/types.mts`. `github` is the only one; any other value fails
@@ -372,7 +375,7 @@ the work to that type's adapter.** An adapter is one module in
 | Links in a body         | `linksIn`                 | The tickets a pull request's body closes, and those it builds part of, each in the body's order                                                                                                                                                                                             |
 | The address of a ticket | `address`                 | Its page, which the views link a ticket to                                                                                                                                                                                                                                                  |
 | Finish a ticket         | `finish`                  | Marks it finished once the pull request that closes it merged. GitHub closes it if it is open                                                                                                                                                                                               |
-| Statuses                | `statuses`                | Whether the ticket system has statuses of its own, which [`tickets.columns`](configuration.md#ticketscolumns) then maps with or without a board                                                                                                                                             |
+| Statuses                | `statuses`                | Whether the ticket system has statuses of its own, which [`tickets.columns`](reference/settings/tickets.md#ticketscolumns) then maps with or without a board                                                                                                                                |
 | The record              | `record`                  | Adds, updates, removes, and reads the entries the factory records on a ticket: a claim, a start, a cost. Each is text and marker lines, and says whether a person must read it. GitHub's adapter keeps each as a comment; one that can hide them comments only for those a person must read |
 
 No code above the adapter reads a marker out of a comment: the record is
@@ -437,7 +440,7 @@ a third.
 ## Adding a code host
 
 The code host is where pull requests are. Only GitHub is built. The
-settings name it with [`code-host.type`](configuration.md#code-host), and
+settings name it with [`code-host.type`](reference/settings/code-host.md#code-host), and
 `src/code-host/index.mts` hands a command the implementation of that name:
 one module in `src/code-host/` that implements the `CodeHost` type in
 `src/code-host/types.mts`. Any other value fails `factory config check`,
@@ -529,7 +532,7 @@ of which call GitHub is sent belongs.
 ## Adding a runner
 
 The runner is where an unattended build runs. Only GitHub Actions is
-built. The settings name it with [`builds.runner`](configuration.md#builds), and
+built. The settings name it with [`builds.runner`](reference/settings/builds.md#builds), and
 `src/runner/index.mts` hands a command the implementation of that name:
 one module in `src/runner/` that implements the `Runner` type in
 `src/runner/types.mts`. Any other value fails `factory config check`, and
@@ -574,7 +577,7 @@ its own tests against faked replies.
 
 A spec tool keeps a copy of each ticket's Spec in the repository. Only
 OpenSpec is built. The settings name it with
-[`specs`](configuration.md#specs), and `src/specs/index.mts` hands a
+[`specs`](reference/settings/specs.md#specs), and `src/specs/index.mts` hands a
 command the adapter of that name: one module in `src/specs/` that
 implements the `SpecTool` type in `src/specs/types.mts`. `none` needs no
 adapter. Any other value fails `factory config check` with
@@ -584,7 +587,7 @@ adapter is registered.
 **Nothing runs a spec tool except its adapter.** A skill never runs
 `openspec` or any other tool's command. It runs `factory specs list`,
 `new N`, `check`, and `finish N` ([Your repository's
-commands](cli.md#your-repositorys-commands)), which print one line and
+commands](reference/cli.md#your-repositorys-commands)), which print one line and
 exit 0 with no spec tool, so a skill need not ask which is set. A test
 fails when a factory skill, agent, rule, review instruction, or workflow
 runs OpenSpec itself.
@@ -612,7 +615,7 @@ against it too, so nothing outside `src/specs/` assumes OpenSpec.
 
 A tool's own process, such as Spec Kit's `/speckit.clarify` or EGM's
 review, is not part of the adapter: a team that wants it sets it as a
-[plugin](plugins.md), as the refiner or a reviewer.
+[plugin](customize/plugins.md), as the refiner or a reviewer.
 
 ## Setting a tool up
 
@@ -787,7 +790,7 @@ this repository's own reviewer, reads a changed page as that person.
   first lines.
 - **The command is always written `factory ...`,** in a page, and in
   text a skill, hook, workflow, or session reads. It is installed once
-  on a machine ([The CLI](cli.md#which-version-runs)), so nothing runs
+  on a machine ([Install](get-started/install.md#which-version-runs)), so nothing runs
   it through `npx`, and a test fails on a page that does.
 - **Lead with the command that does it.** The same steps by hand go on a
   page of their own, linked once. A step that runs a skill shows its slash
@@ -796,8 +799,17 @@ this repository's own reviewer, reads a changed page as that person.
   not knowing which one ran.
 - **Say only what the reader must do or decide.** What a command does for
   them is one sentence, and a link to the page that lists it.
-- **A setting links to its entry in `docs/configuration.md` where a page
-  first names it.** A test fails on one that does not.
+- **A skill is shown in Claude Code's form,** such as
+  `/factory-refine 12`, with nothing more. The one table of each coding
+  agent's form is on the Integrations overview, so a second agent adds a
+  row there and changes no other page.
+- **A setting links to its entry on its page under
+  `docs/reference/settings/` where a page first names it,** such as
+  `reference/settings/tickets.md#ticketsfields`. A test fails on one that
+  does not.
+- **A troubleshooting heading is the symptom in the reader's words,** and
+  each fix has one home: the page that owns what failed, which the heading
+  links to.
 - **A setting the reader writes is shown as YAML they can paste,** with
   what each line is for.
 - **A step ends with how the reader knows it worked.**
@@ -818,9 +830,9 @@ A person reads it in a terminal, often while doing something else.
 
 - **Precise and short.** A label and a value, or a mark and a few words,
   not a sentence explaining them. What a mark or a state word means is
-  said once, in `docs/cli.md`.
+  said once, in `docs/reference/cli.md`.
 - **A block is headed by the setting it shows,** such as
-  [`tickets.fields`](configuration.md#ticketsfields), so the reader knows
+  [`tickets.fields`](reference/settings/tickets.md#ticketsfields), so the reader knows
   what to edit.
 - **The marks mean one thing everywhere:** ✓ works, ✗ needs fixing,
   ? worth a look, - off on purpose.

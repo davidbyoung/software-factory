@@ -2,7 +2,7 @@
 # settings in effect, and the files it wrote. Do not edit.
 version: 0.0.0-development
 presets: []
-settings-hash: sha256:bfca08ad381c7a319e4da2e75be583e23290d1371497346f5a94103eb173afa2
+settings-hash: sha256:a0fe9762647060074bb70cee2d32393abb39c81189892163f87214cfc62829cf
 npmrc-variables: []
 settings:
   version: 2

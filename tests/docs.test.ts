@@ -16,10 +16,12 @@ import {
 } from "../src/config.mts";
 import { factoryWorkflow } from "../src/workflow-files.mts";
 import { ROLES as LOOKS } from "../src/lib/output.mts";
+import { DOCS_PAGES } from "../src/lib/docs-page.mts";
 
 const PACKAGE = ".";
-const CLI = "docs/cli.md";
-const CONFIGURATION = "docs/configuration.md";
+const CLI = "docs/reference/cli.md";
+const CLI_INTERNAL = "docs/reference/cli-internal.md";
+const SETTINGS = "docs/reference/settings";
 
 /** Every page a reader reads, by its path from the package. */
 const pages = () => [
@@ -32,6 +34,17 @@ const pages = () => [
 ];
 
 const read = (page: string) => readFileSync(join(PACKAGE, page), "utf8");
+
+/** Every settings page, as one text: a key's entry is on its own page. */
+const settingsText = () =>
+  readdirSync(join(PACKAGE, SETTINGS))
+    .filter((f) => f.endsWith(".md"))
+    .sort()
+    .map((f) => read(`${SETTINGS}/${f}`))
+    .join("\n");
+
+/** The page of a top-level settings key. */
+const settingsPage = (key: string) => `${SETTINGS}/${key}.md`;
 
 /** The commands `docs/cli.md`'s tables mark Planned in their last cell, as
  * written there without `npx --no-install` and their arguments, such as
@@ -148,10 +161,10 @@ export function unmarked(
   return found;
 }
 
-/** The settings keys with an entry of their own in docs/configuration.md,
- * as its headings write them, such as `tickets.columns`. */
-export function settingsEntries(configuration: string): string[] {
-  return [...configuration.matchAll(/^#{3,} `([a-z.-]+)`$/gm)].map((m) => m[1]);
+/** The settings keys with an entry of their own on the settings pages, as
+ * their headings write them, such as `tickets.columns`. */
+export function settingsEntries(settings: string): string[] {
+  return [...settings.matchAll(/^#+ `([a-z.-]+)`$/gm)].map((m) => m[1]);
 }
 
 // In every settings file, so no reader looks them up.
@@ -177,7 +190,7 @@ export function npxLines(text: string): string[] {
 }
 
 /** Each settings key `text` names in backticks whose first mention is not a
- * link to its entry in docs/configuration.md. A key is named alone, by a
+ * link to its entry on its settings page. A key is named alone, by a
  * path under it, or with a value, as `builds.trigger: manual`, and its entry
  * is the longest of `entries` its path starts with. Code blocks and headings
  * are not read. */
@@ -199,7 +212,7 @@ export function unlinkedSettings(text: string, entries: string[]): string[] {
       .sort((a, b) => b.length - a.length)[0];
     if (!entry || seen.has(entry)) continue;
     seen.add(entry);
-    const target = `configuration.md#${entry.replaceAll(".", "")}`;
+    const target = `settings/${entry.split(".")[0]}.md#${entry.replaceAll(".", "")}`;
     const linked = links.some(
       (l) => l.start < m.index && m.index < l.end && l.target.endsWith(target),
     );
@@ -397,12 +410,13 @@ describe("unlinkedSettings", () => {
 
   it("finds a key named without a link to its entry", () => {
     expect(unlinkedSettings("Write `pr-review` there.", entries)).toEqual([
-      "`pr-review` does not link to configuration.md#pr-review",
+      "`pr-review` does not link to settings/pr-review.md#pr-review",
     ]);
   });
 
   it("asks for the link at the first mention only", () => {
-    const linked = "[`pr-review`](../configuration.md#pr-review) turns it on.";
+    const linked =
+      "[`pr-review`](../reference/settings/pr-review.md#pr-review) turns it on.";
     expect(
       unlinkedSettings(`${linked}\n\nDelete \`pr-review\` later.`, entries),
     ).toEqual([]);
@@ -413,25 +427,25 @@ describe("unlinkedSettings", () => {
 
   it("takes a link whose words wrap around the key", () => {
     const text =
-      "See [the commands under\n`pr-review`](configuration.md#pr-review).";
+      "See [the commands under\n`pr-review`](settings/pr-review.md#pr-review).";
     expect(unlinkedSettings(text, entries)).toEqual([]);
   });
 
   it("finds a link to another key's entry", () => {
     expect(
-      unlinkedSettings("[`pr-review`](configuration.md#tickets)", entries),
+      unlinkedSettings("[`pr-review`](settings/tickets.md#tickets)", entries),
     ).toHaveLength(1);
   });
 
   it("sends a path under a key to the longest entry it starts with", () => {
     const text = [
-      "[`tickets.board: 7`](configuration.md#tickets) and",
-      "[`tickets.columns.ready`](configuration.md#ticketscolumns).",
+      "[`tickets.board: 7`](settings/tickets.md#tickets) and",
+      "[`tickets.columns.ready`](settings/tickets.md#ticketscolumns).",
     ].join("\n");
     expect(unlinkedSettings(text, entries)).toEqual([]);
     expect(
       unlinkedSettings(
-        "[`tickets.columns`](configuration.md#tickets)",
+        "[`tickets.columns`](settings/tickets.md#tickets)",
         entries,
       ),
     ).toHaveLength(1);
@@ -551,10 +565,10 @@ describe("brokenLinks", () => {
 });
 
 describe("the docs", () => {
-  const planned = plannedCommands(read(CLI));
+  const planned = plannedCommands(`${read(CLI)}\n${read(CLI_INTERNAL)}`);
 
-  it("read docs/cli.md's tables, so a row marked Planned there would be found", () => {
-    const text = read(CLI);
+  it("read the commands pages' tables, so a row marked Planned there would be found", () => {
+    const text = read(CLI_INTERNAL);
     const row = text
       .split("\n")
       .find((line) => line.startsWith("| `factory poller --once`"))!;
@@ -569,10 +583,14 @@ describe("the docs", () => {
   });
 
   it("say how the workflows install a private npm package, and no longer mark it Planned", () => {
-    expect(anchorsOf(read("docs/github/setup.md"))).toContain(
+    expect(anchorsOf(read("docs/integrations/private-npm.md"))).toContain(
       "private-npm-packages",
     );
-    for (const page of ["docs/presets.md", "docs/limitations.md"]) {
+    for (const page of [
+      "docs/customize/presets.md",
+      "docs/customize/writing-a-preset.md",
+      "docs/about/limitations.md",
+    ]) {
       const lines = read(page).split("\n");
       const near = lines.filter(
         (l, i) =>
@@ -587,7 +605,7 @@ describe("the docs", () => {
 
   it("mark every use of a planned command", () => {
     const found = pages().flatMap((page) =>
-      unmarked(read(page), planned, page === CLI).map(
+      unmarked(read(page), planned, page === CLI || page === CLI_INTERNAL).map(
         (line) => `${page}: ${line}`,
       ),
     );
@@ -595,7 +613,7 @@ describe("the docs", () => {
   });
 
   it("give every settings key but the two in every file an entry", () => {
-    expect(settingsEntries(read(CONFIGURATION))).toEqual(
+    expect(settingsEntries(settingsText())).toEqual(
       expect.arrayContaining(
         SETTINGS_KEYS[""].filter((key) => !IN_EVERY_FILE.includes(key)),
       ),
@@ -603,9 +621,9 @@ describe("the docs", () => {
   });
 
   it("link a settings key to its entry where a page first names it", () => {
-    const entries = settingsEntries(read(CONFIGURATION));
+    const entries = settingsEntries(settingsText());
     const found = pages()
-      .filter((page) => page !== CONFIGURATION)
+      .filter((page) => !page.startsWith(`${SETTINGS}/`))
       .flatMap((page) =>
         unlinkedSettings(read(page), entries).map((line) => `${page}: ${line}`),
       );
@@ -642,8 +660,8 @@ describe("the docs", () => {
   });
 
   it("list pr uncovered under Pull requests, with what it prints and both defaults", () => {
-    const section = read(CLI)
-      .split(/^### /m)
+    const section = read(CLI_INTERNAL)
+      .split(/^## /m)
       .find((part) => part.startsWith("Pull requests"));
     const row = section
       ?.split("\n")
@@ -748,15 +766,15 @@ describe("the docs on label names", () => {
   });
 
   it("give tickets.labels and code-host.labels an entry each", () => {
-    expect([...anchorsOf(read("docs/configuration.md"))]).toEqual(
+    expect([...anchorsOf(settingsText())]).toEqual(
       expect.arrayContaining(["ticketslabels", "code-hostlabels"]),
     );
   });
 });
 
-describe("the shortest file in docs/configuration.md", () => {
+describe("the shortest file on the settings page", () => {
   it("shows every required setting, a board's among them", () => {
-    const text = read("docs/configuration.md");
+    const text = read(`${SETTINGS}/README.md`);
     const shortest = text.slice(
       text.indexOf("## The shortest file"),
       text.indexOf("## The settings most repositories change"),
@@ -781,38 +799,38 @@ describe("the shortest file in docs/configuration.md", () => {
 // What the docs say about settings version 2: its commands, its spec check,
 // its plugins by phase, and the commands that came with it.
 describe("the docs, for settings version 2", () => {
-  const configuration = read(CONFIGURATION);
+  const configuration = settingsText();
   const entries = settingsEntries(configuration);
-  const plugins = read("docs/plugins.md");
-  const updating = read("docs/updating.md");
+  const plugins = read("docs/customize/plugins.md");
+  const updating = read("docs/maintain/upgrade-notes.md");
   const MOVING = "Moving to settings version 2";
 
   it.each(SETTINGS_KEYS.commands)(
-    "give commands.%s an entry in docs/configuration.md",
+    "give commands.%s an entry on its settings page",
     (key) => {
       expect(entries).toContain(`commands.${key}`);
     },
   );
 
-  it("give specs.check an entry in docs/configuration.md that states its default", () => {
-    const entry = sectionOf(configuration, "#### `specs.check`");
+  it("give specs.check an entry on its settings page that states its default", () => {
+    const entry = sectionOf(configuration, "## `specs.check`");
 
     expect(entry).toContain("**Default:**");
     expect(entry).toContain(BUILT.specs.openspec!);
   });
 
   it.each(PHASES)(
-    "give the plugins of the %s phase an entry in docs/configuration.md",
+    "give the plugins of the %s phase an entry on its settings page",
     (phase) => {
       expect(entries).toContain(`plugins.${phase}`);
     },
   );
 
   it.each(ROLES)(
-    "say in docs/configuration.md what the %s role takes, one or a list, with files or labels, and what is used when it is left out",
+    "say on the plugins settings page what the %s role takes, one or a list, with files or labels, and what is used when it is left out",
     (role) => {
       const shape = ROLE_SHAPE[role];
-      const row = rows(sectionOf(configuration, "### `plugins`")).find(
+      const row = rows(sectionOf(configuration, "# `plugins`")).find(
         ([key]) => key === `\`${shape.phase}.${shape.key}\``,
       );
 
@@ -826,7 +844,7 @@ describe("the docs, for settings version 2", () => {
     },
   );
 
-  it("show whole settings files in docs/configuration.md that are version 2", () => {
+  it("show whole settings files on the settings pages that are version 2", () => {
     const whole = [...configuration.matchAll(/^```yaml\n([\s\S]*?)^```/gm)]
       .map((m) => m[1])
       .filter((file) => /^repository:/m.test(file));
@@ -837,7 +855,7 @@ describe("the docs, for settings version 2", () => {
   });
 
   it.each(ROLES)(
-    "give the %s role a table in docs/plugins.md of when it is called, what it is handed, what it returns, and what happens next",
+    "give the %s role a table in docs/customize/plugins.md of when it is called, what it is handed, what it returns, and what happens next",
     (role) => {
       const steps = rows(sectionOf(plugins, `### \`${role}\``)).map(
         ([step]) => step,
@@ -861,9 +879,12 @@ describe("the docs, for settings version 2", () => {
     ["test-reviewer", "is the whole list"],
     ["resolver", "from your default branch's copy"],
     ["builder", "Reviewers still run after a builder"],
-  ])("say in docs/plugins.md, under the %s role: %s", (role, said) => {
-    expect(flat(sectionOf(plugins, `### \`${role}\``))).toContain(said);
-  });
+  ])(
+    "say in docs/customize/plugins.md, under the %s role: %s",
+    (role, said) => {
+      expect(flat(sectionOf(plugins, `### \`${role}\``))).toContain(said);
+    },
+  );
 
   it("have the section the refusal of a version 1 file names, in the page it names", () => {
     let refusal = "";
@@ -872,12 +893,11 @@ describe("the docs, for settings version 2", () => {
     } catch (e) {
       refusal = (e as Error).message;
     }
-    const [, heading, page] = /see "([^"]+)" in (docs\/\S+\.md)$/.exec(
-      refusal,
-    )!;
+    const [, page, anchor] = /\/docs\/(\S+\.md)#(\S+)$/.exec(refusal)!;
 
-    expect([page, heading]).toEqual(["docs/updating.md", MOVING]);
-    expect(read(page).split("\n")).toContain(`## ${heading}`);
+    expect(page).toBe("maintain/upgrade-notes.md");
+    expect(read(`docs/${page}`).split("\n")).toContain(`## ${MOVING}`);
+    expect(anchor).toBe(headingSlug(MOVING));
   });
 
   it.each([
@@ -887,7 +907,7 @@ describe("the docs, for settings version 2", () => {
     ["`plugins`", "grouped by phase"],
     ["`specs`", "`check`"],
   ])(
-    "show in docs/updating.md, under moving to version 2, %s before and %s after",
+    "show in the upgrade notes, under moving to version 2, %s before and %s after",
     (before, after) => {
       const table = rows(sectionOf(updating, `## ${MOVING}`));
 
@@ -922,8 +942,8 @@ describe("the docs, for settings version 2", () => {
     expect(named).toHaveLength(1);
   });
 
-  it("name --check in docs/cli.md's row for factory ticket refined", () => {
-    const row = read(CLI)
+  it("name --check in the commands' row for factory ticket refined", () => {
+    const row = read(CLI_INTERNAL)
       .split("\n")
       .find((line) => line.startsWith("| `factory ticket refined N`"));
 
@@ -940,13 +960,13 @@ describe("the docs, for settings version 2", () => {
   const ORDER = "The order of the workflow is fixed";
   it.each([
     [
-      "docs/design.md's section on the fixed order",
-      () => flat(sectionOf(read("docs/design.md"), `## ${ORDER}`)),
+      "docs/about/design.md's section on the fixed order",
+      () => flat(sectionOf(read("docs/about/design.md"), `## ${ORDER}`)),
     ],
     [
-      "docs/limitations.md's line on the fixed order",
+      "docs/about/limitations.md's line on the fixed order",
       () => {
-        const lines = read("docs/limitations.md").split("\n");
+        const lines = read("docs/about/limitations.md").split("\n");
         const at = lines.findIndex((l) => l.startsWith(`- **${ORDER}.**`));
         return flat(paragraphs(lines)[at] ?? "");
       },
@@ -963,16 +983,16 @@ describe("the docs, for settings version 2", () => {
     },
   );
 
-  it("do not say in docs/limitations.md that a build assumes main", () => {
-    expect(flat(read("docs/limitations.md"))).not.toMatch(
+  it("do not say in docs/about/limitations.md that a build assumes main", () => {
+    expect(flat(read("docs/about/limitations.md"))).not.toMatch(
       /\bassum\w*\b[^.]*\bmain\b/i,
     );
   });
 
-  it("tell a new user in docs/quick-start.md to set commands.gate before the first build", () => {
-    const page = read("docs/quick-start.md");
+  it("tell a new user in the quick start to set commands.gate before the first build", () => {
+    const page = read("docs/get-started/quick-start.md");
     const gate = page.indexOf(
-      "[`commands.gate`](configuration.md#commandsgate)",
+      "[`commands.gate`](../reference/settings/commands.md#commandsgate)",
     );
     const build = page.search(/^## \d+\. Build it$/m);
 
@@ -988,17 +1008,17 @@ describe("the docs on spec tools", () => {
     sectionOf(read(page), heading).replace(/\s+/g, " ");
 
   it("list the four spec commands on the CLI page, and not change-name", () => {
-    const cli = flat("docs/cli.md", "### Your repository's commands");
+    const cli = flat(CLI, "## Your repository's commands");
     for (const command of ["list", "new N", "check", "finish N"])
       expect(cli).toContain(`| \`factory specs ${command}\``);
     expect(cli).toContain(
       "`- No spec tool (specs: none): each ticket holds its own spec.`",
     );
-    expect(read("docs/cli.md")).not.toContain("change-name");
+    expect(read(CLI) + read(CLI_INTERNAL)).not.toContain("change-name");
   });
 
-  it("say on the configuration page that init asks, and installs OpenSpec", () => {
-    const specs = flat(CONFIGURATION, "### `specs`");
+  it("say on the specs settings page that init asks, and installs OpenSpec", () => {
+    const specs = flat(settingsPage("specs"), "# `specs`");
     expect(specs).toContain('"Which spec tool do you use?"');
     expect(specs).toContain("`npm install --save-dev @fission-ai/openspec`");
     expect(specs).toContain("specs: none");
@@ -1006,7 +1026,7 @@ describe("the docs on spec tools", () => {
 
   it("give every visible change a Spec, a design, and tasks, whatever the tool", () => {
     const workflow = flat(
-      "docs/workflow.md",
+      "docs/features/specs.md",
       "## A change your users will see",
     );
     for (const part of ["- **Spec:**", "- **Design:**", "- **Tasks:**"])
@@ -1016,14 +1036,16 @@ describe("the docs on spec tools", () => {
 
   it("say on the setup page what to answer init's spec tool question, and when it is skipped", () => {
     const setup = sectionOf(
-      read("docs/github/setup.md"),
+      read("docs/setup/repository.md"),
       "## Run `factory init`",
     );
     const row = rows(setup).find(
       ([question]) => question === "Which spec tool you use",
     );
     expect(row?.[2]).toContain("Choose None");
-    expect(row?.[2]).toContain("[`specs`](../configuration.md#specs)");
+    expect(row?.[2]).toContain(
+      "[`specs`](../reference/settings/specs.md#specs)",
+    );
     expect(setup.replace(/\s+/g, " ")).toContain(
       "skips any that a preset or your settings already answer",
     );
@@ -1035,7 +1057,7 @@ describe("the docs on spec tools", () => {
     expect(developing).toMatch(
       /\| Another spec tool, such as Spec Kit +\| Not planned\. An adapter under `src\/specs\/` adds one/,
     );
-    expect(read("docs/glossary.md").replace(/\s+/g, " ")).toContain(
+    expect(read("docs/reference/glossary.md").replace(/\s+/g, " ")).toContain(
       'gets a Spec section of "When this, then that" lines in its ticket',
     );
   });
@@ -1047,22 +1069,25 @@ describe("the docs on an organization's branch names", () => {
 
   it("say that init --org asks for the pattern, where it is kept, and that a repository's setup does not ask", () => {
     const setup = flatly(
-      "docs/github/setup.md",
+      "docs/setup/organization.md",
       "## Set an organization up, once",
     );
     expect(setup).toContain(
-      "The answer goes in the preset, as [`code-host.branch-name`](../configuration.md#code-host), so a developer setting up a repository is not asked.",
+      "The answer goes in the preset, as [`code-host.branch-name`](../reference/settings/code-host.md#code-host), so a developer setting up a repository is not asked.",
     );
     expect(setup).toContain(
-      "Under [`code-host`](../configuration.md#code-host) it holds the pattern builds name their branches by.",
+      "Under [`code-host`](../reference/settings/code-host.md#code-host) it holds the pattern builds name their branches by.",
     );
-    expect(flatly("docs/configuration.md", "### `code-host`")).toContain(
+    expect(flatly(settingsPage("code-host"), "# `code-host`")).toContain(
       "in an organization `factory init --org` asks for it once and writes it in the preset.",
     );
   });
 
   it("say what an organization set up earlier adds to its preset, and that a repository's own pattern wins", () => {
-    const updating = flatly("docs/updating.md", "## Naming build branches");
+    const updating = flatly(
+      "docs/maintain/upgrade-notes.md",
+      "## Naming build branches",
+    );
     expect(updating).toContain(
       "add the lines above to `factory-preset.yaml` in your `factory-config`",
     );
@@ -1078,7 +1103,7 @@ describe("the docs on the factory's own approval policy", () => {
 
   it("name the example of a script and an agent together raw-sql, so copying it can't replace credentials", () => {
     const agent = sectionOf(
-      read("docs/approval-policies.md"),
+      read("docs/features/approval-policies.md"),
       "## Checking with an agent",
     );
     expect(agent).toContain("  - name: raw-sql\n");
@@ -1087,20 +1112,22 @@ describe("the docs on the factory's own approval policy", () => {
 
   it("say in the settings that the factory adds credentials, which off: true turns off", () => {
     expect(
-      flatly("docs/configuration.md", "### `approval-policies`"),
+      flatly(settingsPage("approval-policies"), "# `approval-policies`"),
     ).toContain(
-      "The factory adds one policy of its own, `credentials` ([The factory's own policy](approval-policies.md#the-factorys-own-policy)), which `off: true` turns off.",
+      "The factory adds one policy of its own, `credentials` ([The factory's own policy](../../features/credentials-policy.md#the-factorys-own-policy)), which `off: true` turns off.",
     );
   });
 
   it("say what factory-refine writes for a ticket that names a new credential", () => {
-    expect(flatly("docs/skills.md", "## `factory-refine`")).toContain(
+    expect(flatly("docs/workflow/refine.md", "## `factory-refine`")).toContain(
       "`missing: ## Threats, since the ticket names a credential this repository does not have: DEPLOY_TOKEN`",
     );
   });
 
   it("give the rule's measured counts", () => {
-    expect(flatly("docs/approval-policies.md", "### What it reads")).toContain(
+    expect(
+      flatly("docs/features/credentials-policy.md", "### What it reads"),
+    ).toContain(
       "In two repositories that use the factory, it picked 31 of 259 merged changes, about 1 in 8.",
     );
   });
@@ -1114,7 +1141,7 @@ describe("the docs on run.yml's groups", () => {
   const run = workflow("run.yml");
   /** The reference page's table of groups, by its first cell. */
   const table = Object.fromEntries(
-    rows(sectionOf(read("docs/github/reference.md"), "### The jobs"))
+    rows(sectionOf(read("docs/integrations/github-actions.md"), "### The jobs"))
       .filter(([group]) => group === "None" || group?.startsWith("`"))
       .map(([group, jobs]) => [group!.replaceAll("`", ""), flat(jobs!)]),
   );
@@ -1136,5 +1163,40 @@ describe("the docs on run.yml's groups", () => {
       (j) => !called.includes(j),
     ))
       expect(table.None).toContain(job.name);
+  });
+});
+
+describe("the pages the commands print", () => {
+  it.each(Object.entries(DOCS_PAGES))(
+    "has the page and the heading %s names",
+    (_, address) => {
+      const [page, anchor] = address.split("#") as [string, string?];
+      expect(existsSync(join(PACKAGE, "docs", page))).toBe(true);
+      if (anchor)
+        expect([...anchorsOf(read(`docs/${page}`))]).toContain(anchor);
+    },
+  );
+});
+
+describe("the upgrade notes", () => {
+  it("list each release's steps newest first", () => {
+    const headings = read("docs/maintain/upgrade-notes.md")
+      .split("\n")
+      .filter((line) => line.startsWith("## "))
+      .map((line) => line.slice(3));
+
+    expect(headings).toEqual([
+      "Grouped checks",
+      "The poller reads your settings",
+      "Follow-ups in the pull request",
+      "Tickets across repositories",
+      "Cloud runs in three jobs",
+      "Moving to one install on your machine",
+      "Labeling your open tickets",
+      "A spec for every visible change",
+      "Naming build branches",
+      "Naming every column",
+      "Moving to settings version 2",
+    ]);
   });
 });

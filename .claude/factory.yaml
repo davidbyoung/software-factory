@@ -1,5 +1,5 @@
 # Settings for the software factory in its own repository. Every key is
-# explained in docs/configuration.md.
+# explained under docs/reference/settings/.
 version: 2
 repository: davidbyoung/software-factory
 

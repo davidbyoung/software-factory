@@ -41,6 +41,7 @@ import {
   type Status,
 } from "./lib/work-status.mts";
 import * as say from "./lib/output.mts";
+import { DOCS_PAGES, docsPage, installedVersion } from "./lib/docs-page.mts";
 
 export class SettingsError extends Error {}
 
@@ -343,7 +344,8 @@ export const NO_PLAYWRIGHT = "site needs Playwright: npm install -D playwright";
 /** The keys each block allows, by the block's path: `""` is the top of the
  * file and `plugins.build.builders[]` is one builder. `settings.schema.json`
  * lists the same keys, and a test fails when the two differ. A key the code
- * accepts goes here, in the schema, and in docs/configuration.md. */
+ * accepts goes here, in the schema, and on its page under
+ * docs/reference/settings/. */
 export const SETTINGS_KEYS: Record<string, readonly string[]> = {
   "": [
     "version",
@@ -1226,7 +1228,7 @@ export function parseSettings(
     if (written.version === 1)
       fail(
         "version",
-        'must be 2: this file is version 1, see "Moving to settings version 2" in docs/updating.md',
+        `must be 2: this file is version 1, see ${docsPage(installedVersion(), DOCS_PAGES.settingsVersion2)}`,
       );
     if (written.version !== 2) fail("version", "must be 2");
     for (const key of ["before-commit", "build-setup"])

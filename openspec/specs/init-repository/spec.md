@@ -50,3 +50,12 @@ The factory SHALL behave as the scenario below says, in the Spec line's own word
 
 - **WHEN** `factory default-branch`, or a command that reads `origin/HEAD` today, runs
 - **THEN** `factory default-branch`, and each command that reads `origin/HEAD` today, reads the remote whose address is the `repository` line's. With no such remote it prints the line the draft shows, naming `origin`'s repository when there is an `origin`, and exits 1.
+
+### Requirement: The setup's steps in full
+
+The factory SHALL behave as this line says: When `factory init` has opened the setup's pull request, the line after `The steps in full:` is the address of "4. Open a ticket" in `docs/get-started/quick-start.md` at the installed release.
+
+#### Scenario: The setup's steps in full
+
+- **WHEN** `factory init` has opened the setup's pull request
+- **THEN** The line after `The steps in full:` is the address of "4. Open a ticket" in `docs/get-started/quick-start.md` at the installed release.

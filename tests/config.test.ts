@@ -633,7 +633,7 @@ describe("parseSettings", () => {
 
   it("fails on version 1, saying where to read how to move the file", () => {
     expect(() => parse({ ...MINIMAL, version: 1 })).toThrow(
-      '.claude/factory.yaml: version: must be 2: this file is version 1, see "Moving to settings version 2" in docs/updating.md',
+      ".claude/factory.yaml: version: must be 2: this file is version 1, see https://github.com/davidbyoung/software-factory/blob/main/docs/maintain/upgrade-notes.md#moving-to-settings-version-2",
     );
   });
 
@@ -2527,7 +2527,7 @@ describe("main", () => {
     const { d, err } = deps({ readFile: () => "version: 1\nrepository: a/b" });
     expect(await main(["check"], d)).toBe(1);
     expect(err).toEqual([
-      '.claude/factory.yaml: version: must be 2: this file is version 1, see "Moving to settings version 2" in docs/updating.md',
+      ".claude/factory.yaml: version: must be 2: this file is version 1, see https://github.com/davidbyoung/software-factory/blob/main/docs/maintain/upgrade-notes.md#moving-to-settings-version-2",
     ]);
   });
 
